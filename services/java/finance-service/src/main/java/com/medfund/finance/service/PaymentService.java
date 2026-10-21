@@ -163,7 +163,7 @@ public class PaymentService {
             .flatMap(payment -> {
                 String previousStatus = payment.getStatus();
                 if ("paid".equals(previousStatus)) {
-                    return Mono.error(new IllegalStateException("Cannot cancel a paid payment — post a reversing adjustment"));
+                    return Mono.error(new IllegalStateException("Cannot cancel a paid payment - post a reversing adjustment"));
                 }
                 if ("cancelled".equals(previousStatus)) return Mono.just(payment);
                 payment.setStatus("cancelled");
@@ -210,7 +210,7 @@ public class PaymentService {
                 }
                 return paymentRunItemRepository.findByPaymentId(paymentId)
                     .switchIfEmpty(Mono.error(new IllegalStateException(
-                            "Payment " + paymentId + " has no parent run — cannot revoke")))
+                            "Payment " + paymentId + " has no parent run - cannot revoke")))
                     .flatMap(item -> paymentRunRepository.findById(item.getPaymentRunId())
                         .switchIfEmpty(Mono.error(new IllegalStateException(
                                 "Payment run " + item.getPaymentRunId() + " not found")))

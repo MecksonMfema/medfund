@@ -7,6 +7,8 @@ import {
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-tariff-schedules-list',
@@ -18,7 +20,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class TariffSchedulesListComponent implements OnInit {
   rows: TariffSchedule[] = [];
   loading = false;
-  errorMessage: string | null = null;
   pageSize = 20;
   sortKey = 'effectiveDate';
   sortDirection: 'asc' | 'desc' = 'desc';
@@ -40,7 +41,7 @@ export class TariffSchedulesListComponent implements OnInit {
     },
   ];
 
-  constructor(private config: ClaimsConfigService, private router: Router) {}
+  constructor(private config: ClaimsConfigService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.refresh(); }
 
@@ -49,7 +50,7 @@ export class TariffSchedulesListComponent implements OnInit {
     this.config.listSchedules().subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load tariff schedules';
+        this.toast.error(extractErrorMessage(err, 'Failed to load tariff schedules'));
         this.rows = [];
         this.loading = false;
       },

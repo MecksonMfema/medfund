@@ -1,0 +1,275 @@
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import {
+  TenantYieldCurveRow,
+  TenantYieldCurveService,
+  AddTenantYieldCurve,
+  UpdateTenantYieldCurve,
+} from '../../../../core/services/tenant-yield-curve.service';
+import { TenantService } from '../../../../core/services/tenant.service';
+import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
+
+interface EditableRow extends TenantYieldCurveRow {
+  editing?: boolean;
+  draftSpotRate?: string;
+  draftEffectiveTo?: string | null;
+}
+
+/**
+ * Per-tenant yield curve CRUD tab. Rows are grouped visually by currency
+ * so an admin can review each curve as a whole; the source badge
+ * distinguishes ADMIN-uploaded rows from AUTO-fetched ones (RBZ/SARB) and
+ * BACKFILL_FALLBACK rows written by the Phase 6 cohort-lock-in task. CSV
+ * upload uses the bulk endpoint — per-row failures show without aborting
+ * the whole upload.
+ */
+@Component({
+  selector: 'app-ifrs17-yield-curves-tab',
+  standalone: true,
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  templateUrl: './yield-curves-tab.component.html',
+  styleUrl: './ifrs17-tab-shared.scss',
+})
+export class YieldCurvesTabComponent implements OnInit {
+  rows: EditableRow[] = [];
+  loading = false;
+  successMessage: string | null = null;
+  pendingId: string | null = null;
+  uploading = false;
+
+  addingOpen = false;
+  adding = false;
+  newRow: AddTenantYieldCurve = this.blankNewRow();
+
+  @ViewChild('addFormRef') addFormRef?: ElementRef<HTMLElement>;
+
+  constructor(
+    private service: TenantYieldCurveService,
+    private tenantService: TenantService,
+    private toast: ToastService,
+  ) {}
+
+  ngOnInit(): void {
+    this.refresh();
+  }
+
+  /** Rows grouped by currency for the per-currency table sections. */
+  get rowsByCurrency(): Array<{ currency: string; rows: EditableRow[] }> {
+    const map = new Map<string, EditableRow[]>();
+    for (const r of this.rows) {
+      const list = map.get(r.currency) ?? [];
+      list.push(r);
+      map.set(r.currency, list);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([currency, rows]) => ({ currency, rows }));
+  }
+
+  refresh(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      this.toast.warning('No active tenant context');
+      return;
+    }
+    this.loading = true;
+    this.service.list(tenantId).subscribe({
+      next: (rows) => {
+        this.rows = rows.map(r => ({ ...r }));
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toast.error(extractErrorMessage(err, 'Failed to load yield curve rows'));
+        this.loading = false;
+      },
+    });
+  }
+
+  openAdd(): void {
+    this.addingOpen = true;
+    this.newRow = this.blankNewRow();
+    // Scroll the newly rendered form into view on the next tick so the admin
+    // never has to hunt for the Add Row inputs on tenants with a long
+    // table above.
+    setTimeout(() => {
+      const el = this.addFormRef?.nativeElement;
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const firstFocusable = el.querySelector<HTMLElement>('button, [role="button"], input, select, textarea');
+      firstFocusable?.focus();
+    }, 0);
+  }
+
+  cancelAdd(): void {
+    this.addingOpen = false;
+    this.newRow = this.blankNewRow();
+  }
+
+  add(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+    if (!this.newRow.currency || !this.newRow.tenorMonths || !this.newRow.spotRate) {
+      this.toast.warning('Currency, tenor months, and spot rate are required');
+      return;
+    }
+    this.adding = true;
+    this.service.add(tenantId, this.trimAddPayload(this.newRow)).subscribe({
+      next: () => {
+        this.adding = false;
+        this.addingOpen = false;
+        this.successMessage = `Added ${this.newRow.currency} @ ${this.newRow.tenorMonths}m`;
+        setTimeout(() => (this.successMessage = null), 3000);
+        this.newRow = this.blankNewRow();
+        this.refresh();
+      },
+      error: (err) => {
+        this.adding = false;
+        this.toast.error(extractErrorMessage(err, 'Failed to add yield curve row'));
+      },
+    });
+  }
+
+  onCsvSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+
+    this.uploading = true;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = typeof reader.result === 'string' ? reader.result : '';
+        const rows = this.parseCsv(text);
+        if (rows.length === 0) {
+          this.toast.warning('CSV is empty or has no valid rows');
+          this.uploading = false;
+          return;
+        }
+        this.service.bulkAdd(tenantId, rows).subscribe({
+          next: (saved) => {
+            this.uploading = false;
+            this.successMessage = `Uploaded ${saved.length} yield curve points`;
+            setTimeout(() => (this.successMessage = null), 3000);
+            this.refresh();
+          },
+          error: (err) => {
+            this.uploading = false;
+            this.toast.error(extractErrorMessage(err, 'CSV upload failed'));
+          },
+        });
+      } catch (e) {
+        this.uploading = false;
+        this.toast.error((e as Error).message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /**
+   * Parses `currency,tenor_months,spot_rate[,effective_from[,source]]`
+   * per line. Skips blank lines and a leading header row if the first
+   * cell isn't a 3-letter currency code.
+   */
+  private parseCsv(text: string): AddTenantYieldCurve[] {
+    const out: AddTenantYieldCurve[] = [];
+    const lines = text.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const cells = line.split(',').map(c => c.trim());
+      if (i === 0 && !/^[A-Za-z]{3}$/.test(cells[0])) continue; // header
+      if (cells.length < 3) {
+        throw new Error(`Line ${i + 1}: need at least currency, tenor_months, spot_rate`);
+      }
+      const [currency, tenor, rate, effectiveFrom, source] = cells;
+      out.push({
+        currency: currency.toUpperCase(),
+        tenorMonths: Number(tenor),
+        spotRate: rate,
+        source: (source as AddTenantYieldCurve['source']) || 'ADMIN',
+        effectiveFrom: effectiveFrom || null,
+      });
+    }
+    return out;
+  }
+
+  startEdit(row: EditableRow): void {
+    row.editing = true;
+    row.draftSpotRate = row.spotRate;
+    row.draftEffectiveTo = row.effectiveTo;
+  }
+
+  cancelEdit(row: EditableRow): void {
+    row.editing = false;
+    row.draftSpotRate = undefined;
+    row.draftEffectiveTo = undefined;
+  }
+
+  saveEdit(row: EditableRow): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+    const payload: UpdateTenantYieldCurve = {
+      spotRate: (row.draftSpotRate ?? '').trim(),
+      effectiveTo: row.draftEffectiveTo || null,
+    };
+    this.pendingId = row.id;
+    this.service.update(tenantId, row.id, payload).subscribe({
+      next: (updated) => {
+        Object.assign(row, updated, { editing: false });
+        row.draftSpotRate = undefined;
+        row.draftEffectiveTo = undefined;
+        this.pendingId = null;
+      },
+      error: (err) => {
+        this.toast.error(extractErrorMessage(err, 'Failed to update yield curve row'));
+        this.pendingId = null;
+      },
+    });
+  }
+
+  remove(row: EditableRow): void {
+    if (!confirm(`Delete ${row.currency} @ ${row.tenorMonths}m from ${row.effectiveFrom}?`)) return;
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+    this.pendingId = row.id;
+    this.service.delete(tenantId, row.id).subscribe({
+      next: () => {
+        this.rows = this.rows.filter(r => r.id !== row.id);
+        this.pendingId = null;
+      },
+      error: (err) => {
+        this.toast.error(extractErrorMessage(err, 'Failed to delete yield curve row'));
+        this.pendingId = null;
+      },
+    });
+  }
+
+  private blankNewRow(): AddTenantYieldCurve {
+    return {
+      currency: '',
+      tenorMonths: 12,
+      spotRate: '',
+      source: 'ADMIN',
+      effectiveFrom: null,
+      effectiveTo: null,
+    };
+  }
+
+  private trimAddPayload(p: AddTenantYieldCurve): AddTenantYieldCurve {
+    return {
+      currency: (p.currency ?? '').toString().trim().toUpperCase(),
+      tenorMonths: Number(p.tenorMonths),
+      spotRate: (p.spotRate ?? '').toString().trim(),
+      source: p.source || 'ADMIN',
+      effectiveFrom: p.effectiveFrom || null,
+      effectiveTo: p.effectiveTo || null,
+    };
+  }
+}

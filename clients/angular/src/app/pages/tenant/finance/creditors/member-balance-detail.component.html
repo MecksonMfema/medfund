@@ -1,24 +1,28 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <button class="link-back" (click)="back()">
-        <app-icon name="arrow-left" [size]="14"></app-icon>
-        Back to creditors
-      </button>
-      <h1>Member — {{ displayName }}</h1>
-      @if (memberId) {
-        <p class="page-sub"><code>{{ memberId }}</code></p>
-      }
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Member: {{ displayName }}</h1>
+    @if (memberId) {
+      <p class="page-sub"><code>{{ memberId }}</code></p>
+    }
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-primary" (click)="balanceHistory()">
+      <app-icon name="history" [size]="14"></app-icon>
+      Balance history
+    </button>
+    <button type="button" class="btn btn-default" (click)="back()">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to creditors
+    </button>
+  </div>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  @if (loading) {
+@if (loading) {
+  <div class="page-body">
     <app-skeleton></app-skeleton>
-  } @else {
+  </div>
+} @else {
+  <div class="page-body">
     <section class="tab-body">
       <h2 class="section-title">Balances</h2>
       @if (balances.length === 0) {
@@ -43,7 +47,7 @@
                 <td class="right">{{ b.totalApproved | currencyFormat:b.currencyCode }}</td>
                 <td class="right">{{ b.totalPaid | currencyFormat:b.currencyCode }}</td>
                 <td class="right strong">{{ b.outstandingBalance | currencyFormat:b.currencyCode }}</td>
-                <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'medium') : '—' }}</td>
+                <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'medium') : '-' }}</td>
               </tr>
             }
           </tbody>
@@ -61,8 +65,8 @@
       <button class="tab" [class.active]="activeTab === 'payments'" (click)="setTab('payments')">
         Payments ({{ payments.length }})
       </button>
-      <button class="tab" [class.active]="activeTab === 'adjustments'" (click)="setTab('adjustments')">
-        Adjustments ({{ adjustments.length }})
+      <button class="tab" [class.active]="activeTab === 'notes'" (click)="setTab('notes')">
+        Notes ({{ notes.length }})
       </button>
     </div>
 
@@ -150,7 +154,7 @@
                   <td><strong>{{ p.paymentNumber }}</strong></td>
                   <td><span class="status-badge status-{{ p.status }}">{{ p.status | humanize }}</span></td>
                   <td class="right">{{ p.amount | currencyFormat:p.currencyCode }}</td>
-                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '—' }}</td>
+                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '-' }}</td>
                   <td class="muted">{{ p.createdAt | date:'shortDate' }}</td>
                   <td class="right">
                     @if (p.status === 'pending') {
@@ -159,7 +163,7 @@
                         class="btn-inline-danger"
                         [disabled]="revokingId === p.id"
                         (click)="revoke(p)"
-                        title="Revoke — removes this payment from its run so the payee is picked up again on the next generation."
+                        title="Revoke: removes this payment from its run so the payee is picked up again on the next generation."
                       >
                         <app-icon name="x-circle" [size]="12"></app-icon>
                         {{ revokingId === p.id ? 'Revoking…' : 'Revoke' }}
@@ -174,16 +178,17 @@
       </section>
     }
 
-    @if (activeTab === 'adjustments') {
+    @if (activeTab === 'notes') {
       <section class="tab-body">
-        @if (adjustments.length === 0) {
-          <p class="empty-state">No adjustments recorded.</p>
+        @if (notes.length === 0) {
+          <p class="empty-state">No notes recorded.</p>
         } @else {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Adjustment #</th>
+                <th>Note #</th>
                 <th>Status</th>
+                <th>Direction</th>
                 <th>Type</th>
                 <th class="right">Amount</th>
                 <th>Reason</th>
@@ -191,14 +196,15 @@
               </tr>
             </thead>
             <tbody>
-              @for (a of adjustments; track a.id) {
+              @for (n of notes; track n.id) {
                 <tr>
-                  <td><strong>{{ a.adjustmentNumber }}</strong></td>
-                  <td><span class="status-badge status-{{ a.status }}">{{ a.status | humanize }}</span></td>
-                  <td class="muted">{{ a.adjustmentType | humanize }}</td>
-                  <td class="right">{{ a.amount | currencyFormat:a.currencyCode }}</td>
-                  <td class="muted">{{ a.reason || '—' }}</td>
-                  <td class="muted">{{ a.createdAt | date:'shortDate' }}</td>
+                  <td><strong>{{ n.noteNumber }}</strong></td>
+                  <td><span class="status-badge status-{{ n.status }}">{{ n.status | humanize }}</span></td>
+                  <td class="muted">{{ n.direction | humanize }}</td>
+                  <td class="muted">{{ n.noteType | humanize }}</td>
+                  <td class="right">{{ n.amount | currencyFormat:n.currencyCode }}</td>
+                  <td class="muted">{{ n.reason || '-' }}</td>
+                  <td class="muted">{{ n.createdAt | date:'shortDate' }}</td>
                 </tr>
               }
             </tbody>
@@ -206,5 +212,5 @@
         }
       </section>
     }
-  }
-</div>
+  </div>
+}

@@ -11,6 +11,10 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
+import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
+import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface DisabilityFormState {
   policyNumber: string;
@@ -38,7 +42,8 @@ interface DisabilityFormState {
 @Component({
   selector: 'app-disability-policy-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent,
+    PolicyStatusActionButtonsComponent, PolicyStatusActionModalComponent],
   templateUrl: './disability-policy-form.component.html',
   styleUrl: './disability-policy-form.component.scss',
 })
@@ -47,7 +52,6 @@ export class DisabilityPolicyFormComponent implements OnInit {
   policy: DisabilityPolicy | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: DisabilityFormState = {
     policyNumber: '', occupationHazardClass: '', waitingPeriodDays: null,
@@ -60,6 +64,11 @@ export class DisabilityPolicyFormComponent implements OnInit {
   schemeSublabel: string | null = null;
   groupLabel: string | null = null;
   insuredMemberLabel: string | null = null;
+
+  readonly policySource: PolicySource = 'DISABILITY_POLICY';
+  pendingAction: PolicyAction | null = null;
+  submittingAction = false;
+  actionServerError: string | null = null;
 
   readonly hazardClassOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -117,7 +126,7 @@ export class DisabilityPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load disability policy';
+        this.toast.error(extractErrorMessage(err, 'Failed to load disability policy'));
       },
     });
   }
@@ -151,18 +160,15 @@ export class DisabilityPolicyFormComponent implements OnInit {
     if (!this.form.schemeId)                     missing.push('scheme');
     if (!this.isEdit && !this.form.insuredMemberId) missing.push('insured member');
     if (missing.length > 0) {
-      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
-      this.toast.error(this.errorMessage);
+      this.toast.warning(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     if (this.individualPricing
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
-    this.errorMessage = null;
     this.saving = true;
 
     const payload: any = {
@@ -195,9 +201,7 @@ export class DisabilityPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -215,7 +219,7 @@ export class DisabilityPolicyFormComponent implements OnInit {
         this.form.billingOverrideEffectiveFrom = '';
         this.toast.success('Custom premium cleared');
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Clear failed')),
     });
   }
 
@@ -223,7 +227,7 @@ export class DisabilityPolicyFormComponent implements OnInit {
     if (!this.isEdit) return;
     this.policiesSvc.suspendDisabilityPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Disability policy suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -232,7 +236,38 @@ export class DisabilityPolicyFormComponent implements OnInit {
     if (!confirm('Terminate this disability policy? It will stop billing next cycle.')) return;
     this.policiesSvc.terminateDisabilityPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Disability policy terminated'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
+    });
+  }
+
+  onLifecycleActionClicked(action: PolicyAction): void {
+    if (!this.isEdit) return;
+    this.pendingAction = action;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionCancelled(): void {
+    if (this.submittingAction) return;
+    this.pendingAction = null;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionSubmitted(payload: PolicyStatusActionSubmit): void {
+    if (!this.pendingAction || !this.policyId) return;
+    const action = this.pendingAction;
+    this.submittingAction = true;
+    this.actionServerError = null;
+    this.policiesSvc.applyPolicyLifecycleAction(this.policySource, this.policyId, action, payload).subscribe({
+      next: () => {
+        this.submittingAction = false;
+        this.pendingAction = null;
+        this.toast.success(`Disability policy ${action} recorded`);
+        this.loadPolicy();
+      },
+      error: (err) => {
+        this.submittingAction = false;
+        this.actionServerError = err?.error?.detail || err?.error?.title || `${action} failed`;
+      },
     });
   }
 }

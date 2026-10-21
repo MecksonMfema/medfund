@@ -41,7 +41,7 @@ public class PreAuthController {
     }
 
     @GetMapping
-    @Operation(summary = "List pre-authorizations by status (unpaginated — prefer /page)")
+    @Operation(summary = "List pre-authorizations by status (unpaginated - prefer /page)")
     public Flux<PreAuthResponse> findByStatus(@RequestParam(defaultValue = "PENDING") String status) {
         return preAuthService.findByStatus(status).map(PreAuthResponse::from);
     }

@@ -20,6 +20,9 @@ var platformPaths = []string{
 	"/api/v1/plans",
 	"/api/v1/staff-users",
 	"/api/v1/platform",
+	// Unauthenticated platform branding for the pre-auth surface — there is
+	// no JWT and no tenant at that point in the boot sequence.
+	"/api/v1/public",
 	"/api/v1/roles",
 	"/api/v1/tenant-stats",
 	"/api/v1/providers",

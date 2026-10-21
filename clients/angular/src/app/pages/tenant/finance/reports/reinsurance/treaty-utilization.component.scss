@@ -1,0 +1,26 @@
+// Per-page overrides for the treaty utilization report. Mirrors the
+// polish on the two bordereau pages so all three reinsurance surfaces
+// share the same toolbar rhythm and empty-state grammar.
+
+.toolbar-cell.cell-date {
+  min-width: 220px;
+}
+
+.toolbar-cell.cell-search {
+  min-width: 320px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-search app-select,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

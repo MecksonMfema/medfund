@@ -7,11 +7,14 @@
   [xAxisLabel]="xAxisLabel"
   [yAxisLabel]="yAxisLabel"
   [scheme]="colorScheme"
-  [autoScale]="true"
+  [autoScale]="autoScale"
+  [yScaleMin]="$any(yScaleMin)"
+  [yScaleMax]="$any(yScaleMax)"
+  [yAxisTickFormatting]="$any(yAxisTickFormatting)"
   [roundDomains]="true"
   [gradient]="gradient"
   [legend]="legend"
   [legendTitle]="legendTitle"
   [legendPosition]="legendPosition"
-  [animations]="true">
+  [animations]="false">
 </ngx-charts-line-chart>

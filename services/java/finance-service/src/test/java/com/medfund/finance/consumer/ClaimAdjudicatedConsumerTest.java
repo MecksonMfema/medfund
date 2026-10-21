@@ -9,7 +9,11 @@ import com.medfund.finance.entity.MemberPayable;
 import com.medfund.finance.entity.ProviderBalance;
 import com.medfund.finance.repository.CtcPaymentRepository;
 import com.medfund.finance.entity.MemberBalance;
+import com.medfund.finance.entity.MemberCostShareLiability;
+import com.medfund.finance.entity.MemberCostShareSettlement;
 import com.medfund.finance.repository.MemberContributionBalanceReader;
+import com.medfund.finance.repository.MemberCostShareLiabilityRepository;
+import com.medfund.finance.repository.MemberCostShareSettlementRepository;
 import com.medfund.finance.repository.MemberPayableRepository;
 import com.medfund.finance.service.MemberBalanceService;
 import com.medfund.finance.service.ProviderBalanceService;
@@ -61,6 +65,12 @@ class ClaimAdjudicatedConsumerTest {
     @Mock
     private FxConverter fxConverter;
 
+    @Mock
+    private MemberCostShareLiabilityRepository liabilityRepository;
+
+    @Mock
+    private MemberCostShareSettlementRepository settlementRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private ClaimAdjudicatedConsumer consumer;
 
@@ -68,7 +78,8 @@ class ClaimAdjudicatedConsumerTest {
     void setUp() {
         consumer = new ClaimAdjudicatedConsumer(null, providerBalanceService,
                 memberBalanceService,
-                memberPayableRepository, auditPublisher, objectMapper,
+                memberPayableRepository, liabilityRepository, settlementRepository,
+                auditPublisher, objectMapper,
                 tenantConfigClient, memberContributionBalanceReader,
                 ctcPaymentRepository, fxConverter);
         // Balance bumps are lenient — many tests don't care but the new
@@ -76,6 +87,22 @@ class ClaimAdjudicatedConsumerTest {
         // MEMBER event with a claimed or approved delta.
         lenient().when(memberBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
                  .thenReturn(Mono.just(new MemberBalance()));
+        // V078: lenient stubs so the new liability write branch doesn't NPE
+        // on tests that were written before Phase 4. Individual liability tests
+        // can .when(...).thenReturn(...) over these.
+        lenient().when(liabilityRepository.save(any()))
+                 .thenAnswer(inv -> {
+                     MemberCostShareLiability l = inv.getArgument(0);
+                     if (l.getId() == null) l.setId(UUID.randomUUID());
+                     return Mono.just(l);
+                 });
+        lenient().when(settlementRepository.save(any()))
+                 .thenAnswer(inv -> {
+                     MemberCostShareSettlement s = inv.getArgument(0);
+                     if (s.getId() == null) s.setId(UUID.randomUUID());
+                     return Mono.just(s);
+                 });
+        lenient().when(auditPublisher.publish(any())).thenReturn(Mono.empty());
     }
 
     private static CtcAutoConfig disabled() {
@@ -421,5 +448,112 @@ class ClaimAdjudicatedConsumerTest {
         return """
             {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","claimId":"%s","memberId":"%s","approvedAmount":"%s","currencyCode":"%s","payeeType":"MEMBER"}
             """.formatted(claimId, memberId, amount.toPlainString(), currency);
+    }
+
+    // ── V078 member cost-share liability writes (Phase 4 copayments) ──────
+
+    @Test
+    void processEvent_providerPayeeWithMemberResponsibility_writesLiabilityOpen() {
+        UUID memberId = UUID.randomUUID();
+        UUID claimId  = UUID.randomUUID();
+        UUID providerId = UUID.randomUUID();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","claimId":"%s","memberId":"%s",
+             "providerId":"%s","approvedAmount":"375.00","currencyCode":"USD","payeeType":"PROVIDER",
+             "allowedAmount":"500","deductibleApplied":"100","copayAmount":"25",
+             "coinsuranceAmount":"0","notCoveredAmount":"0","shortfallAmount":"0",
+             "memberResponsibility":"125"}
+            """.formatted(claimId, memberId, providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        ArgumentCaptor<MemberCostShareLiability> captor = ArgumentCaptor.forClass(MemberCostShareLiability.class);
+        verify(liabilityRepository).save(captor.capture());
+        MemberCostShareLiability l = captor.getValue();
+        assertThat(l.getMemberId()).isEqualTo(memberId);
+        assertThat(l.getClaimId()).isEqualTo(claimId);
+        assertThat(l.getTotalOwed()).isEqualByComparingTo("125");
+        assertThat(l.getDeductible()).isEqualByComparingTo("100");
+        assertThat(l.getCopay()).isEqualByComparingTo("25");
+        assertThat(l.getCurrencyCode()).isEqualTo("USD");
+        assertThat(l.getStatus()).isEqualTo("OPEN");
+        assertThat(l.getTotalSettled()).isEqualByComparingTo("0");
+        // Provider path: no synthetic settlement row.
+        verify(settlementRepository, never()).save(any());
+    }
+
+    @Test
+    void processEvent_memberPayee_writesLiabilitySettledPlusSyntheticSettlement() {
+        UUID memberId = UUID.randomUUID();
+        UUID claimId  = UUID.randomUUID();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","claimId":"%s","memberId":"%s",
+             "approvedAmount":"375.00","currencyCode":"USD","payeeType":"MEMBER",
+             "allowedAmount":"500","deductibleApplied":"100","copayAmount":"25",
+             "coinsuranceAmount":"0","notCoveredAmount":"0","shortfallAmount":"0",
+             "memberResponsibility":"125"}
+            """.formatted(claimId, memberId);
+        stubMemberPayableSave();
+        // Auto-CTC branch never runs without tenantId in the payload —
+        // handleMemberPayee wraps its own contextWrite only when tenantId is
+        // present, so maybeAutoDraftCtc sees null context and short-circuits.
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        ArgumentCaptor<MemberCostShareLiability> lCaptor = ArgumentCaptor.forClass(MemberCostShareLiability.class);
+        verify(liabilityRepository).save(lCaptor.capture());
+        MemberCostShareLiability l = lCaptor.getValue();
+        assertThat(l.getStatus()).isEqualTo("SETTLED");
+        assertThat(l.getTotalSettled()).isEqualByComparingTo("125");
+
+        ArgumentCaptor<MemberCostShareSettlement> sCaptor = ArgumentCaptor.forClass(MemberCostShareSettlement.class);
+        verify(settlementRepository).save(sCaptor.capture());
+        MemberCostShareSettlement s = sCaptor.getValue();
+        assertThat(s.getSource()).isEqualTo("MEMBER_PAID_PROVIDER");
+        assertThat(s.getAmount()).isEqualByComparingTo("125");
+        assertThat(s.getReceiptTransactionId()).isNull();
+    }
+
+    @Test
+    void processEvent_rejectedClaim_skipsLiabilityWrite() {
+        UUID memberId = UUID.randomUUID();
+        UUID claimId  = UUID.randomUUID();
+        UUID providerId = UUID.randomUUID();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"REJECTED","claimId":"%s","memberId":"%s",
+             "providerId":"%s","approvedAmount":"0","currencyCode":"USD","payeeType":"PROVIDER",
+             "memberResponsibility":"125"}
+            """.formatted(claimId, memberId, providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        // Rejected claims never write a liability, even if the (nonsensical)
+        // memberResponsibility field slipped through — a REJECTED claim has
+        // no plan-paid portion for the member to owe against.
+        verify(liabilityRepository, never()).save(any());
+    }
+
+    @Test
+    void processEvent_missingMemberResponsibility_skipsLiabilityWrite() {
+        UUID providerId = UUID.randomUUID();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","providerId":"%s",
+             "approvedAmount":"1500.00","currencyCode":"USD","payeeType":"PROVIDER"}
+            """.formatted(providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        // Pre-V077 payload shape → no liability write, backwards compat preserved.
+        verify(liabilityRepository, never()).save(any());
     }
 }

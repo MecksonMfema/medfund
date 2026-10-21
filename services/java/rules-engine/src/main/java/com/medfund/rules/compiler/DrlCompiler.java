@@ -43,8 +43,15 @@ public class DrlCompiler {
             "import com.medfund.rules.fact.ContributionFact;\n",
             "import com.medfund.rules.fact.MemberLifecycleFact;\n",
             "import com.medfund.rules.fact.PaymentRunFact;\n",
+            "import com.medfund.rules.fact.PremiumFact;\n",
             "import com.medfund.rules.fact.SchemeChangeContext;\n",
             "import com.medfund.rules.fact.TimeFact;\n",
+            "import com.medfund.rules.fact.TriangleFact;\n",
+            "import com.medfund.rules.fact.DevelopmentPeriodFact;\n",
+            "import com.medfund.rules.fact.IfrsPortfolioFact;\n",
+            "import com.medfund.rules.fact.RegulatoryParameterFact;\n",
+            "import com.medfund.rules.fact.PmbClassificationFact;\n",
+            "import com.medfund.rules.fact.FraudFlagFact;\n",
             "import java.math.BigDecimal;\n");
 
     /**
@@ -54,7 +61,9 @@ public class DrlCompiler {
      * rules in stage 3 without them also firing during the stage-7 tenant-rules
      * sweep. All other categories stay in MAIN and fire by default.
      */
-    private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of("BENEFIT_PRORATION");
+    private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of(
+            "BENEFIT_PRORATION", "REINSURANCE", "COMMISSION", "PREMIUM_EARNING", "ACTUARIAL",
+            "IFRS17_MODEL", "REGULATORY_PARAMETER", "PMB_CLASSIFICATION", "FRAUD_TRIAGE");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -68,8 +77,17 @@ public class DrlCompiler {
         m.put("contribution", new FactMapping("$contribution", "ContributionFact"));
         m.put("lifecycle",    new FactMapping("$lifecycle",    "MemberLifecycleFact"));
         m.put("paymentRun",   new FactMapping("$paymentRun",   "PaymentRunFact"));
+        m.put("premium",      new FactMapping("$premium",      "PremiumFact"));
         m.put("schemeChange", new FactMapping("$schemeChange", "SchemeChangeContext"));
         m.put("time",         new FactMapping("$time",         "TimeFact"));
+        m.put("triangle",     new FactMapping("$triangle",     "TriangleFact"));
+        m.put("devPeriod",    new FactMapping("$devPeriod",    "DevelopmentPeriodFact"));
+        m.put("portfolio",    new FactMapping("$portfolio",    "IfrsPortfolioFact"));
+        m.put("regulatoryParameter",
+                              new FactMapping("$regulatoryParameter", "RegulatoryParameterFact"));
+        m.put("pmbClassification",
+                              new FactMapping("$pmbClassification", "PmbClassificationFact"));
+        m.put("fraudFlag",    new FactMapping("$fraudFlag",    "FraudFlagFact"));
         FACT_MAPPINGS = Map.copyOf(m);
     }
 
@@ -168,12 +186,19 @@ public class DrlCompiler {
         if (type == null) return null;
         return switch (type.toUpperCase()) {
             case "REJECT", "FLAG_FOR_REVIEW", "WARN", "APPLY_COPAY",
-                 "APPLY_PRORATION_STRATEGY"                                   -> "claim";
+                 "APPLY_PRORATION_STRATEGY", "CEDE_TO_TREATY"                 -> "claim";
             case "CAP_TO_TARIFF"                                              -> "claimDetail";
             case "SET_AGE_GROUP", "AUTO_RENEW", "TERMINATE_MEMBERSHIP",
                  "REQUIRE_UNDERWRITING"                                       -> "lifecycle";
-            case "SET_PREMIUM", "APPLY_LATE_FEE", "APPLY_LOADED_PREMIUM"      -> "contribution";
+            case "SET_PREMIUM", "APPLY_LATE_FEE", "APPLY_LOADED_PREMIUM",
+                 "PAY_COMMISSION"                                             -> "contribution";
             case "SCHEDULE_PAYMENT_RUN", "WITHHOLD_PAYMENT", "MATCH_RECORDS"  -> "paymentRun";
+            case "ACCRUE_PREMIUM"                                             -> "premium";
+            case "SELECT_LDF"                                                 -> "triangle";
+            case "SELECT_IFRS17_MODEL"                                        -> "portfolio";
+            case "SET_REGULATORY_PARAMETER"                                   -> "regulatoryParameter";
+            case "SET_PMB_CLASSIFICATION"                                     -> "pmbClassification";
+            case "OPEN_SIU_CASE", "SUPPRESS_SIU_CASE"                         -> "fraudFlag";
             default                                                            -> null;
         };
     }

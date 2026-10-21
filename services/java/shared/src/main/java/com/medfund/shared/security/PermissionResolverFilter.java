@@ -57,16 +57,21 @@ public class PermissionResolverFilter implements WebFilter {
      */
     private Mono<Set<String>> permissionsFor(Jwt jwt) {
         return Mono.deferContextual(ctx -> {
-            String tenantId = TenantContext.get(ctx);
-            if (tenantId == null) return Mono.just(Set.of());
-            // Platform super_admin bypass — mirrors user-service RoleController.myPermissions
-            // and the Angular PermissionService.isSuperAdmin() short-circuit. Super_admin has
-            // no tenant-scoped user_roles rows, so a strict DB lookup would deny every
-            // @RequiresPermission-gated endpoint on their behalf.
+            // Platform super_admin bypass must run BEFORE the tenant-null
+            // guard. Endpoints under /api/v1/tenants/** are declared as
+            // PLATFORM_PATHS in TenantWebFilter (so it doesn't inject a
+            // tenant context there), yet the auto-lapse / endorsement /
+            // report-schedule config endpoints live under exactly that
+            // prefix. Denying super_admins here would 403 every one of
+            // those tenant-config surfaces for a platform admin. Mirrors
+            // user-service RoleController.myPermissions and the Angular
+            // PermissionService.isSuperAdmin() short-circuit.
             if (isSuperAdmin(jwt)) {
                 log.debug("Permission bypass: super_admin sub={}", jwt.getSubject());
                 return Mono.just(Permissions.ALL);
             }
+            String tenantId = TenantContext.get(ctx);
+            if (tenantId == null) return Mono.just(Set.of());
             UUID userId;
             try {
                 userId = UUID.fromString(jwt.getSubject());

@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -262,5 +264,62 @@ func TestProxy_MissingTenantIDNotForwarded(t *testing.T) {
 
 	if result["tenantId"] != "" {
 		t.Fatalf("expected empty tenantId when header not set, got %v", result["tenantId"])
+	}
+}
+
+// TestProxy_ForwardsMultipartBody guards the platform-logo upload path.
+//
+// fasthttp's Request.CopyTo only carries bodyRaw/body. Once fasthttp has
+// parsed a payload into a multipart form, both are empty, so the copied
+// request went upstream with a zero-length body but the original
+// Content-Length — and the Java backend answered "Could not find first
+// boundary" with an opaque 500. The handler now re-sets the body explicitly.
+func TestProxy_ForwardsMultipartBody(t *testing.T) {
+	backend := startMockBackend(t)
+	defer backend.Close()
+
+	app := fiber.New()
+	app.All("/api/v1/test/*", Handler(backend.URL))
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, err := writer.CreateFormFile("file", "logo.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("\x89PNG\r\n\x1a\nfake-bytes")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	sent := buf.String()
+
+	req := httptest.NewRequest("POST", "/api/v1/test/settings/logo", strings.NewReader(sent))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatal(err)
+	}
+
+	forwarded, _ := result["body"].(string)
+	if forwarded == "" {
+		t.Fatal("multipart body was dropped by the proxy")
+	}
+	if !strings.Contains(forwarded, "--"+writer.Boundary()) {
+		t.Fatalf("forwarded body lost its boundary: %q", forwarded)
+	}
+	if !strings.Contains(forwarded, "fake-bytes") {
+		t.Fatalf("forwarded body lost the file part: %q", forwarded)
 	}
 }

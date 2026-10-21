@@ -60,7 +60,7 @@ public class WaitingPeriodController {
     // ── Initial-enrolment waiting periods ────────────────────────────────────
 
     @GetMapping("/waiting-periods")
-    @Operation(summary = "List waiting periods (unpaginated — prefer /waiting-periods/page)")
+    @Operation(summary = "List waiting periods (unpaginated - prefer /waiting-periods/page)")
     public Flux<WaitingPeriodResponse> list(@RequestParam(required = false) UUID schemeId) {
         return (schemeId != null ? service.listByScheme(schemeId) : service.listAll())
                 .map(WaitingPeriodResponse::from);
@@ -109,7 +109,7 @@ public class WaitingPeriodController {
     // ── Scheme-change waiting periods ────────────────────────────────────────
 
     @GetMapping("/scheme-change-waiting-periods")
-    @Operation(summary = "List scheme-change waiting period rules (unpaginated — prefer /page)")
+    @Operation(summary = "List scheme-change waiting period rules (unpaginated - prefer /page)")
     public Flux<SchemeChangeWaitingPeriodResponse> listSchemeChange() {
         return service.listAllSchemeChange().map(SchemeChangeWaitingPeriodResponse::from);
     }

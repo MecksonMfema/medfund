@@ -31,5 +31,7 @@ public record CreateTravelPolicyRequest(
         UUID groupId,
 
         @NotNull
-        UUID travelerMemberId
+        UUID travelerMemberId,
+
+        PolicyUnderwritingFields underwriting
 ) {}

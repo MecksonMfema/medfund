@@ -2,6 +2,7 @@ import { of, throwError } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GroupFormComponent } from './group-form.component';
 import { Group, GroupsService } from '../../../../core/services/groups.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * Guards the group form's create/edit + payload-shape behaviour. Two
@@ -43,6 +44,7 @@ class StubActivatedRoute {
 describe('GroupFormComponent', () => {
   let groups: jasmine.SpyObj<GroupsService>;
   let router: jasmine.SpyObj<Router>;
+  let toast: jasmine.SpyObj<ToastService>;
   let route: StubActivatedRoute;
   let component: GroupFormComponent;
 
@@ -54,12 +56,15 @@ describe('GroupFormComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     router.navigate.and.returnValue(Promise.resolve(true) as any);
 
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning']);
+
     route = new StubActivatedRoute();
 
     component = new GroupFormComponent(
       groups,
       route as unknown as ActivatedRoute,
       router,
+      toast,
     );
   });
 
@@ -85,7 +90,8 @@ describe('GroupFormComponent', () => {
       component.submit();
 
       expect(groups.create).not.toHaveBeenCalled();
-      expect(component.errorMessage).toContain('Name');
+      expect(toast.warning).toHaveBeenCalled();
+      expect(toast.warning.calls.mostRecent().args[0]).toContain('Name');
     });
 
     it('rejects submit when neither liaison nor email is present', () => {
@@ -94,8 +100,9 @@ describe('GroupFormComponent', () => {
       component.submit();
 
       expect(groups.create).not.toHaveBeenCalled();
-      expect(component.errorMessage).toContain('liaison');
-      expect(component.errorMessage).toContain('email');
+      const msg = toast.warning.calls.mostRecent().args[0];
+      expect(msg).toContain('liaison');
+      expect(msg).toContain('email');
     });
 
     it('accepts submit with only an email (no liaison)', () => {
@@ -107,7 +114,7 @@ describe('GroupFormComponent', () => {
       component.submit();
 
       expect(groups.create).toHaveBeenCalled();
-      expect(component.errorMessage).toBeNull();
+      expect(toast.error).not.toHaveBeenCalled();
     });
 
     it('accepts submit with only a liaison (no email)', () => {
@@ -160,7 +167,7 @@ describe('GroupFormComponent', () => {
 
       component.submit();
 
-      expect(component.errorMessage).toBe('Duplicate name');
+      expect(toast.error).toHaveBeenCalledWith('Duplicate name');
       expect(component.saving).toBeFalse();
       expect(router.navigate).not.toHaveBeenCalled();
     });
@@ -216,7 +223,8 @@ describe('GroupFormComponent', () => {
       component.submit();
 
       expect(groups.update).toHaveBeenCalled();
-      expect(component.errorMessage).toBeNull();
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
     });
 
     it('surfaces load-time errors from findById', () => {
@@ -225,7 +233,7 @@ describe('GroupFormComponent', () => {
 
       component.ngOnInit();
 
-      expect(component.errorMessage).toBe('Not found');
+      expect(toast.error).toHaveBeenCalledWith('Not found');
       expect(component.loading).toBeFalse();
     });
   });

@@ -1,0 +1,29 @@
+// Per-page overrides for the cession bordereau. Widens each toolbar cell
+// so its dropdown label + long option names never truncate, and gives
+// the empty-state block breathing room above/below.
+
+.toolbar-cell.cell-year,
+.toolbar-cell.cell-quarter {
+  min-width: 220px;
+}
+
+.toolbar-cell.cell-search {
+  min-width: 300px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-year app-select,
+.toolbar-cell.cell-quarter app-select,
+.toolbar-cell.cell-search app-select,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

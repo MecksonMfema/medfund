@@ -22,7 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/group-liaisons")
 @Tag(name = "Group liaisons",
-     description = "Manage 'pure' group liaisons — people who manage a group's invoices via the group portal without being a member or staff user")
+     description = "Manage 'pure' group liaisons - people who manage a group's invoices via the group portal without being a member or staff user")
 @SecurityRequirement(name = "bearer-jwt")
 public class GroupLiaisonController {
 

@@ -9,6 +9,7 @@ import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel, isPersonCent
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { endOfMonth, firstOfMonth } from '../../../../shared/utils/date-snap';
 
 interface SchemeForm {
@@ -34,7 +35,6 @@ export class SchemeFormComponent implements OnInit {
   schemeId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   allowedCurrencies: TenantCurrencyConfig[] = [];
@@ -119,7 +119,7 @@ export class SchemeFormComponent implements OnInit {
   ngOnInit(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.error('No active tenant context');
       return;
     }
 
@@ -161,7 +161,7 @@ export class SchemeFormComponent implements OnInit {
           this.loading = false;
         },
         error: (err) => {
-          this.errorMessage = err?.error?.detail || 'Failed to load scheme';
+          this.toast.error(extractErrorMessage(err, 'Failed to load scheme'));
           this.loading = false;
         },
       });
@@ -183,11 +183,11 @@ export class SchemeFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
     if (!this.form.currencyCode) {
-      this.errorMessage = 'Pick a currency for this scheme';
+      this.toast.warning('Pick a currency for this scheme');
       return;
     }
     // Belt-and-braces snap at submit time as well, in case the operator
@@ -211,7 +211,6 @@ export class SchemeFormComponent implements OnInit {
       maxAge: this.personCentric ? (this.form.maxAge ?? undefined) : undefined,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.schemeId
       ? this.contributions.updateScheme(this.schemeId, payload)
       : this.contributions.createScheme(payload);
@@ -224,9 +223,7 @@ export class SchemeFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

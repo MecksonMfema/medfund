@@ -1,0 +1,72 @@
+// Layout mirrors the billing debtors / bad-debts pages: full-bleed
+// page-header banner, flat filter toolbar, then the shared data-table.
+// Toolbar + rate-table primitives come from styles.scss.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: var(--font-size-2xl);
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  max-width: 65ch;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+// Report-specific toolbar cell modifiers. Base .tx-toolbar / .toolbar-cell
+// live in styles.scss so the shape stays in lockstep with the other pages.
+.toolbar-cell.cell-search {
+  flex: 1 1 320px;
+  min-width: 240px;
+  max-width: 460px;
+}
+
+.toolbar-cell.cell-age {
+  flex: 0 0 auto;
+
+  input[type="number"] { width: 110px; min-width: 110px; }
+}
+
+.toolbar-cell.cell-currency {
+  flex: 0 0 auto;
+  min-width: 240px;
+
+  app-select { min-width: 180px; flex: 1; }
+}
+
+// Flatten app-select inside the toolbar so it reads as a bare inline
+// control matching the rest of the app (reference: producers-list).
+.tx-toolbar .toolbar-cell {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+

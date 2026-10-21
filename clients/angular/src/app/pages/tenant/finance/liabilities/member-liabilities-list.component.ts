@@ -1,0 +1,169 @@
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import {
+  MemberLiabilityRow,
+  MemberLiabilityService,
+} from '../../../../core/services/member-liability.service';
+import { FinancePageResponse } from '../../../../core/services/finance.service';
+import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
+import { TenantService } from '../../../../core/services/tenant.service';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
+
+/**
+ * V078 member cost-share liabilities list (Phase 4 copayments). Every row
+ * represents one adjudicated claim's member share, drawn from the
+ * finance-service {@code member_cost_share_liability} table.
+ *
+ * <p>Server-side paginated + KPI-free (per {@code feedback_stats_serverside};
+ * no client aggregation — status filter and totals come from the endpoint).
+ */
+@Component({
+  selector: 'app-member-liabilities-list',
+  standalone: true,
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent, IconComponent],
+  templateUrl: './member-liabilities-list.component.html',
+  styleUrl: './member-liabilities-list.component.scss',
+})
+export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
+  rows: MemberLiabilityRow[] = [];
+  loading = false;
+
+  currencies: TenantCurrencyConfig[] = [];
+
+  statusFilter = '';
+  currencyFilter = '';
+  searchTerm = '';
+
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+
+  private readonly search$ = new Subject<string>();
+  private searchSub?: Subscription;
+
+  readonly statusOptions: SelectOption[] = [
+    { value: '',                  label: 'Any status' },
+    { value: 'OPEN',              label: 'Open' },
+    { value: 'PARTIALLY_SETTLED', label: 'Partially settled' },
+    { value: 'SETTLED',           label: 'Settled' },
+    { value: 'WRITTEN_OFF',       label: 'Written off' },
+  ];
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any currency' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
+
+  readonly columns: TableColumn[] = [
+    { key: 'memberName',    label: 'Member',      sortable: true },
+    { key: 'memberNumber',  label: 'Member #',    sortable: true },
+    { key: 'claimNumber',   label: 'Claim #',     sortable: true },
+    { key: 'totalOwed',     label: 'Owed',        sortable: true, type: 'currency' },
+    { key: 'totalSettled',  label: 'Settled',     sortable: true, type: 'currency' },
+    { key: 'currencyCode',  label: 'Currency',    sortable: true },
+    { key: 'status',        label: 'Status',      sortable: true, type: 'status' },
+    { key: 'createdAt',     label: 'Created',     sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: MemberLiabilityRow) => this.router.navigate(['/tenant/finance/member-liabilities', row.id]),
+    },
+  ];
+
+  constructor(
+    private service: MemberLiabilityService,
+    private currencyService: CurrencyService,
+    private tenantService: TenantService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
+
+  ngOnInit(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (tenantId) {
+      this.currencyService.listForTenant(tenantId).subscribe({
+        next: (configs) => { this.currencies = configs.filter(c => c.isActive); },
+        error: () => {},
+      });
+    }
+
+    this.searchSub = this.search$
+      .pipe(debounceTime(350), distinctUntilChanged())
+      .subscribe((term) => {
+        this.searchTerm = term;
+        this.page = 1;
+        this.fetchPage();
+      });
+
+    this.fetchPage();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
+  }
+
+  fetchPage(): void {
+    this.loading = true;
+    this.service.listPaged({
+      status: this.statusFilter || undefined,
+      currencyCode: this.currencyFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<MemberLiabilityRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toast.error(extractErrorMessage(err, 'Failed to load member liabilities'));
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.loading = false;
+      },
+    });
+  }
+
+  onSearchInput(value: string): void { this.search$.next(value ?? ''); }
+  onFilterChange(): void { this.page = 1; this.fetchPage(); }
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  clearFilters(): void {
+    this.statusFilter = '';
+    this.currencyFilter = '';
+    this.searchTerm = '';
+    this.page = 1;
+    this.fetchPage();
+  }
+}

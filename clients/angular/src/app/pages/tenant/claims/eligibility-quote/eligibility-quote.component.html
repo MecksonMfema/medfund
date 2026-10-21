@@ -1,0 +1,229 @@
+<div class="claim-form-page">
+  <header class="page-header">
+    <div>
+      <h1>Eligibility quote</h1>
+      <p class="page-sub">Pre-service cost-share estimate. Runs a read-only adjudication against the tenant's rules and returns the seven cost-share buckets the member would owe if the claim were submitted as-is.</p>
+    </div>
+  </header>
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Service details</h2>
+      <span class="form-card__hint">Fields marked with * are required.</span>
+    </div>
+
+    <div class="form-sections">
+      <!-- ── Beneficiary (member OR dependant) ──────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+          <h3 class="section-title">Member or dependant</h3>
+        </header>
+
+        <div class="field-grid field-grid--2">
+          <label class="field">
+            <span class="field-label">Beneficiary <span class="req">*</span></span>
+            <app-entity-picker
+              kind="beneficiary"
+              [value]="beneficiaryId"
+              (selected)="onBeneficiaryPicked($event)"
+              placeholder="Search member or dependant…"
+            ></app-entity-picker>
+            @if (pickedKind === 'DEPENDANT' && sponsorMemberNumber) {
+              <small class="field-help">
+                Dependant of member <code>{{ sponsorMemberNumber }}</code>
+              </small>
+            } @else if (pickedKind === 'MEMBER' && sponsorMemberNumber) {
+              <small class="field-help">Member number <code>{{ sponsorMemberNumber }}</code></small>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field-label">Date of service <span class="req">*</span></span>
+            <input class="field-control" type="date"
+                   [(ngModel)]="form.dateOfService" name="dateOfService" required />
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Service ────────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Tariff codes</h3>
+        </header>
+
+        @for (row of tariffs; track $index) {
+          <div class="tariff-row">
+            <div class="field field--grow">
+              <span class="field-label">Tariff code <span class="req">*</span></span>
+              @if (row.code) {
+                <!-- Picked state: shows the code + description so the
+                     operator sees what they selected instead of a bare
+                     code. Change returns the row to search mode. -->
+                <div class="picked-tariff">
+                  <div class="picked-tariff__info">
+                    <code class="picked-tariff__code">{{ row.code }}</code>
+                    <span class="picked-tariff__desc">{{ row.description }}</span>
+                  </div>
+                  <button type="button" class="link-btn" (click)="clearTariff(row)">Change</button>
+                </div>
+              } @else {
+                <div class="tariff-cell">
+                  <input class="field-control" type="text"
+                         [(ngModel)]="row.query" [name]="'tariff-' + $index"
+                         placeholder="Search tariff…"
+                         autocomplete="off"
+                         (focus)="onTariffFocus(row)"
+                         (input)="onTariffInput(row)"
+                         (blur)="onTariffBlur(row)" />
+                  @if (row.showMatches && (row.searching || row.matches.length > 0)) {
+                    <ul class="suggestions">
+                      @if (row.searching) {
+                        <li class="suggestion muted">Searching…</li>
+                      } @else {
+                        @for (t of row.matches; track t.id) {
+                          <li class="suggestion" (mousedown)="pickTariff(row, t)">
+                            <code>{{ t.code }}</code>
+                            <span class="muted">{{ t.description }}</span>
+                          </li>
+                        }
+                      }
+                    </ul>
+                  }
+                </div>
+              }
+            </div>
+            @if (tariffs.length > 1) {
+              <button type="button" class="btn btn-default"
+                      (click)="removeTariffRow($index)"
+                      aria-label="Remove tariff code">
+                <app-icon name="x" [size]="14"></app-icon>
+              </button>
+            }
+          </div>
+        }
+
+        <button type="button" class="btn btn-default tariff-add" (click)="addTariffRow()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          Add another tariff code
+        </button>
+      </section>
+
+      <!-- ── Cost ───────────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Cost</h3>
+        </header>
+
+        <div class="field-grid field-grid--3">
+          <label class="field">
+            <span class="field-label">Service category <span class="req">*</span></span>
+            <app-select
+              [(ngModel)]="form.serviceCategory"
+              name="serviceCategory"
+              required
+              [options]="serviceCategoryOptions"
+              placeholder="Pick a category"
+            ></app-select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Billed amount <span class="req">*</span></span>
+            <input class="field-control" type="number" step="0.01" min="0"
+                   [(ngModel)]="form.billedAmount" name="billedAmount" required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Currency <span class="req">*</span></span>
+            <app-select
+              [(ngModel)]="form.currencyCode"
+              name="currencyCode"
+              required
+              [options]="currencyOptions"
+              placeholder="Pick a currency"
+            ></app-select>
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" [disabled]="loading">
+        {{ loading ? 'Getting quote…' : 'Get quote' }}
+      </button>
+    </div>
+  </form>
+
+  @if (quote) {
+    <section class="form-card">
+      <div class="form-card__heading">
+        <div class="quote-heading">
+          <div>
+            <h2 class="form-card__title">Quote result</h2>
+            <span class="form-card__hint">Estimates only. A real claim adjudicates against live data at submission time.</span>
+          </div>
+          <span class="coverage-chip"
+                [class.coverage-chip--active]="quote.coverage === 'ACTIVE'"
+                [class.coverage-chip--warn]="quote.coverage === 'IN_ARREARS' || quote.coverage === 'SUSPENDED'"
+                [class.coverage-chip--danger]="quote.coverage === 'TERMINATED' || quote.coverage === 'INELIGIBLE'">
+            {{ quote.coverage }}
+          </span>
+        </div>
+      </div>
+
+      <div class="quote-body">
+        <div class="quote-grid">
+          <div class="quote-cell">
+            <span class="quote-label">Allowed</span>
+            <span class="quote-value">{{ quote.estimatedAllowed }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell">
+            <span class="quote-label">Copay</span>
+            <span class="quote-value">{{ quote.estimatedCopay }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell">
+            <span class="quote-label">Coinsurance</span>
+            <span class="quote-value">{{ quote.estimatedCoinsurance }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell">
+            <span class="quote-label">Shortfall</span>
+            <span class="quote-value">{{ quote.estimatedShortfall }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell quote-cell--emphasis">
+            <span class="quote-label">Member owes</span>
+            <span class="quote-value">{{ quote.estimatedPatientResponsibility }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell quote-cell--emphasis">
+            <span class="quote-label">Plan pays</span>
+            <span class="quote-value">{{ quote.estimatedPlanPaid }} {{ quote.currencyCode }}</span>
+          </div>
+          @if (quote.deductibleRemaining !== null) {
+            <div class="quote-cell">
+              <span class="quote-label">Deductible remaining</span>
+              <span class="quote-value">{{ quote.deductibleRemaining }} {{ quote.currencyCode }}</span>
+            </div>
+          }
+          @if (quote.oopMaxRemaining !== null) {
+            <div class="quote-cell">
+              <span class="quote-label">OOP-max remaining</span>
+              <span class="quote-value">{{ quote.oopMaxRemaining }} {{ quote.currencyCode }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (quote.notes && quote.notes.length > 0) {
+        <div class="quote-notes">
+          <h3>Notes</h3>
+          <ul>
+            @for (note of quote.notes; track note) {
+              <li>{{ note }}</li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+  }
+</div>

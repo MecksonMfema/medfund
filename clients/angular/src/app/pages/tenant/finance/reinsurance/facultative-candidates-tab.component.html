@@ -1,0 +1,112 @@
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Min approved</span>
+    <input
+      type="number"
+      min="0"
+      step="1000"
+      [(ngModel)]="minAmount"
+      (change)="onMinAmountChange()"
+      aria-label="Minimum approved amount"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="lineFilter"
+      (selectionChange)="onLineChange()"
+      name="line"
+      size="sm"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="candidates"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
+  [loading]="loading"
+  [emptyMessage]="'No cedable claims'"
+  [emptyDescription]="'Adjudicated claims above the minimum will appear here once the approved amount clears the threshold.'"
+  [emptyIcon]="'briefcase'">
+</app-data-table>
+
+@if (selected) {
+  <div class="modal-backdrop" (click)="clearSelection()">
+    <div class="modal-card cede-modal" (click)="$event.stopPropagation()" data-testid="cede-pane">
+      <h3>Cede claim {{ selected.claimNumber }}</h3>
+      <p class="modal-sub">Draft a facultative cession against an active treaty. Supervisors approve on the queue tab.</p>
+
+      <dl class="cede-summary">
+        <dt>Member</dt><dd>{{ selected.memberName }}</dd>
+        <dt>Provider</dt><dd>{{ selected.providerName }}</dd>
+        <dt>Line</dt><dd>{{ selected.insuranceLine }}</dd>
+        <dt>Approved</dt><dd>{{ selected.approvedAmount | number:'1.2-2' }} {{ selected.currencyCode }}</dd>
+      </dl>
+
+      <form (submit)="$event.preventDefault(); submitCede()" class="cede-form">
+        <label>
+          <span>Treaty</span>
+          <app-select
+            [(ngModel)]="cedePayload.treatyId"
+            name="treatyId"
+            [options]="treatyOptions"
+            [searchable]="true"
+            [autoSearchThreshold]="9999"
+            placeholder="Select a treaty"
+          ></app-select>
+        </label>
+        <label>
+          <span>Ceded amount ({{ selected.currencyCode }})</span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            [(ngModel)]="cedePayload.cededAmount"
+            name="cededAmount"
+            required
+            data-testid="ceded-amount-input"
+          />
+        </label>
+        <label>
+          <span>Basis amount ({{ selected.currencyCode }})</span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            [(ngModel)]="cedePayload.basisAmount"
+            name="basisAmount"
+            required
+          />
+        </label>
+        <label>
+          <span>Reason / notes</span>
+          <textarea
+            [(ngModel)]="cedePayload.reason"
+            name="reason"
+            rows="3"
+            maxlength="500"
+            placeholder="Why this claim is being ceded facultatively"
+          ></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" (click)="clearSelection()" [disabled]="cedeSubmitting">Cancel</button>
+          <button type="submit" class="btn btn-primary"
+                  [disabled]="cedeSubmitting"
+                  data-testid="submit-cede">
+            {{ cedeSubmitting ? 'Creating…' : 'Create draft' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

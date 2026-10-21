@@ -1,0 +1,441 @@
+[
+  {
+    "ruleKey": "health.eligibility.active-member",
+    "name": "Active member required for claim submission",
+    "description": "Reject claims when the member's status is not 'active' at service date.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.active-member",
+    "priority": 100,
+    "enabled": true,
+    "definition": {
+      "id": "health.eligibility.active-member",
+      "name": "Active member required",
+      "category": "ELIGIBILITY",
+      "priority": 100,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.status", "operator": "!=", "value": "active"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "MEMBER_NOT_ACTIVE",
+        "message": "Member is not active at service date."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.eligibility.arrears-cap-3mo",
+    "name": "Reject when member arrears exceed 3 months",
+    "description": "Members more than 90 days in arrears cannot submit new claims.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.arrears-cap",
+    "priority": 95,
+    "enabled": true,
+    "definition": {
+      "id": "health.eligibility.arrears-cap-3mo",
+      "name": "Arrears cap 3 months",
+      "category": "ELIGIBILITY",
+      "priority": 95,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.arrearsMonths", "operator": ">", "value": 3}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "MEMBER_ARREARS_EXCEEDED",
+        "message": "Claim rejected: member is more than 3 months in arrears."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.eligibility.claim-window-90d",
+    "name": "Reject claims older than 90 days from service date",
+    "description": "Late-filed claims after the 90-day submission window are rejected.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.stale-claim",
+    "priority": 90,
+    "enabled": true,
+    "definition": {
+      "id": "health.eligibility.claim-window-90d",
+      "name": "Claim submission window",
+      "category": "ELIGIBILITY",
+      "priority": 90,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.daysSinceServiceDate", "operator": ">", "value": 90}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "CLAIM_STALE",
+        "message": "Claim rejected: filed more than 90 days after service date."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.eligibility.age-cutoff",
+    "name": "Age-cutoff for principal members",
+    "description": "Principal members over 80 without a chronic waiver are not eligible.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.age-cutoff",
+    "priority": 85,
+    "enabled": true,
+    "definition": {
+      "id": "health.eligibility.age-cutoff",
+      "name": "Principal age cutoff",
+      "category": "ELIGIBILITY",
+      "priority": 85,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.age", "operator": ">", "value": 80},
+          {"field": "member.isPrincipal", "operator": "==", "value": true},
+          {"field": "member.hasChronicWaiver", "operator": "==", "value": false}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "MEMBER_AGE_CUTOFF",
+        "message": "Principal member over 80 requires a chronic-condition waiver."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.eligibility.senior-cash-block",
+    "name": "Seniors on Basic scheme cannot claim cash",
+    "description": "Members aged 65+ on the Basic tier are restricted to in-kind claims.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.cash-block",
+    "priority": 80,
+    "enabled": true,
+    "definition": {
+      "id": "health.eligibility.senior-cash-block",
+      "name": "Senior cash block on Basic",
+      "category": "ELIGIBILITY",
+      "priority": 80,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.age", "operator": ">=", "value": 65},
+          {"field": "member.schemeName", "operator": "IN", "value": ["Basic-USD", "Basic-ZWL"]},
+          {"field": "claim.payoutType", "operator": "==", "value": "CASH"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "IN_KIND_ONLY",
+        "message": "Basic-tier seniors are restricted to in-kind (provider-paid) claims."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.waiting-period.general-90d",
+    "name": "General waiting period 90 days",
+    "description": "New members cannot claim non-emergency benefits until 90 days after enrolment.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.general",
+    "priority": 75,
+    "enabled": true,
+    "definition": {
+      "id": "health.waiting-period.general-90d",
+      "name": "General waiting 90d",
+      "category": "WAITING_PERIOD",
+      "priority": 75,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 90},
+          {"field": "claim.benefitCategory", "operator": "!=", "value": "EMERGENCY"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_GENERAL",
+        "message": "Claim within the 90-day general waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.waiting-period.maternity-300d",
+    "name": "Maternity waiting period 300 days",
+    "description": "Maternity benefits are subject to a 300-day waiting period from enrolment.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.maternity",
+    "priority": 74,
+    "enabled": true,
+    "definition": {
+      "id": "health.waiting-period.maternity-300d",
+      "name": "Maternity waiting 300d",
+      "category": "WAITING_PERIOD",
+      "priority": 74,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 300},
+          {"field": "claim.benefitCategory", "operator": "==", "value": "MATERNITY"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_MATERNITY",
+        "message": "Maternity claim within the 300-day waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.waiting-period.dental-prosthetics-180d",
+    "name": "Dental prosthetics 180 days",
+    "description": "Dental prosthetics have a 180-day waiting period.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.dental",
+    "priority": 73,
+    "enabled": true,
+    "definition": {
+      "id": "health.waiting-period.dental-prosthetics-180d",
+      "name": "Dental prosthetics 180d",
+      "category": "WAITING_PERIOD",
+      "priority": 73,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 180},
+          {"field": "claim.benefitCategory", "operator": "==", "value": "DENTAL_PROSTHETICS"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_DENTAL",
+        "message": "Dental prosthetics claim within the 180-day waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.waiting-period.senior-730d",
+    "name": "Senior waiting 2 years",
+    "description": "Members enrolling over 65 have a 2-year general waiting period.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.senior",
+    "priority": 72,
+    "enabled": true,
+    "definition": {
+      "id": "health.waiting-period.senior-730d",
+      "name": "Senior 2yr waiting",
+      "category": "WAITING_PERIOD",
+      "priority": 72,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.ageAtEnrollment", "operator": ">=", "value": 65},
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 730},
+          {"field": "claim.benefitCategory", "operator": "!=", "value": "EMERGENCY"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_SENIOR",
+        "message": "Senior-enrolment 2-year waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.benefit-limit.exhausted",
+    "name": "Benefit limit exhausted",
+    "description": "Reject claims when the member's per-benefit annual balance is exhausted.",
+    "category": "BENEFIT_LIMIT",
+    "templateId": "benefit-limit.exhausted",
+    "priority": 70,
+    "enabled": true,
+    "definition": {
+      "id": "health.benefit-limit.exhausted",
+      "name": "Benefit limit exhausted",
+      "category": "BENEFIT_LIMIT",
+      "priority": 70,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.benefitRemaining", "operator": "<=", "value": 0}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "BENEFIT_LIMIT_EXHAUSTED",
+        "message": "Annual benefit limit exhausted for this category."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.pre-auth.elective-surgery",
+    "name": "Pre-auth required for elective surgery",
+    "description": "Elective surgery claims without pre-authorization go on hold.",
+    "category": "PRE_AUTHORIZATION",
+    "templateId": "pre-auth.elective-surgery",
+    "priority": 65,
+    "enabled": true,
+    "definition": {
+      "id": "health.pre-auth.elective-surgery",
+      "name": "Elective surgery pre-auth",
+      "category": "PRE_AUTHORIZATION",
+      "priority": 65,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.benefitCategory", "operator": "==", "value": "SURGERY_ELECTIVE"},
+          {"field": "claim.hasPreAuth", "operator": "==", "value": false}
+        ]
+      },
+      "action": {
+        "type": "FLAG_FOR_REVIEW",
+        "message": "Elective surgery requires a valid pre-authorization."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.pre-auth.imaging",
+    "name": "Pre-auth required for high-cost imaging",
+    "description": "MRI and CT scans require pre-authorization above $500.",
+    "category": "PRE_AUTHORIZATION",
+    "templateId": "pre-auth.imaging",
+    "priority": 64,
+    "enabled": true,
+    "definition": {
+      "id": "health.pre-auth.imaging",
+      "name": "High-cost imaging pre-auth",
+      "category": "PRE_AUTHORIZATION",
+      "priority": 64,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.benefitCategory", "operator": "==", "value": "IMAGING"},
+          {"field": "claim.claimedAmount", "operator": ">", "value": 500},
+          {"field": "claim.hasPreAuth", "operator": "==", "value": false}
+        ]
+      },
+      "action": {
+        "type": "FLAG_FOR_REVIEW",
+        "message": "High-cost imaging above $500 requires pre-authorization."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.pre-auth.prosthetics",
+    "name": "Pre-auth required for prosthetics",
+    "description": "All prosthetic claims require pre-authorization.",
+    "category": "PRE_AUTHORIZATION",
+    "templateId": "pre-auth.prosthetics",
+    "priority": 63,
+    "enabled": true,
+    "definition": {
+      "id": "health.pre-auth.prosthetics",
+      "name": "Prosthetics pre-auth",
+      "category": "PRE_AUTHORIZATION",
+      "priority": 63,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.benefitCategory", "operator": "==", "value": "PROSTHETICS"},
+          {"field": "claim.hasPreAuth", "operator": "==", "value": false}
+        ]
+      },
+      "action": {
+        "type": "FLAG_FOR_REVIEW",
+        "message": "Prosthetics claims require pre-authorization."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.tariff.ahfoz-cap",
+    "name": "Cap approved amount at AHFOZ March tariff",
+    "description": "Claimed amounts above the AHFOZ tariff for a code cap at the tariff rate.",
+    "category": "TARIFF_PRICING",
+    "templateId": "tariff.ahfoz-cap",
+    "priority": 60,
+    "enabled": true,
+    "definition": {
+      "id": "health.tariff.ahfoz-cap",
+      "name": "AHFOZ tariff cap",
+      "category": "TARIFF_PRICING",
+      "priority": 60,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.claimedAmount", "operator": ">", "value": "claim.tariffAmount"}
+        ]
+      },
+      "action": {
+        "type": "WARN",
+        "message": "Claimed amount exceeds AHFOZ tariff. Approved amount capped at tariff."
+      }
+    }
+  },
+  {
+    "ruleKey": "health.tariff.multi-procedure-discount",
+    "name": "Multi-procedure discount 50 percent",
+    "description": "Second and subsequent procedures on the same claim get a 50% adjustment.",
+    "category": "MODIFIER_ADJUSTMENT",
+    "templateId": "modifier.multi-procedure",
+    "priority": 55,
+    "enabled": true,
+    "definition": {
+      "id": "health.tariff.multi-procedure-discount",
+      "name": "Multi-procedure 50% discount",
+      "category": "MODIFIER_ADJUSTMENT",
+      "priority": 55,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.modifiers", "operator": "CONTAINS", "value": "MULTI_PROCEDURE"}
+        ]
+      },
+      "action": {
+        "type": "APPLY_COPAY",
+        "value": "50"
+      }
+    }
+  },
+  {
+    "ruleKey": "health.clinical.icd-validation",
+    "name": "ICD-benefit alignment check",
+    "description": "Warn when a claim's ICD-10 code does not align with the claimed benefit category.",
+    "category": "CLINICAL_VALIDATION",
+    "templateId": "clinical.icd-alignment",
+    "priority": 50,
+    "enabled": true,
+    "definition": {
+      "id": "health.clinical.icd-validation",
+      "name": "ICD-benefit alignment",
+      "category": "CLINICAL_VALIDATION",
+      "priority": 50,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.icdBenefitMismatch", "operator": "==", "value": true}
+        ]
+      },
+      "action": {
+        "type": "FLAG_FOR_REVIEW",
+        "message": "ICD-10 code does not match the claimed benefit category."
+      }
+    }
+  }
+]

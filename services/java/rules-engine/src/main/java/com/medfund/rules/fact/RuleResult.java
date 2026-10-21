@@ -13,6 +13,12 @@ public class RuleResult {
     private String code;
     private String message;
     private BigDecimal adjustedAmount;
+    /**
+     * Populated by CEDE_TO_TREATY results — the treaty layer id for
+     * excess-of-loss / stop-loss cessions, null for proportional cessions.
+     * Kept as a plain string so RuleResult stays a pure POJO (no UUID import).
+     */
+    private String layerId;
 
     public RuleResult() {
     }
@@ -28,6 +34,14 @@ public class RuleResult {
         this.code = code;
         this.message = message;
         this.adjustedAmount = adjustedAmount;
+    }
+
+    public RuleResult(String type, String code, String message, BigDecimal adjustedAmount, String layerId) {
+        this.type = type;
+        this.code = code;
+        this.message = message;
+        this.adjustedAmount = adjustedAmount;
+        this.layerId = layerId;
     }
 
     // --- Getters and Setters ---
@@ -62,5 +76,13 @@ public class RuleResult {
 
     public void setAdjustedAmount(BigDecimal adjustedAmount) {
         this.adjustedAmount = adjustedAmount;
+    }
+
+    public String getLayerId() {
+        return layerId;
+    }
+
+    public void setLayerId(String layerId) {
+        this.layerId = layerId;
     }
 }

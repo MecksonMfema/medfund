@@ -85,11 +85,11 @@ These handle the **core business domain** where complex, tenant-specific rules d
 #### 3. Finance Service
 - Payment processing, payment runs, payment-run items
 - Provider balance management, advance payments
-- Debit/credit notes and adjustments
-- Bank reconciliation, MASCA bank account management
+- Notes ledger (unified debit/credit/memo notes with `direction ∈ {DEBIT, CREDIT}`; retired the V016 split `Adjustment`/`DebitNote`/`CreditNote` triad in V074)
+- Bank reconciliation, tenant bank-account management (per-tenant own accounts used for outbound disbursements)
 - CTC (Claims-to-Contributions) payments, payment advice records
 - Financial reporting and statements
-- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Adjustment`, `AdvancePayment`, `DebitNote`, `CreditNote`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
+- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Note`, `AdvancePayment`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `TenantBankAccount`
 - **Per-tenant rules**: payment terms, withholding tax rates, payment method restrictions
 
 #### 4. Tenancy Service
@@ -586,6 +586,8 @@ PostgreSQL 17 Cluster
 │   ├── plans                      — Subscription plans (tenant tiers)
 │   ├── staff_users                — Platform staff (super admins) — cross-tenant
 │   ├── providers                  — Platform-level provider registry
+│   ├── provider_tenants           — (provider, tenant) membership + per-tenant contract fields
+│   ├── provider_insurance_lines   — (provider, line) tag; CHECK-constrained to InsuranceLine
 │   ├── currencies                 — ISO 4217 currency master data
 │   ├── exchange_rates             — Historical exchange rates (daily snapshots)
 │   ├── permissions                — RBAC catalogue
@@ -596,14 +598,14 @@ PostgreSQL 17 Cluster
 │   └── proration_config           — Per-tenant benefit-limit proration strategy
 │
 ├── tenant_{uuid} schema (one per tenant, completely isolated)
-│   ├── members, dependants, providers, groups, group_liaisons
+│   ├── members, dependants, groups, group_liaisons
 │   ├── life_policies, funeral_policies, disability_policies, travel_policies
 │   ├── vehicles, properties  (asset-line insured objects)
 │   ├── claims (line-tagged via insurance_line), claim_lines, pre_authorizations, quotations
 │   ├── tariff_codes, tariff_categories, tariff_modifiers, icd_codes, drugs  (health-vertical adjudication)
 │   ├── schemes, scheme_benefits, benefits, benefit_types, age_groups, tariff_benefit_mappings
 │   ├── contributions, invoices, group_running_balances, billing_cycle_config, dunning_config, bad_debts
-│   ├── payments, payment_runs, payment_run_items, adjustments, debit_notes, credit_notes, bank_reconciliations, provider_balances
+│   ├── payments, payment_runs, payment_run_items, notes (V074 unified debit/credit/memo), bank_reconciliations, provider_balances
 │   ├── audit_events (immutable, partitioned by month)
 │   ├── security_events (immutable, partitioned by month)
 │   ├── ai_predictions (model outputs + human feedback)

@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/medfund/gateway/internal/config"
+	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/platform"
 	"github.com/medfund/gateway/internal/proxy"
 )
@@ -10,11 +11,45 @@ import (
 // Register configures all reverse-proxy route mappings from API prefixes
 // to their corresponding backend services.
 func Register(app *fiber.App, cfg *config.Config) {
+	// ── Public branding (unauthenticated pre-auth surface) ────────────────────
+	// The Angular login screen and other pre-auth shells hit these endpoints
+	// before a JWT exists, so they must NOT be behind RequireSuperAdmin. The
+	// tenancy-service SecurityConfig also whitelists /api/v1/public/** so the
+	// service allows unauthenticated GETs. Registered here so it wins over the
+	// broader /api/v1/platform/* group below (Fiber first-match dispatch).
+	app.All("/api/v1/public/platform/branding", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/public/platform/logo", proxy.Handler(cfg.TenancyServiceURL))
+
+	// ── Platform settings + feature flags (super-admin proxy) ─────────────────
+	// Registered BEFORE the platformGroup below so Fiber's registration-order
+	// dispatch routes them to the tenancy-service proxy instead of the
+	// aggregating handler. Same RequireSuperAdmin guard as the group.
+	app.All("/api/v1/platform/settings", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/settings/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/feature-flags", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/feature-flags/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+
 	// ── Platform aggregation (handled by gateway, not proxied) ────────────────
+	// Every /api/v1/platform/* endpoint is cross-tenant and must be super-admin
+	// only (Phase 9 D9-6). The Angular roleGuard hides the surface client-side;
+	// this middleware closes the hole where any authenticated user could hit
+	// the platform stats + analytics endpoints directly.
 	platformHandler := platform.NewHandler(cfg)
-	platformHandler.Register(app.Group("/api/v1/platform"))
+	platformGroup := app.Group("/api/v1/platform", middleware.RequireSuperAdmin())
+	platformHandler.Register(platformGroup)
 
 	// ── Tenancy Service ───────────────────────────────────────────────────────
+	// Per-tenant high-cost-claimant threshold (Phase 4 V132) registered
+	// BEFORE the /api/v1/tenants/* catch-all so Fiber's first-match routing
+	// pins the config surface explicitly (both point at tenancy-service;
+	// this documents the path and survives a future catch-all split).
+	app.All("/api/v1/tenants/*/high-cost-claimant-config", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/tenants/*/auto-lapse-config", proxy.Handler(cfg.TenancyServiceURL))
+	// Phase 17 §C.1 — tenant report-schedule CRUD + recipients (nested).
+	// Registered BEFORE the /api/v1/tenants/* wildcard so the intent is
+	// documented; both paths land in tenancy-service.
+	app.All("/api/v1/tenants/*/report-schedules", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/tenants/*/report-schedules/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/tenants/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/currencies", proxy.Handler(cfg.TenancyServiceURL))
@@ -68,6 +103,26 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/travel-policies/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 13 §A — uniform status-action surface for vehicle + property
+	// (the person-insuring four are covered by the wildcards above).
+	app.All("/api/v1/vehicle-policies/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/property-policies/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §A - IFRS 17 portfolio + cohort CRUD (line-agnostic).
+	app.All("/api/v1/underwriting/portfolios", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/portfolios/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/cohorts", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/cohorts/*", proxy.Handler(cfg.UserServiceURL))
+	// Catch-all for the rest of the underwriting surface (opening-balances
+	// seeds, unit-linked funds + NAV history, variable-fee schedules,
+	// policy unit ledger). Every controller under /api/v1/underwriting/**
+	// lives in user-service today, so this catch-all keeps the gateway
+	// from 404-ing new underwriting endpoints the moment they land in
+	// user-service without needing a matching gateway change.
+	app.All("/api/v1/underwriting", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §C — endorsement CRUD (draft/approve/commit/void/markComputed).
+	app.All("/api/v1/endorsements", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/endorsements/*", proxy.Handler(cfg.UserServiceURL))
 
 	// ── Claims Service ────────────────────────────────────────────────────────
 	app.All("/api/v1/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
@@ -80,6 +135,20 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/drugs/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/drug-claims", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/drug-claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	// Phase 4 claims-financial report family — per-scheme / per-provider
+	// summaries + HIGH_COST_CLAIMANT + PRE_AUTH_ACTIVITY + drill-downs, and
+	// the narrow cross-service /aggregate/claims surface consumed by Phase 5
+	// loss-ratio. Path-specific per Phase 2 deviation §4 rationale.
+	app.All("/api/v1/reports/claims", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/aggregate/claims", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/aggregate/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	// Phase 19 §A Phase 6 — SIU workflow (case queue + case detail + state
+	// transitions) and the fraud / SIU report (4-tile summary + XLSX export).
+	// Both consumed by /tenant/claims/siu/ and /tenant/finance/reports/fraud/
+	// on the Angular tenant portal.
+	app.All("/api/v1/siu/*", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/fraud/*", proxy.Handler(cfg.ClaimsServiceURL))
 
 	// ── Contributions Service ─────────────────────────────────────────────────
 	app.All("/api/v1/schemes", proxy.Handler(cfg.ContribServiceURL))
@@ -90,6 +159,8 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/transactions", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/transactions/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 12 §A — earning-schedule admin surface (backfill / replay / runs).
+	app.All("/api/v1/premium/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/waiting-periods", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/scheme-change-waiting-periods", proxy.Handler(cfg.ContribServiceURL))
@@ -102,6 +173,45 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// Annual cap totals aggregated per (member, scheme, policy year).
 	app.All("/api/v1/beneficiary-annual-totals", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/beneficiary-annual-totals/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 2 billing-report family + cross-service billing aggregate.
+	// /api/v1/reports/billing/* — per-scheme / per-group / per-member (Phase 3 §8) / detail / export.
+	// /api/v1/reports/aggregate/billing — Phase 3 collection-rate and
+	// Phase 5 loss-ratio consumer. Aggregate paths for other families
+	// (receipts / claims) fan out to their owning services.
+	app.All("/api/v1/reports/billing", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/billing", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 3 receipts-report family + cross-service receipts aggregate.
+	// Same shape as billing — receipts summary+detail per scheme/group/member
+	// plus /aggregate/receipts + /aggregate/receipts/monthly consumed by
+	// Phase 3 collection-rate + Phase 8 cash-flow forecast.
+	app.All("/api/v1/reports/receipts", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/receipts/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/receipts", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/receipts/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 8 — 13-week cash-flow forecast. Lives in contributions-service
+	// (inflow = local unpaid-invoice ledger; outflow composed from
+	// finance-service /aggregate/outflows). Path-specific per D8-10.
+	app.All("/api/v1/reports/cash-flow-forecast", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/cash-flow-forecast/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 12 §C Phase 9 — endorsement register report lives in user-service
+	// (endorsement is a user-service entity per G2). Registered BEFORE the
+	// broader /reports/premium/* wildcard so Fiber's registration-order
+	// dispatch routes it to user-service, not contributions-service.
+	app.All("/api/v1/reports/premium/endorsements", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/reports/premium/endorsements/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 13 §C Phase 8 — POLICY_LIFECYCLE report family (POLICY_MOVEMENT,
+	// PERSISTENCY_COHORT, GROUP_CENSUS) lives in user-service (member +
+	// policy + policy_status_history all colocated there per G2).
+	app.All("/api/v1/reports/policy-lifecycle", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/reports/policy-lifecycle/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §B underwriting-report family — UPR movement, premium
+	// register, new business register. Lives in contributions-service
+	// because the earning_schedule table it aggregates over is co-located
+	// with billing (G2 data ownership).
+	app.All("/api/v1/reports/premium", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/premium/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))
@@ -112,21 +222,114 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// shim can respond in-band.
 	app.All("/api/v1/creditors", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/creditors/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/adjustments/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Unified notes ledger — V074 replaced Adjustment / DebitNote / CreditNote
+	// with a single Note entity carrying `direction ∈ {DEBIT, CREDIT}`.
+	app.All("/api/v1/notes", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/notes/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reconciliations/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/payment-advices/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/masca-bank-accounts", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/masca-bank-accounts/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/debit-notes", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/debit-notes/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/credit-notes", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/credit-notes/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/tenant-bank-accounts", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/tenant-bank-accounts/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/advance-payments", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/advance-payments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/ctc-payments", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/ctc-payments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-payables", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-payables/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/member-cost-share-liabilities", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/member-cost-share-liabilities/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 3 collection-rate report — composes billing + receipts monthly
+	// aggregates from contributions-service. Path-specific rather than a
+	// catch-all /api/v1/reports/* so Phase 5+ cross-service reports on
+	// finance-service can add their own siblings without route conflicts.
+	app.All("/api/v1/reports/collection-rate", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/collection-rate/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 8 — portfolio-level collection-rate trend + the narrow
+	// service-to-service planned-outflow feed consumed by the
+	// contributions-service cash-flow forecast. Both path-specific per D8-10.
+	app.All("/api/v1/reports/collection-rate-trend", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/collection-rate-trend/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/aggregate/outflows", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/aggregate/outflows/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 5 cross-service reports — compose billing + receipts + claims
+	// aggregates from contributions-service + claims-service.
+	app.All("/api/v1/reports/billing-vs-claims", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/billing-vs-claims/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/member-payments", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/member-payments/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 6 (V080 D6) — per-payee balance history. Freeze-frame of a
+	// provider's or member's balance at each executed payment run. Entry
+	// point is the "Balance history" button on the creditors detail pages.
+	app.All("/api/v1/reports/balance-history", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/balance-history/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 10 Reinsurance — Reinsurer + Treaty CRUD (nested layer /
+	// participant / applicable-line / cession-rule editors) live in
+	// finance-service. Reports at /api/v1/reports/reinsurance/* land in
+	// Phase 4; adding both prefixes upfront so the Phase 4 backend deploys
+	// don't require a gateway change.
+	app.All("/api/v1/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/reinsurance", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 11 Producer / Broker module — producer CRUD, hierarchy, rate
+	// cards, member↔producer assignments. Commission reports at
+	// /api/v1/reports/commission/* land in Phase 4; adding both prefixes
+	// upfront so the Phase 4 backend deploys don't require a gateway change.
+	app.All("/api/v1/producers", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/producers/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/commission/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Member-side view of the member↔producer assignment (both /assignments
+	// under producer and /producer-assignment under member proxy to finance).
+	app.All("/api/v1/members/*/producer-assignment", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/members/*/producer-assignment/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/commission", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/commission/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 7 Executive KPI dashboard — batch composer + per-key trend +
+	// per-key XLSX export. Lives in finance-service under
+	// /api/v1/reports/kpi/{dashboard, {key}/trend, {key}/export/excel}.
+	app.All("/api/v1/reports/kpi", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/kpi/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 14 §Actuarial Phase 10 — actuarial report family (IBNR, LOSS,
+	// PERSISTENCY, MORTALITY, MORBIDITY, LAPSE). Async job orchestrator
+	// lives in finance-service; the Kafka-mediated compute path lands in
+	// ai-service via the /api/v1/actuarial/* proxy above.
+	//
+	// Actuarial submit endpoints — POST /reports/actuarial/{ibnr,
+	// loss-triangle, persistency-study, mortality-study, morbidity-study,
+	// lapse-study} — plus the XLSX export URL owned by ActuarialReportController
+	// still land here (finance-service). The Phase-15 §22 rename Phase B 301
+	// redirect on /reports/actuarial/jobs/* was removed in §23; the
+	// canonical /reports/jobs/* URL is the sole poll surface now.
+	app.All("/api/v1/reports/actuarial", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/actuarial/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 15 §1 rename canonical — report-key-agnostic job poll + XLSX
+	// export URL that serves both actuarial and IFRS 17 reports.
+	app.All("/api/v1/reports/jobs", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/jobs/*", proxy.Handler(cfg.FinanceServiceURL))
+	// ── Phase 17 §B.2 — Scheduled report delivery ──────────────────────────
+	// Signed-link download is a public route (JWT bypass in middleware/jwt.go)
+	// authenticated by the HMAC token minted by notification-service.
+	// Rerun + force-fire are authenticated (JWT enforced).
+	app.Get("/api/v1/reports/scheduled/:jobId/download", proxy.Handler(cfg.FinanceServiceURL))
+	app.Post("/api/v1/reports/scheduled/:jobId/rerun", proxy.Handler(cfg.FinanceServiceURL))
+	app.Post("/api/v1/reports/scheduled/probe/force-fire", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 17 §C.1 — tenant-admin history + in-app download for the
+	// schedule detail accordion. Both authenticated (JWT + permission
+	// gate); tenant scope is the standard X-Tenant-ID header flow.
+	app.Get("/api/v1/reports/scheduled/schedules/:scheduleId/runs", proxy.Handler(cfg.FinanceServiceURL))
+	app.Get("/api/v1/reports/scheduled/runs/:jobId/download", proxy.Handler(cfg.FinanceServiceURL))
+	// Unsubscribe is a public route (JWT bypass) — the URL is clicked from a
+	// delivery email so it cannot require login. Proxied to tenancy-service.
+	app.Post("/api/v1/report-schedule-recipients/unsubscribe/:token", proxy.Handler(cfg.TenancyServiceURL))
+
+	// ── Regulatory reports (Phase 16 §B, Phase 18, Phase 22-23) ──────────────
+	// Covers due-dates banner, AML STR periodic + alert queue, PMB spend,
+	// IPEC quarterly, CMS ASR, NAIC schedule-F / schedule-P, tax VAT /
+	// withheld returns, and regulatory submissions archive. Every path
+	// under these two prefixes is finance-service owned.
+	app.All("/api/v1/reports/regulatory", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/regulatory", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
@@ -140,9 +343,32 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/notifications", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/notifications/*", proxy.Handler(cfg.UserServiceURL))
 
+	// ── AI Service (Python) ───────────────────────────────────────────────────
+	// Phase 14 §Actuarial Phase 6 — read-only catalogue of mortality +
+	// morbidity reference tables feeding the tenant-admin basis-picker
+	// dropdowns. Additional actuarial compute endpoints land in later
+	// phases and reuse this /api/v1/actuarial/* wildcard.
+	app.All("/api/v1/actuarial", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/actuarial/*", proxy.Handler(cfg.AiServiceURL))
+
+	// AI predictions review — Tranche 0 pilot readiness (Phase 7). Tenant
+	// admins browse every AI prediction persisted for their tenant, filter,
+	// and record an accept / override decision.
+	app.All("/api/v1/ai/predictions", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/ai/predictions/*", proxy.Handler(cfg.AiServiceURL))
+
+	// AI model registry — Tranche 1 Phase 5. Tenant admins view the
+	// currently-active fraud/pricing model per line and (with the
+	// ai:models:promote permission) flip the manifest to promote a new
+	// version. The AI service enforces the permission via the
+	// X-User-Permissions header set by the gateway JWT middleware.
+	app.All("/api/v1/ai/models", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/ai/models/*", proxy.Handler(cfg.AiServiceURL))
+
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/audit/*", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/files/*", proxy.Handler(cfg.FileServiceURL))
 	app.All("/api/v1/pay/*", proxy.Handler(cfg.PaymentServiceURL))
 }
+

@@ -7,6 +7,8 @@ import {
   WaitingPeriodService,
 } from '../../../../core/services/waiting-period.service';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-scheme-change-waiting-periods-list',
@@ -18,7 +20,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class SchemeChangeWaitingPeriodsListComponent implements OnInit {
   rows: SchemeChangeWaitingPeriod[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -53,13 +54,16 @@ export class SchemeChangeWaitingPeriodsListComponent implements OnInit {
     },
   ];
 
-  constructor(private service: WaitingPeriodService, private router: Router) {}
+  constructor(
+    private service: WaitingPeriodService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.service.listSchemeChangePaged({
       q: this.searchTerm || undefined,
       sortKey: this.sortKey,
@@ -74,7 +78,7 @@ export class SchemeChangeWaitingPeriodsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load scheme-change waiting periods';
+        this.toast.error(extractErrorMessage(err, 'Failed to load scheme-change waiting periods'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -106,7 +110,7 @@ export class SchemeChangeWaitingPeriodsListComponent implements OnInit {
     this.service.deleteSchemeChange(r.id).subscribe({
       next: () => this.fetchPage(),
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
       },
     });
   }

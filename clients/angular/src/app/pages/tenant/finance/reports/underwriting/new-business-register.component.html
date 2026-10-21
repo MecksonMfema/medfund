@@ -1,0 +1,138 @@
+<header class="page-header">
+  <div>
+    <h1>New business register</h1>
+    <p class="page-sub">
+      One row per policy (or first-Contribution for HEALTH) that bound
+      within the reporting window. Native amounts; per-currency strip
+      shows subtotals with best-effort FX conversion.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [ngModel]="insuranceLine"
+      (selectionChange)="onLineChange($event)"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (perCurrencyList().length) {
+  <div class="kpi-strip">
+    @for (bucket of perCurrencyList(); track bucket.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ bucket.currency }} new business (native)</span>
+        <span class="kpi-value">{{ bucket.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ bucket.rowCount }} row{{ bucket.rowCount === 1 ? '' : 's' }}</span>
+      </div>
+    }
+    @for (fx of fxRateList(); track fx.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">FX {{ fx.currency }} → {{ envelope?.reportingCurrency }}</span>
+        <span class="kpi-value">{{ fx.rate | number:'1.4-6' }}</span>
+      </div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <div class="detail-section" aria-busy="true" aria-live="polite">
+    <app-skeleton variant="line" width="30%" height="18px"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <span class="visually-hidden">Loading new business register…</span>
+  </div>
+} @else if (activeRows.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No new business bound</div>
+    <div class="empty-state__description">
+      No policy was bound in the selected window for the chosen line. Widen the
+      period or drop the line filter to surface any new-business activity.
+    </div>
+  </div>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Member #</th>
+        <th>Member name</th>
+        <th>Line</th>
+        <th>Scheme</th>
+        <th>Portfolio</th>
+        <th>Cohort</th>
+        <th>Bound at</th>
+        <th class="num">Written premium</th>
+        <th>Currency</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.policyId) {
+        <tr>
+          <td>{{ row.memberNumber || '-' }}</td>
+          <td>{{ row.memberName || '-' }}</td>
+          <td>{{ insuranceLineLabel(row.insuranceLine) }}</td>
+          <td>{{ row.schemeName || '-' }}</td>
+          <td>{{ row.portfolioName || '-' }}</td>
+          <td>{{ row.cohortName || '-' }}</td>
+          <td>{{ row.boundAt | date:'yyyy-MM-dd' }}</td>
+          <td class="num">{{ row.writtenPremium }}</td>
+          <td>{{ row.currencyCode }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

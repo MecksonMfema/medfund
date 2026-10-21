@@ -1,0 +1,107 @@
+<header class="page-header">
+  <div>
+    <h1>Collection-rate trend</h1>
+    <p class="page-sub">
+      Portfolio-level monthly collection rate per currency: receipts divided by committed billing,
+      summed across all schemes, groups and members. Never cross-currency conversion in the rate
+      itself.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading || !envelope"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="report-loading" aria-busy="true" aria-live="polite">
+    <div class="chart-wrap">
+      <app-skeleton variant="line" width="40%" height="16px"></app-skeleton>
+      <app-skeleton variant="card" height="220px"></app-skeleton>
+    </div>
+    <div class="report-loading__rows">
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+    </div>
+    <span class="visually-hidden">Loading collection-rate trend…</span>
+  </div>
+} @else if (envelope && envelope.data.months.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No billing or receipts activity</div>
+    <div class="empty-state__description">
+      No billing was committed or receipts recorded across the selected months.
+      Widen the period or switch the reporting currency to plot a trend.
+    </div>
+  </div>
+} @else if (envelope) {
+  @if (chartSeries.length > 0) {
+    <div class="chart-wrap">
+      <app-line-chart
+        [data]="chartSeries"
+        xAxisLabel="Month"
+        yAxisLabel="Rate %"
+        [legend]="chartSeries.length > 1"
+        legendTitle="Currency"
+        [view]="[undefined, 320]"
+      ></app-line-chart>
+    </div>
+  }
+
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Currency</th>
+        <th class="num">Billed</th>
+        <th class="num">Received</th>
+        <th class="num">Rate %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (m of envelope.data.months; track m.month + '-' + m.currencyCode) {
+        <tr>
+          <td>{{ m.month }}</td>
+          <td>{{ m.currencyCode }}</td>
+          <td class="num">{{ m.billed | number:'1.2-2' }}</td>
+          <td class="num">{{ m.received | number:'1.2-2' }}</td>
+          <td class="num">{{ m.ratePct !== null && m.ratePct !== undefined ? (m.ratePct | number:'1.2-2') + '%' : '-' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

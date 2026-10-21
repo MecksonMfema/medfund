@@ -332,6 +332,10 @@ CREATE TABLE diagnosis_procedure_mappings (
 
 ### Provider AHFOZ Registration
 
+> **Note**: `ProviderFact.inNetwork` and `ProviderFact.networkTier` are populated by
+> `ClaimFactBuilder` from the current tenant's `public.provider_tenants` row, so Drools
+> rules may key on them. A provider with no membership row for the tenant leaves both null.
+
 ```sql
 -- Provider AHFOZ details (within user/provider table)
 -- These fields are part of the providers table:

@@ -36,6 +36,10 @@ class SchemeControllerTest {
     @MockBean
     private com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
 
+    // V076 — cost-share config CRUD wired onto SchemeController.
+    @MockBean
+    private com.medfund.contributions.service.SchemeCostShareService schemeCostShareService;
+
     @Test
     void findAll_returns200() {
         when(schemeService.findAll()).thenReturn(Flux.just(createTestScheme()));

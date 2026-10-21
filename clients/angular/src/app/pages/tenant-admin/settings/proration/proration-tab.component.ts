@@ -12,6 +12,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface StrategyOption {
   value: ProrationStrategy;
@@ -37,7 +39,6 @@ interface StrategyOption {
 export class TenantProrationTabComponent implements OnInit {
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   config: TenantProrationConfig | null = null;
@@ -50,18 +51,19 @@ export class TenantProrationTabComponent implements OnInit {
   incrementWaitDays: number | null = null;
 
   readonly strategyOptions: StrategyOption[] = [
-    { value: 'NONE',                        label: 'NONE',                        description: 'No proration — use the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
-    { value: 'DELTA_CREDIT',                label: 'DELTA_CREDIT',                description: 'newLimit − consumedAcrossAnyScheme, floored at 0. Simplest safe correction.' },
-    { value: 'RATIO_CARRY',                 label: 'RATIO_CARRY',                 description: '(oldRemaining / oldLimit) × newLimit. MASCA-style transfer of the spending ratio.' },
-    { value: 'CALENDAR',                    label: 'CALENDAR',                    description: 'newLimit × (daysRemainingInYear / daysInYear) − consumedUnderNewScheme.' },
-    { value: 'SPLIT_YEAR',                  label: 'SPLIT_YEAR',                  description: 'Two budgets on either side of the effective date. Same math as CALENDAR for the new-scheme bucket.' },
-    { value: 'WAITING_PERIOD_ON_INCREMENT', label: 'WAITING_PERIOD_ON_INCREMENT', description: 'The increment unlocks only after N days from the change (see wait-days field).' },
-    { value: 'HYBRID_BY_DIRECTION',         label: 'HYBRID_BY_DIRECTION',         description: 'Use different strategies for upgrade / downgrade / currency-change. Configure below.' },
+    { value: 'NONE',                        label: 'None',                        description: 'No proration. Uses the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
+    { value: 'DELTA_CREDIT',                label: 'Delta credit',                description: 'newLimit - consumedAcrossAnyScheme, floored at 0. Simplest safe correction.' },
+    { value: 'RATIO_CARRY',                 label: 'Ratio carry',                 description: '(oldRemaining / oldLimit) x newLimit. MASCA-style transfer of the spending ratio.' },
+    { value: 'CALENDAR',                    label: 'Calendar',                    description: 'newLimit x (daysRemainingInYear / daysInYear) - consumedUnderNewScheme.' },
+    { value: 'SPLIT_YEAR',                  label: 'Split year',                  description: 'Two budgets on either side of the effective date. Same math as Calendar for the new-scheme bucket.' },
+    { value: 'WAITING_PERIOD_ON_INCREMENT', label: 'Waiting period on increment', description: 'The increment unlocks only after N days from the change (see wait-days field).' },
+    { value: 'HYBRID_BY_DIRECTION',         label: 'Hybrid by direction',         description: 'Use different strategies for upgrade / downgrade / currency-change. Configure below.' },
   ];
 
   constructor(
     private prorationService: ProrationService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -71,11 +73,10 @@ export class TenantProrationTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.prorationService.get(tenantId).subscribe({
       next: config => {
         this.config = config;
@@ -83,7 +84,7 @@ export class TenantProrationTabComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = extractError(err);
+        this.toast.error(extractErrorMessage(err, 'Failed to update proration config'));
         this.loading = false;
       },
     });
@@ -93,7 +94,6 @@ export class TenantProrationTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
 
     // Direction overrides only ship when the parent strategy is HYBRID_BY_DIRECTION,
@@ -116,7 +116,7 @@ export class TenantProrationTabComponent implements OnInit {
         this.successMessage = 'Proration config saved';
       },
       error: err => {
-        this.errorMessage = extractError(err);
+        this.toast.error(extractErrorMessage(err, 'Failed to update proration config'));
         this.saving = false;
       },
     });
@@ -160,12 +160,4 @@ export class TenantProrationTabComponent implements OnInit {
     this.currencyStrategy = (config.currencyStrategy ?? '') as DirectionalStrategy | '';
     this.incrementWaitDays = config.incrementWaitDays;
   }
-}
-
-function extractError(err: unknown): string {
-  if (err && typeof err === 'object' && 'error' in err) {
-    const e = (err as { error?: { message?: string } }).error;
-    if (e?.message) return e.message;
-  }
-  return 'Failed to update proration config';
 }

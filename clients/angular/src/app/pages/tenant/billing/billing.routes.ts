@@ -186,7 +186,7 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
       title: 'Adjustment Transactions',
-      description: 'Transactions posted as adjustments — manual debits/credits applied to contributions or balances.',
+      description: 'Transactions posted as adjustments: manual debits/credits applied to contributions or balances.',
       presetTransactionType: 'ADJUSTMENT',
       sidebar: 'operational',
       fullbleed: true,
@@ -222,7 +222,7 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
       title: 'Debit / Credit Transactions',
-      description: 'Balance-changing entries — manual debits and credits not tied to a payment run.',
+      description: 'Balance-changing entries: manual debits and credits not tied to a payment run.',
       presetTransactionType: 'DEBIT_CREDIT',
       sidebar: 'operational',
       fullbleed: true,
@@ -234,7 +234,7 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
       title: 'CTC Transactions',
-      description: 'Claims-to-Contributions offsets — approved member claim amounts applied against the same member\'s outstanding contributions.',
+      description: 'Claims-to-Contributions offsets: approved member claim amounts applied against the same member\'s outstanding contributions.',
       presetTransactionType: 'CTC',
       sidebar: 'operational',
       fullbleed: true,

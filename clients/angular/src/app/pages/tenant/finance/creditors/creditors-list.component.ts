@@ -9,6 +9,7 @@ import {
   CreditorSubjectType,
   FinancePageResponse,
   FinanceService,
+  ReportResponse,
 } from '../../../../core/services/finance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
@@ -16,6 +17,7 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type SubjectTabValue = CreditorSubjectType | 'BOTH';
 
@@ -41,7 +43,6 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
   rows: CreditorRow[] = [];
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   // Subject-type tab strip. BOTH is the natural landing view; the two
   // typed tabs let an operator focus one half without changing the
@@ -142,7 +143,6 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     const opts: CreditorPageParams = {
       subjectType: this.activeTab,
       currencyCode: this.selectedCurrency || undefined,
@@ -153,14 +153,15 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
       size: this.pageSize,
     };
     this.finance.listCreditorsPaged(opts).subscribe({
-      next: (resp: FinancePageResponse<CreditorRow>) => {
-        this.rows       = resp.content;
-        this.totalCount = resp.total;
-        this.totalPages = resp.totalPages;
+      next: (envelope: ReportResponse<FinancePageResponse<CreditorRow>>) => {
+        const page = envelope.data;
+        this.rows       = page.content;
+        this.totalCount = page.total;
+        this.totalPages = page.totalPages;
         this.loading    = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load creditors';
+        this.toast.error(extractErrorMessage(err, 'Failed to load creditors'));
         this.rows       = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -222,7 +223,7 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
         this.exporting = false;
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to export creditors');
+        this.toast.error(extractErrorMessage(err, 'Failed to export creditors'));
         this.exporting = false;
       },
     });

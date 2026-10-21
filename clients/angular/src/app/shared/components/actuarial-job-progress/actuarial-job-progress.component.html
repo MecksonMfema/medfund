@@ -1,0 +1,48 @@
+@if (status) {
+  <div class="ajp"
+       [class.ajp-processing]="!isTerminal"
+       [class.ajp-completed]="status.status === 'completed'"
+       [class.ajp-failed]="status.status === 'failed'"
+       role="status"
+       aria-live="polite">
+    <div class="ajp-lead">
+      @if (!isTerminal) {
+        <span class="ajp-spinner" aria-hidden="true"></span>
+      } @else if (status.status === 'completed') {
+        <app-icon name="check-circle" [size]="18"></app-icon>
+      } @else {
+        <app-icon name="alert-circle" [size]="18"></app-icon>
+      }
+      <div class="ajp-text">
+        <span class="ajp-label">{{ statusLabel }}</span>
+        @if (!isTerminal) {
+          <span class="ajp-elapsed">{{ elapsedSec }}s elapsed</span>
+        }
+      </div>
+    </div>
+
+    <div class="ajp-bar" aria-hidden="true">
+      <div class="ajp-bar-fill" [style.width.%]="progressPct"></div>
+    </div>
+
+    <div class="ajp-meta">
+      <span class="ajp-job">
+        Job:
+        <button type="button" class="ajp-job-id" (click)="copyJobId()"
+                [attr.aria-label]="'Copy job id ' + status.jobId">
+          {{ status.jobId }}
+        </button>
+        @if (copied) { <span class="ajp-copied">Copied</span> }
+      </span>
+      @if (!isTerminal) {
+        <button type="button" class="ajp-cancel" (click)="onCancel()">
+          Cancel polling
+        </button>
+      }
+    </div>
+
+    @if (status.status === 'failed' && status.errorMessage) {
+      <div class="ajp-error">{{ status.errorMessage }}</div>
+    }
+  </div>
+}

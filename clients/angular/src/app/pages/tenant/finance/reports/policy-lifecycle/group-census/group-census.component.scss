@@ -1,0 +1,51 @@
+/* Two-band styling so Principals and Dependants read as distinct swim
+ * lanes rather than one continuous run of look-alike status counts. The
+ * super-headers carry a tint from the shared badge palette; the last
+ * numeric column of each band carries a bold right border and bolder
+ * font weight so the eye lands on the group totals without help. */
+.census-table {
+  th,
+  td {
+    padding: 10px 12px;
+  }
+
+  th.num,
+  td.num {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  th.super-principals {
+    background: var(--color-info-light);
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-info);
+  }
+
+  th.super-dependants {
+    background: var(--color-warning-light);
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-warning);
+  }
+
+  /* Column indices:
+   *   1  Holder, 2 Type, 3 Registration
+   *   4-8   Principals  (Active, Suspended, Lapsed, Terminated, Total)
+   *   9-13  Dependants  (Active, Suspended, Lapsed, Terminated, Total)
+   *   14 Covered lives
+   *
+   * The second header row omits the four rowspan cells (Holder, Type,
+   * Registration, Covered lives), so its indices are 1-5 for Principals
+   * and 6-10 for Dependants.
+   */
+  thead tr:nth-child(2) th:nth-child(5),
+  thead tr:nth-child(2) th:nth-child(10),
+  tbody td:nth-child(8),
+  tbody td:nth-child(13) {
+    border-right: 2px solid var(--color-border);
+  }
+
+  tbody td:nth-child(8),
+  tbody td:nth-child(13) {
+    font-weight: var(--font-weight-semibold);
+  }
+}

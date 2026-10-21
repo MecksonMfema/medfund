@@ -99,7 +99,9 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 | `/admin/rules` | Business Rules | Configure adjudication rules, billing rules, waiting periods, exclusions |
 | `/admin/rules/test` | Rule Testing | Dry-run rules against sample claims to validate behavior |
 | `/admin/currencies` | Currency Config | Select supported currencies, set default, configure exchange rate source |
-| `/admin/providers` | Provider Network | Manage in-network providers, invite new providers |
+| `/admin/settings#bank-accounts` | Bank Accounts | Configure the tenant's own bank accounts (label + currency + nomination) used for outbound payment-run disbursements and inbound receipt matching. Gated on `admin.bank_accounts:manage` |
+| `/admin/providers` | Provider Network | Manage in-network providers, invite new providers. Phase 13 §A adds an inline `network_tier` dropdown per row (STANDARD / TIER_1 / TIER_2 / TIER_3) — persisted via `PATCH /api/v1/providers/{id}` and consumed by the PROVIDER_NETWORK_UTILIZATION report as the tier grouping dimension. |
+| `/tenant/policies/{line}/:id` | Policy Detail | Phase 13 §A: per-line policy detail pages carry a shared status-action row (**Lapse / Terminate / Suspend / Reinstate**) filtered by current status. Each action opens the shared `PolicyStatusActionModalComponent` with a reason-code dropdown driven by the per-line vocab in `PolicyLifecycleActionRegistryService` (LIFE adds MORTALITY; VEHICLE adds SOLD/TOTAL_LOSS/STORAGE_SUSPEND; TRAVEL adds TRIP_CANCELLED; etc.). Every action writes to `policy_status_history` in the same reactive transaction as the policy update and emits a `medfund.user.policy-status-changed` Kafka event that contributions-service consumes to freeze / close / reinstate the earning strip. |
 | `/admin/templates` | Notification Templates | Customize email/SMS templates with tenant branding |
 | `/admin/ai-config` | AI Settings | Auto-adjudication thresholds, enable/disable AI features |
 | `/admin/audit` | Audit Log | All actions within the tenant (who did what, when) |
@@ -109,70 +111,80 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 
 ---
 
-## 3. Operations Portal (Angular: `/claims/*`, `/finance/*`, `/contributions/*`)
+## 3. Operations Portal (Angular: `/tenant/claims/*`, `/tenant/finance/*`, `/tenant/billing/*`)
 
 **Audience**: Day-to-day operational staff of the medical aid society.
 
 **Keycloak Realm**: `tenant-{slug}`
 
-### Claims Operations (`/claims/*`)
+### Claims Operations (`/tenant/claims/*`)
 
 **Roles**: `claims_clerk`, `adjudicator`, `claims_supervisor`
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/claims/dashboard` | Claims Dashboard | Pending, approved, rejected counts. AI recommendation accuracy |
-| `/claims/queue` | Adjudication Queue | Claims awaiting review, sorted by priority/AI confidence |
-| `/claims/queue/:id` | Adjudication Workspace | Claim details + AI recommendation + reasoning + similar claims + member history. Approve/reject/modify actions |
-| `/claims/submissions` | All Claims | Searchable list of all claims with filters (status, date, provider, member) |
-| `/claims/submissions/:id` | Claim Detail | Full claim view with timeline, documents, adjudication history |
-| `/claims/pre-auth` | Pre-Authorizations | Pending pre-auth requests, approve/reject |
-| `/claims/tariffs` | Tariff Management | View/edit tariff codes and rates |
-| `/claims/drug-claims` | Drug Claims | Drug-specific claim queue and management |
-| `/claims/rejections` | Rejection Reasons | Manage rejection reason codes |
-| `/claims/reports` | Claims Reports | Approval rate, average processing time, top rejection reasons, provider analysis |
-| `/claims/fraud-flags` | Fraud Alerts | AI-flagged suspicious claims and patterns |
+| `/tenant/claims/dashboard` | Claims Dashboard | Pending, approved, rejected counts. AI recommendation accuracy |
+| `/tenant/claims/queue` | Adjudication Queue | Claims awaiting review, sorted by priority/AI confidence |
+| `/tenant/claims/queue/:id` | Adjudication Workspace | Claim details + AI recommendation + reasoning + similar claims + member history. Approve/reject/modify actions |
+| `/tenant/claims` | All Claims | Searchable list of all claims with filters (status, date, provider, member) |
+| `/tenant/claims/:id` | Claim Detail | Full claim view with timeline, documents, adjudication history |
+| `/tenant/claims/preauth` | Pre-Authorizations | Pending pre-auth requests, approve/reject |
+| `/tenant/claims/tariffs` | Tariff Management | View/edit tariff codes and rates |
+| `/tenant/claims/drug-claims` | Drug Claims | Drug-specific claim queue and management |
+| `/tenant/claims/rejections` | Rejection Reasons | Manage rejection reason codes |
+| `/tenant/claims/reports` | Claims Reports | Approval rate, average processing time, top rejection reasons, provider analysis |
+| `/tenant/claims/fraud-flags` | Fraud Alerts | AI-flagged suspicious claims and patterns |
+| `/tenant/claims/siu` | SIU Cases | Special Investigations Unit workqueue for flagged claims |
 
-### Finance Operations (`/finance/*`)
+### Finance Operations (`/tenant/finance/*`)
 
 **Roles**: `finance_clerk`, `finance_hod`, `finance_supervisor`
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/finance/dashboard` | Finance Dashboard | Pending payments, balances, cash flow summary (live via Elixir WebSocket) |
-| `/finance/payments` | Payment List | All payments with status filters, currency filters |
-| `/finance/payment-runs` | Payment Runs | Create/execute batch payment runs |
-| `/finance/payment-runs/new` | New Payment Run | Select claims to include, preview amounts, execute |
-| `/finance/payment-runs/:id` | Payment Run Detail | Payments in run, totals by currency, status |
-| `/finance/provider-balances` | Provider Balances | Outstanding balances per provider per currency |
-| `/finance/member-refunds` | Member Refunds | Process refunds to members |
-| `/finance/adjustments` | Adjustments | Create payment adjustments (linked to tickets) |
-| `/finance/bank-reconciliation` | Bank Reconciliation | Match bank statements against recorded transactions |
-| `/finance/debit-notes` | Debit Notes | Issue and manage debit notes |
-| `/finance/credit-notes` | Credit Notes | Issue and manage credit notes |
-| `/finance/reports` | Financial Reports | Exportable reports (P&L, balance sheet, provider aging, payment summary) |
-| `/finance/forecasting` | AI Forecasting | Cash flow predictions, reserve adequacy (AI-generated) |
+| `/tenant/finance/dashboard` | Finance Dashboard | Pending payments, balances, cash flow summary (live via Elixir WebSocket) |
+| `/tenant/finance/payments` | Payment List | All payments with status filters, currency filters (direct URL / legacy bookmarks) |
+| `/tenant/finance/runs` | Payment Runs | Create/execute batch payment runs |
+| `/tenant/finance/runs/:id` | Payment Run Detail | Payments in run, totals by currency, status |
+| `/tenant/finance/payouts/producer` | Producer Payouts | PRODUCER-typed payment runs (commission payouts) |
+| `/tenant/finance/creditors` | Creditors | Outstanding balances per provider per currency |
+| `/tenant/finance/payments/advance` | Advance Payments | Prepayments to providers or members |
+| `/tenant/finance/payments/ctc` | CTC Payments | Contribution-offset (CTC) payments where the member has opted in |
+| `/tenant/finance/notes` | Notes | Unified list of debit + credit + memo notes with direction / type / status filter chips; create, approve, apply, reverse |
+| `/tenant/finance/reconciliations` | Bank Reconciliation | Match bank statements against recorded transactions |
+| `/tenant/finance/advice` | Payment Advice | Payment advice documents for creditor settlements |
+| `/tenant/finance/copayments` | Cost-share receipts | Member cost-share receipts |
+| `/tenant/finance/member-liabilities` | Member Liabilities | Member liability positions |
+| `/tenant/finance/reports` | Financial Reports | Exportable reports (P&L, balance sheet, provider aging, payment summary) |
+| `/tenant/finance/reports/kpi` | Executive KPIs | Combined ratio, loss ratio, acquisition ratio, claims frequency, average severity |
+| `/tenant/finance/reinsurance/facultative` | Facultative reinsurance | Cedable-claims + cession-queue tabs; row actions and cede form permission-gated |
+| `/tenant/finance/reinsurance/review-queue` | Reinsurance Review Queue | Cedent review workqueue |
+| `/tenant/finance/commission/corrections` | Commission corrections | Four-eyes commission-correction queue; renamed from Adjustments so it no longer collides with billing notes / tariff modifiers / policy endorsements |
+| `/tenant/finance/underwriting/endorsements/review-queue` | Endorsement Review | Endorsement four-eyes review queue |
 
-### Contributions Operations (`/contributions/*`)
+### Billing Operations (`/tenant/billing/*` — was `/contributions/*` before consolidation)
 
 **Roles**: `contributions_clerk`, `contributions_supervisor`
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/contributions/dashboard` | Contributions Dashboard | Collection rate, outstanding amounts, upcoming billing cycles |
-| `/contributions/billing-runs` | Billing Runs | Generate monthly/quarterly contribution invoices |
-| `/contributions/billing-runs/:id` | Billing Run Detail | Member contributions breakdown, group totals |
-| `/contributions/groups` | Group Management | View/manage employer groups, balances, contact details |
-| `/contributions/groups/:id` | Group Detail | Group members, contribution history, balance, transactions |
-| `/contributions/members` | Member Management | Member list with scheme, status, balance, membership type (group/individual) |
-| `/contributions/members/:id` | Member Detail | Full member profile, dependants, scheme, benefits, contribution history |
-| `/contributions/members/pending` | Pending Registrations | Individual self-registrations awaiting verification (if tenant requires approval) |
-| `/contributions/individual-billing` | Individual Billing | Billing run for individual members (separate from group billing) |
-| `/contributions/transactions` | Transactions | Record payments, view transaction history |
-| `/contributions/invoices` | Invoices | Generate/send contribution invoices |
-| `/contributions/scheme-changes` | Scheme Changes | Process member scheme upgrades/downgrades |
-| `/contributions/bad-debts` | Bad Debts | Track and manage unpaid contributions |
-| `/contributions/reports` | Contribution Reports | Collection rates, aging analysis, group compliance |
+| `/tenant/dashboard` | Operations Dashboard | Collection rate, outstanding amounts, upcoming billing cycles |
+| `/tenant/billing/generate` | Generate | Generate monthly/quarterly contribution invoices |
+| `/tenant/billing/generate/:id` | Billing Run Detail | Member contributions breakdown, group totals |
+| `/tenant/billing/groups` | Group Management | View/manage employer groups, balances, contact details |
+| `/tenant/billing/groups/:id` | Group Detail | Group members, contribution history, balance, transactions |
+| `/tenant/members` | Member Management | Member list with scheme, status, balance, membership type (group/individual) |
+| `/tenant/members/:id` | Member Detail | Full member profile, dependants, scheme, benefits, contribution history |
+| `/tenant/members/pending` | Pending Registrations | Individual self-registrations awaiting verification (if tenant requires approval) |
+| `/tenant/billing/transactions` | Transactions | Record payments, view transaction history |
+| `/tenant/billing/transactions/add` | Record Transaction | Record a single member/group payment |
+| `/tenant/billing/schemes` | Schemes | Manage schemes / plans / packages (tenant-labelled) |
+| `/tenant/billing/age-groups` | Age Groups | Age-band contribution rate tiers |
+| `/tenant/billing/view` | Contribution Statements | Per-member / per-group contribution statement view |
+| `/tenant/billing/ledger` | Ledger | Contributions subledger |
+| `/tenant/billing/debtors` | Debtors | Members / groups with outstanding balances |
+| `/tenant/billing/bad-debts` | Bad Debts | Track and manage unpaid contributions |
+| `/tenant/billing/charge-preview` | Charge Preview | Preview upcoming charges before generation |
 
 ### Tickets (`/tickets/*`)
 
@@ -192,7 +204,12 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 
 **Audience**: Healthcare providers (hospitals, clinics, pharmacies, opticians).
 
-**Keycloak Realm**: Each provider has accounts in every tenant realm they serve. A provider user can belong to multiple tenant realms. The Angular app shows a **tenant switcher** in the header.
+**Keycloak Realm**: A provider has a single identity in the `medfund-platform`
+Keycloak realm. The Angular app fetches their `public.provider_tenants` list
+after login and shows a tenant switcher in the header. When switching tenants,
+the same session is scoped by an `X-Tenant-ID` header on every subsequent
+request. (Provider self-service portal + Flutter provider mode are unbuilt as of
+2026-09-20; see `thoughts/shared/plans/` for status.)
 
 **Role**: `provider`, `provider_admin`
 
@@ -508,13 +525,11 @@ finance.payment_runs:read            — View payment runs
 finance.payment_runs:write           — Create payment runs
 finance.payment_runs:approve         — Approve/execute payment runs
 finance.provider_balances:read       — View provider balances
-finance.adjustments:read             — View adjustments
-finance.adjustments:write            — Create adjustments
-finance.adjustments:approve          — Approve adjustments
-finance.debit_notes:read             — View debit notes
-finance.debit_notes:write            — Create/edit debit notes
-finance.credit_notes:read            — View credit notes
-finance.credit_notes:write           — Create/edit credit notes
+finance.notes:read                   — View notes (V074 unified debit/credit/memo)
+finance.notes:write                  — Create notes
+finance.notes:approve                — Approve, apply, or reverse notes
+# Legacy: finance:post_adjustments auto-expands to the three finance.notes:* keys above
+# via DefaultPermissionResolver — retained for one release, do not assign to new roles.
 finance.reconciliation:read          — View reconciliation
 finance.reconciliation:write         — Perform reconciliation
 finance.reports:read                 — View finance reports
@@ -574,6 +589,7 @@ admin.membership_model:read          — View membership model
 admin.membership_model:configure     — Change membership model
 admin.payments_config:read           — View payment provider config
 admin.payments_config:configure      — Change payment provider settings
+admin.bank_accounts:manage           — Configure tenant bank accounts (outbound disbursements + inbound receipt matching)
 admin.audit:read                     — View tenant audit log
 admin.billing:read                   — View platform subscription/billing
 
@@ -840,11 +856,21 @@ Tenant admins can customize the look and feel of their **Angular web portals** (
 | | Footer text | Email footer (address, contact info, legal) | Tenant defaults |
 | **Custom Domain** | Domain | `portal.zmmas.co.zw` instead of `zmmas.medfund.healthcare` | `{slug}.medfund.healthcare` |
 
-### What is NOT Customizable
+### Per-tenant nav / feature customization
 
-- Page structure, navigation items, component behavior — these are platform-defined
-- Flutter mobile/web app UI layout — remains generic InsureFlow design (only logo + colors adapt)
-- Super admin portal — always uses InsureFlow platform branding
+Tenants control which operations-portal sidebar items are visible without any code change:
+
+- **Insurance lines** (Vehicles, Life, Funeral, Travel, Disability, Properties) surface only when the tenant has that line enabled in `settings.insuranceLines`.
+- **Membership model** — `INDIVIDUAL_ONLY` tenants never see the Groups row; `GROUP_ONLY` tenants still see it.
+- **Drug claims** — the `drugClaimsEnabled` flag hides drug-claims-only items.
+- **Report catalogue** — each report on `/tenant/admin/settings/reports` toggles off both the sidebar row and the underlying `@RequiresReport` endpoints.
+- **Sidebar visibility** — `/tenant/admin/settings/sidebar-visibility` (V179 `public.tenant_sidebar_section_config`) lets tenant admins disable individual sidebar items keyed by `SidebarSectionKey`. Absent row = enabled, so newly-shipped items appear without a per-tenant migration. Overview / Dashboard has no `sectionKey` so it is always visible.
+
+### What remains platform-defined
+
+- Nav item labels, groupings, routes, component behavior — these are shipped in the Angular `OPERATIONAL_NAV` config; per-tenant renaming or reordering is not supported.
+- Flutter mobile/web app UI layout — remains generic InsureFlow design (only logo + colors adapt).
+- Super admin portal — always uses InsureFlow platform branding.
 
 ### Branding Configuration Schema
 

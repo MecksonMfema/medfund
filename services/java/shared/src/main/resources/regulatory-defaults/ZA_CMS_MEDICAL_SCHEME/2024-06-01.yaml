@@ -1,0 +1,23 @@
+# CMS Annual Statutory Return solvency + cost-ratio defaults for
+# ZA_CMS_MEDICAL_SCHEME insurers (Phase 16 §A / Phase 11).
+# Effective from 2024-06-01. Tenant admins can override any of these via
+# rules-engine RuleCategory.REGULATORY_PARAMETER (Phase 15 wiring) — the
+# calculator resolves rules-engine first, falls back here, throws otherwise.
+#
+# Sources (synthetic — hand-approximated from Medical Schemes Act 131 of 1998
+# + CMS annual reports pending compliance-domain sign-off per parent-plan
+# "Owed back" list):
+#   - min_solvency_ratio: statutory minimum accumulated-funds ratio (25%)
+#   - non_healthcare_cost_target: CMS-recommended ceiling for non-healthcare
+#     spend as a fraction of gross contributions
+#   - broker_fees_cap: statutory cap on broker fees per member per month
+#     (expressed here as a fraction of gross contributions for aggregate check)
+# All ratios are decimal (0.25 = 25%).
+
+jurisdiction: ZA_CMS_MEDICAL_SCHEME
+effective_from: 2024-06-01
+parameters:
+  min_solvency_ratio: 0.25
+  non_healthcare_cost_target: 0.10
+  broker_fees_cap: 0.03
+  managed_care_fees_cap: 0.06

@@ -263,9 +263,9 @@ export class AdminComponent implements OnInit {
   }
 
   formatDisplay(value: string | null | undefined): string {
-    if (!value) return '—';
+    if (!value) return '-';
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidPattern.test(value.trim()) ? '—' : value;
+    return uuidPattern.test(value.trim()) ? '-' : value;
   }
 
   private sanitizeBranding(b: TenantBranding): TenantBranding {

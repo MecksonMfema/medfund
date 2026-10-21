@@ -1,0 +1,136 @@
+package com.medfund.claims.controller;
+
+import com.medfund.claims.dto.ClaimsAggregateRow;
+import com.medfund.claims.dto.ClaimsIncurredAggregateRow;
+import com.medfund.claims.dto.PmbPaidAggregateRow;
+import com.medfund.claims.repository.ClaimsAggregateQueryRepository.Dimension;
+import com.medfund.claims.service.ClaimsAggregateService;
+import com.medfund.claims.service.ClaimsReportService;
+import com.medfund.shared.report.MonthlyAggregateRow;
+import com.medfund.shared.report.ReportEnvelopeBuilder;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.ReportPeriod;
+import com.medfund.shared.report.ReportResponse;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Cross-service aggregate endpoints for Phase 5 loss-ratio and Phase 8
+ * cash-flow / KPI-dashboard consumers. Deliberately narrow — the
+ * (dimension, dimensionId, dimensionName, currency, claimed/approved/paid)
+ * shape needed to compose against billing + receipts. Kept off the
+ * {@code /reports/claims} path so consumers reading the API don't confuse
+ * it with the user-facing report surface.
+ *
+ * <p>Not gated by {@link com.medfund.shared.report.RequiresReport} —
+ * this is a service-to-service endpoint. Gating it would let a tenant
+ * admin accidentally disable Phase 5 loss-ratio across the platform by
+ * toggling {@code CLAIMS_SUMMARY} off. The per-tenant surfaces they
+ * consume already carry their own gates (plan §A §3 rationale).
+ */
+@RestController
+@RequestMapping("/api/v1/reports/aggregate")
+@RequiredArgsConstructor
+@Tag(name = "Claims aggregate (cross-service)",
+        description = "Narrow claims aggregates consumed by Phase 5 loss-ratio and Phase 8 "
+                    + "cash-flow / KPI-dashboard reports.")
+@SecurityRequirement(name = "bearer-jwt")
+public class ClaimsAggregateController {
+
+    private final ClaimsReportService claimsReportService;
+    private final ReportEnvelopeBuilder envelopeBuilder;
+    private final ClaimsAggregateService claimsAggregateService;
+
+    @GetMapping("/claims")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @Operation(summary = "Cross-service claims aggregate - narrow funnel rows per (dimension, currency)",
+            description = "Period clock is adjudicated_at (G41). Dimension defaults to SCHEME - the "
+                        + "Phase 5 loss-ratio consumer pairs it with the billing-vs-receipts per-scheme "
+                        + "shape. Each row carries the full claimed / approved / paid funnel so loss-ratio "
+                        + "can pick paid-ratio or approved-liability-ratio without a second round trip "
+                        + "(G44).")
+    public Mono<ReportResponse<List<ClaimsAggregateRow>>> aggregate(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(required = false) String reportingCurrency) {
+        ReportPeriod period = ReportPeriod.parseFromQueryParams(periodStart, periodEnd, null);
+        return envelopeBuilder.build(
+                ReportKey.CLAIMS_SUMMARY,
+                period,
+                reportingCurrency,
+                claimsReportService.aggregate("SCHEME", period.periodStart(), period.periodEnd()),
+                claimsReportService.claimsPerCurrencyTotals(period.periodStart(), period.periodEnd(), null));
+    }
+
+    @GetMapping("/claims/monthly")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @Operation(summary = "Monthly-bucketed cross-service claims aggregate",
+            description = "Adds the month dimension so Phase 8 cash-flow forecast + KPI dashboards see "
+                        + "paid drift over the period, not just period-totals. `dimension` is one of "
+                        + "SCHEME / GROUP / MEMBER / PROVIDER (G45); totalAmount carries total_paid "
+                        + "(G44).")
+    public Mono<ReportResponse<List<MonthlyAggregateRow>>> aggregateMonthly(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(defaultValue = "SCHEME") String dimension,
+            @RequestParam(required = false) String reportingCurrency) {
+        ReportPeriod period = ReportPeriod.parseFromQueryParams(periodStart, periodEnd, null);
+        return envelopeBuilder.buildNoAggregate(
+                ReportKey.CLAIMS_SUMMARY,
+                period,
+                reportingCurrency,
+                claimsReportService.aggregateMonthly(dimension, period.periodStart(), period.periodEnd()));
+    }
+
+    @GetMapping("/claims-incurred")
+    @RequiresPermission(Permissions.CLAIMS_READ_AGGREGATE)
+    @Operation(summary = "Incurred claims per (currency[, line][, scheme]) - paid + Δreserve for the period",
+            description = "K9: totalPaid + (reserveBalanceEnd - reserveBalanceStart). IBNR is NOT "
+                        + "included; the KPI composer adds it from the latest report_job IBNR run. "
+                        + "reserveBalance(T) uses DISTINCT ON (claim_id) with effective_at <= T on "
+                        + "claim_reserve_history. Period clock is claims.adjudicated_at (K9 originally "
+                        + "named paid_at + claim_details.paid_amount but neither exists on the tenant "
+                        + "schema - claims.paid_amount is a direct column set by finance-service).")
+    public Mono<List<ClaimsIncurredAggregateRow>> claimsIncurred(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(defaultValue = "TENANT") Dimension dimension,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) UUID schemeId) {
+        return claimsAggregateService.claimsIncurred(
+                LocalDate.parse(periodStart),
+                LocalDate.parse(periodEnd),
+                dimension,
+                insuranceLine,
+                schemeId);
+    }
+
+    @GetMapping("/pmb-paid")
+    @RequiresPermission(Permissions.CLAIMS_READ_AGGREGATE)
+    @Operation(summary = "PMB paid aggregate per (isPmb, pmbConditionCode, currency)",
+            description = "Feeds the finance-service PMB Spend regulator report shaper. One row per "
+                        + "distinct triple in the reporting window; caller transposes pmbConditionCode "
+                        + "into PmbCategory rollups and converts non-ZAR paidAmount downstream. "
+                        + "Period clock is claims.adjudicated_at. Non-paid claims (paid_amount NULL or "
+                        + "zero) drop out.")
+    public Mono<List<PmbPaidAggregateRow>> pmbPaid(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd) {
+        return claimsAggregateService.pmbPaid(
+                LocalDate.parse(periodStart),
+                LocalDate.parse(periodEnd));
+    }
+}

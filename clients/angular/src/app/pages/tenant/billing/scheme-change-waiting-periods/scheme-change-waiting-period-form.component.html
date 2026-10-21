@@ -10,10 +10,6 @@
     </a>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   <form (submit)="$event.preventDefault(); submit()" class="form-grid">
     <label class="field">
       <span class="field-label">Direction</span>

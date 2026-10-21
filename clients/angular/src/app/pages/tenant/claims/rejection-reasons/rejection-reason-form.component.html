@@ -2,17 +2,13 @@
   <header class="page-header">
     <div>
       <h1>{{ reasonId ? 'Edit rejection reason' : 'Add rejection reason' }}</h1>
-      <p class="page-sub">Codes are stable identifiers — once issued they're referenced from claim history, so editing the description or category is preferred over deleting and re-creating.</p>
+      <p class="page-sub">Codes are stable identifiers: once issued they're referenced from claim history, so editing the description or category is preferred over deleting and re-creating.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/claims/rejection-reasons">
       <app-icon name="arrow-left" [size]="14"></app-icon>
       Back
     </a>
   </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
 
   <form (ngSubmit)="submit()" class="form-grid">
     <label class="field">
@@ -36,7 +32,7 @@
         [(ngModel)]="form.category"
         name="category"
         [options]="categoryOptions"
-        placeholder="— None —"
+        placeholder="(None)"
       ></app-select>
     </label>
 
@@ -51,7 +47,7 @@
 
     <label class="field span-2 checkbox">
       <input type="checkbox" [(ngModel)]="form.isActive" name="isActive" />
-      Active — shown in adjudication / manual rejection pickers
+      Active: shown in adjudication / manual rejection pickers
     </label>
 
     <div class="form-actions span-2">

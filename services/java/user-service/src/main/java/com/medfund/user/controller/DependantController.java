@@ -61,7 +61,7 @@ public class DependantController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing dependant",
-               description = "Partial update — null fields are left unchanged.")
+               description = "Partial update - null fields are left unchanged.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Dependant updated"),
         @ApiResponse(responseCode = "404", description = "Dependant not found")
@@ -76,7 +76,7 @@ public class DependantController {
     @Operation(summary = "Deactivate a dependant with an effective date",
         description = "Marks the dependant as deactivated. Billing continues UP TO AND INCLUDING the cycle that " +
                       "contains the effective date; from the next cycle the resolver drops them off. " +
-                      "Dependants are never hard-deleted — this is the terminal soft-transition. " +
+                      "Dependants are never hard-deleted - this is the terminal soft-transition. " +
                       "Body accepts { effectiveDate: 'YYYY-MM-DD' }; omit or send null for today.")
     public Mono<DependantResponse> deactivate(@PathVariable UUID id,
                                                @jakarta.validation.Valid @RequestBody(required = false) DeactivateDependantRequest body,

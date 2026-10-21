@@ -6,10 +6,6 @@
   <a class="btn btn-primary" routerLink="/tenant/policies/life/add">Add life policy</a>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <app-data-table
   [columns]="columns"
   [data]="rows"

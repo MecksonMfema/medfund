@@ -75,22 +75,19 @@
     </form>
   }
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
   @if (successMessage) {
     <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
   }
 
   <div class="layout">
     <aside class="job-list">
-      <h2 class="section-title">Configurations ({{ jobs.length }})</h2>
+      <h2 class="section-title rail-title">Configurations ({{ jobs.length }})</h2>
       @if (loadingJobs) {
-        <app-skeleton></app-skeleton>
+        <div class="rail-fallback"><app-skeleton></app-skeleton></div>
       } @else if (jobs.length === 0) {
-        <p class="empty-state">No scheduled jobs registered.</p>
+        <p class="empty-state rail-fallback">No scheduled jobs registered.</p>
       } @else {
-        <ul>
+        <ul class="job-rail-list">
           @for (job of jobs; track job.id) {
             <li (click)="select(job)" [class.active]="selected?.id === job.id" class="job-row">
               <div class="job-row-head">
@@ -139,8 +136,8 @@
         </div>
 
         <dl class="header-grid">
-          <dt>Last execution</dt><dd>{{ selected.lastExecutedAt ? (selected.lastExecutedAt | date:'medium') : '—' }}</dd>
-          <dt>Next execution</dt><dd>{{ selected.nextExecutionAt ? (selected.nextExecutionAt | date:'medium') : '—' }}</dd>
+          <dt>Last execution</dt><dd>{{ selected.lastExecutedAt ? (selected.lastExecutedAt | date:'medium') : '-' }}</dd>
+          <dt>Next execution</dt><dd>{{ selected.nextExecutionAt ? (selected.nextExecutionAt | date:'medium') : '-' }}</dd>
           <dt>Recent failures (24h)</dt>
           <dd>
             @if (failureCount() > 0) {
@@ -155,7 +152,7 @@
         @if (loadingRuns) {
           <app-skeleton></app-skeleton>
         } @else if (runs.length === 0) {
-          <p class="empty-state">No runs recorded yet — wait for the next 5-minute dispatch tick or hit Run now.</p>
+          <p class="empty-state">No runs recorded yet: wait for the next 5-minute dispatch tick or hit Run now.</p>
         } @else {
           <table class="data-table">
             <thead>
@@ -169,7 +166,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (run of runs; track run.id) {
+              @for (run of visibleRuns; track run.id) {
                 <tr [class.failed]="run.status === 'FAILED'">
                   <td><span class="tenant-chip">{{ tenantLabel(run.tenantId) }}</span></td>
                   <td>{{ run.startedAt | date:'short' }}</td>
@@ -180,11 +177,30 @@
                     <span class="status-badge status-{{ run.status.toLowerCase() }}">{{ run.status | humanize }}</span>
                   </td>
                   <td class="muted">{{ run.triggerKind }}</td>
-                  <td class="error-cell">{{ run.errorMessage || '—' }}</td>
+                  <td class="error-cell">{{ run.errorMessage || '-' }}</td>
                 </tr>
               }
             </tbody>
           </table>
+
+          @if (runs.length > runsPageSize) {
+            <div class="runs-pagination">
+              <span class="runs-range">
+                Showing {{ runsRangeStart }}–{{ runsRangeEnd }} of {{ runs.length }}
+              </span>
+              <div class="runs-pager">
+                <button class="btn" (click)="prevRunsPage()" [disabled]="runsPage === 1">
+                  <app-icon name="chevron-left" [size]="14"></app-icon>
+                  Previous
+                </button>
+                <span class="runs-page-label">Page {{ runsPage }} of {{ runsTotalPages }}</span>
+                <button class="btn" (click)="nextRunsPage()" [disabled]="runsPage === runsTotalPages">
+                  Next
+                  <app-icon name="chevron-right" [size]="14"></app-icon>
+                </button>
+              </div>
+            </div>
+          }
         }
       } @else if (!loadingJobs) {
         <p class="empty-state">Pick a job from the list to see its run history.</p>

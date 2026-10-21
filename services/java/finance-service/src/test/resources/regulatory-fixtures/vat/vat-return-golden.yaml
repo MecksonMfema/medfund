@@ -1,0 +1,77 @@
+# SYNTHETIC VAT Return golden fixture (Phase 20).
+# Hand-computed against the compute formulas in VatCalculator +
+# VatReturnReportShaper — every expected cell value has a stated
+# derivation below.
+#
+# Fixture models a ZA tenant on the SARS VAT201 shape (a matching ZW
+# fixture is deferred to Phase 20b along with the Playwright e2e specs
+# — the math is symmetric, only the currency + template change).
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list.
+
+report_key: VAT_RETURN
+vendor_name: "Acme Insurance ZA (Pty) Ltd"
+vat_registration_number: "4900123456"
+country_code: ZA
+period_start: 2026-04-01
+period_end: 2026-06-30
+reporting_currency: ZAR
+
+# Rates: SARS standard rate is 15 %; insurance premium is exempt (0 %).
+rates:
+  premium_rate:      0.00
+  admin_fee_rate:    0.15
+  commission_rate:   0.15
+  other_rate:        0.15
+
+# Raw bases (all in ZAR).
+raw_data:
+  premium_base:          100000000.00
+  admin_fee_base:          8000000.00
+  commission_base:         4000000.00
+  other_output_base:        500000.00
+  admin_expenses_base:     2000000.00
+  professional_fees_base:  1000000.00
+  other_input_base:         300000.00
+
+# Expected computed cells (after VatReturnReportShaper.compose).
+expected:
+  # Output derivations
+  #   premium_vat    = 100M * 0.00                    = 0.00
+  #   admin_fee_vat  = 8M   * 0.15                    = 1,200,000.00
+  #   commission_vat = 4M   * 0.15                    = 600,000.00
+  #   other_vat      = 500k * 0.15                    = 75,000.00
+  #   std_total_base = 8M + 4M + 500k                 = 12,500,000.00
+  #   std_total_vat  = 1.2M + 600k + 75k              = 1,875,000.00
+  #   zero_rated_total_base                            = 100,000,000.00
+  OUTPUT_PREMIUM_BASE:                    100000000.00
+  OUTPUT_PREMIUM_VAT:                             0.00
+  OUTPUT_ADMIN_FEE_BASE:                    8000000.00
+  OUTPUT_ADMIN_FEE_VAT:                     1200000.00
+  OUTPUT_COMMISSION_BASE:                   4000000.00
+  OUTPUT_COMMISSION_VAT:                     600000.00
+  OUTPUT_OTHER_BASE:                         500000.00
+  OUTPUT_OTHER_VAT:                           75000.00
+  OUTPUT_STANDARD_RATED_TOTAL_BASE:        12500000.00
+  OUTPUT_STANDARD_RATED_TOTAL_VAT:          1875000.00
+  OUTPUT_ZERO_RATED_TOTAL_BASE:           100000000.00
+
+  # Input derivations
+  #   admin_input_vat = 2M   * 0.15 (admin_fee_rate reused)  = 300,000.00
+  #   prof_input_vat  = 1M   * 0.15 (other_rate)             = 150,000.00
+  #   other_input_vat = 300k * 0.15 (other_rate)             = 45,000.00
+  #   total_base      = 2M + 1M + 300k                       = 3,300,000.00
+  #   total_vat       = 300k + 150k + 45k                    = 495,000.00
+  INPUT_ADMIN_EXPENSES_BASE:                2000000.00
+  INPUT_ADMIN_EXPENSES_VAT:                  300000.00
+  INPUT_PROFESSIONAL_FEES_BASE:             1000000.00
+  INPUT_PROFESSIONAL_FEES_VAT:               150000.00
+  INPUT_OTHER_BASE:                          300000.00
+  INPUT_OTHER_VAT:                            45000.00
+  INPUT_TOTAL_BASE:                         3300000.00
+  INPUT_TOTAL_VAT:                           495000.00
+
+  # Summary derivation
+  #   net_payable = std_output_vat − total_input_vat = 1.875M − 495k = 1,380,000.00
+  SUMMARY_NET_VAT_PAYABLE:                  1380000.00

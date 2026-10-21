@@ -102,7 +102,7 @@ public class PricingSuggestionService {
         List<String> factors = new ArrayList<>();
         if (base.isFallback()) {
             factors.add("No age band matches on scheme " + req.schemeId()
-                    + " — using stub fallback base " + base.currency() + " " + base.price());
+                    + " - using stub fallback base " + base.currency() + " " + base.price());
         } else {
             factors.add("Scheme guideline: " + base.currency() + " " + base.price()
                     + " (age-band '" + base.ageGroupName() + "')");
@@ -148,9 +148,9 @@ public class PricingSuggestionService {
 
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
-        String rationale = "Stub AI suggestion — awaiting production model. "
+        String rationale = "Stub AI suggestion - awaiting production model. "
                 + "Takes the scheme's guideline (age-band price) as the base and layers "
-                + "declared risk signals on top. Operator retains final say — this pre-fills "
+                + "declared risk signals on top. Operator retains final say - this pre-fills "
                 + "the Custom-premium amount field but is fully editable.";
 
         log.debug("[pricing-suggestion] scheme={} dob={} → {} {} (factors: {})",

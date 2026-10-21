@@ -81,7 +81,7 @@ public class CreditorsExcelService {
             r = writeLabelValue(sheet, r, label, bold, "Currency",
                     currencyCode != null && !currencyCode.isBlank() ? currencyCode : "All");
             r = writeLabelValue(sheet, r, label, bold, "Search",
-                    q != null && !q.isBlank() ? q : "—");
+                    q != null && !q.isBlank() ? q : "-");
             r = writeLabelValue(sheet, r, label, bold, "Exported at",
                     LocalDate.now().toString());
             r = writeLabelValue(sheet, r, label, bold, "Rows",
@@ -128,7 +128,7 @@ public class CreditorsExcelService {
     // ── Helpers (mirror DebtorsExcelService's) ──────────────────────────
 
     private static String humanizeSubjectType(String v) {
-        if (v == null) return "—";
+        if (v == null) return "-";
         return switch (v.toUpperCase()) {
             case "PROVIDER" -> "Provider";
             case "MEMBER"   -> "Member";

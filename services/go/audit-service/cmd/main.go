@@ -17,6 +17,7 @@ import (
 	"github.com/medfund/audit-service/internal/consumer"
 	"github.com/medfund/audit-service/internal/db"
 	"github.com/medfund/audit-service/internal/handler"
+	"github.com/medfund/shared/flags"
 	"github.com/medfund/shared/httpserver"
 )
 
@@ -40,6 +41,17 @@ func main() {
 	log.Printf("[audit-service] schema up to date")
 
 	store := audit.NewStore(pool)
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[audit-service] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, cfg.KafkaBrokers, "audit-service")
 
 	// ── Redis cache (optional) ─────────────────────────────────────────────
 	var redisCache *cache.Cache

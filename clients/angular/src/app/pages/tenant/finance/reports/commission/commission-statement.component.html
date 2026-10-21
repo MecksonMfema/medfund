@@ -1,0 +1,132 @@
+<header class="page-header">
+  <div>
+    <h1>Commission statement</h1>
+    <p class="page-sub">
+      One row per commission_transaction in the selected period. Native amounts
+      preserved; the per-currency strip shows native subtotals with best-effort
+      FX conversion to the reporting currency.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+    />
+  </div>
+  <div class="toolbar-cell cell-picker">
+    <span class="cell-label">Producer</span>
+    <app-entity-picker
+      kind="producer"
+      [value]="producerId"
+      [prefillLabel]="producerLabel"
+      placeholder="Search by name or code…"
+      (selected)="onProducerPicked($event)">
+    </app-entity-picker>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (perCurrencyList().length) {
+  <div class="kpi-strip">
+    @for (bucket of perCurrencyList(); track bucket.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ bucket.currency }} accrued (native)</span>
+        <span class="kpi-value">{{ bucket.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ bucket.rowCount }} row{{ bucket.rowCount === 1 ? '' : 's' }}</span>
+      </div>
+    }
+    @for (fx of fxRateList(); track fx.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">FX {{ fx.currency }} → {{ envelope?.reportingCurrency }}</span>
+        <span class="kpi-value">{{ fx.rate | number:'1.4-6' }}</span>
+      </div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (activeRows.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">No commission transactions in this period</div>
+    <div class="empty-state__description">
+      Try widening the period or clearing the producer filter.
+    </div>
+  </div>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Producer</th>
+        <th>Insurance line</th>
+        <th>Rate card</th>
+        <th class="num">Applied %</th>
+        <th class="num">Contribution</th>
+        <th class="num">Commission (native)</th>
+        <th>Currency</th>
+        <th>Status</th>
+        <th>Occurred</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.commissionTransactionId) {
+        <tr>
+          <td>{{ row.reference }}</td>
+          <td>
+            <div>{{ row.producerCode }}</div>
+            <div class="row-meta">{{ row.producerName }}</div>
+          </td>
+          <td>{{ row.insuranceLine }}</td>
+          <td>{{ row.rateCardName || '-' }}</td>
+          <td class="num">{{ row.appliedRatePct }}</td>
+          <td class="num">{{ row.contributionAmount }}</td>
+          <td class="num">{{ row.nativeAmount }}</td>
+          <td>{{ row.nativeCurrency }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.occurredAt | date:'yyyy-MM-dd' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

@@ -121,6 +121,16 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./tax-withheld/tax-withheld-list.component').then(m => m.TaxWithheldListComponent),
     data: { title: 'Tax-Withheld Claims', variant: 'medical', sidebar: 'operational', fullbleed: true },
   },
+  {
+    path: 'eligibility-quote',
+    canActivate: [permissionGuard(['claims:request_quote'])],
+    loadComponent: () => import('./eligibility-quote/eligibility-quote.component').then(m => m.EligibilityQuoteComponent),
+    data: {
+      title: 'Eligibility Quote',
+      description: 'Pre-service cost-share estimate for a proposed treatment.',
+      sidebar: 'operational',
+    },
+  },
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────
   // NOTE: The catch-all ":id" claim-detail route lives at the bottom of
@@ -145,6 +155,21 @@ export const CLAIMS_ROUTES: Routes = [
     canActivate: [permissionGuard(['claims:manage_preauth']), tenantPreauthGuard],
     loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
     data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
+  },
+  // ── SIU (Special Investigations Unit) ─────────────────────────────────────
+  // Phase 19 §A Phase 6 — case queue + case-detail. §B Phase 10 adds
+  // evidence + referral panels and a dedicated case-creation page.
+  {
+    path: 'siu',
+    canActivate: [permissionGuard(['claims:siu:view'])],
+    loadComponent: () => import('./siu/siu-list.component').then(m => m.SiuListComponent),
+    data: { title: 'SIU Cases', sidebar: 'operational', fullbleed: true },
+  },
+  {
+    path: 'siu/:caseId',
+    canActivate: [permissionGuard(['claims:siu:view'])],
+    loadComponent: () => import('./siu/siu-case-detail.component').then(m => m.SiuCaseDetailComponent),
+    data: { title: 'SIU Case Detail', sidebar: 'operational' },
   },
   // ── Verification ───────────────────────────────────────────────────────────
   // Removed on 2026-07-11 — operator submissions land VERIFIED at capture
@@ -251,7 +276,7 @@ export const CLAIMS_ROUTES: Routes = [
         'Emit an audit event on every grant / revoke so compliance can review.',
       ],
       currentAlternative: {
-        text: 'Right now the rules-engine reads a hasWaiver boolean on MemberFact — surface exceptions via a tenant-scoped rule rather than a per-member override.',
+        text: 'Right now the rules-engine reads a hasWaiver boolean on MemberFact. Surface exceptions via a tenant-scoped rule rather than a per-member override.',
         links: [
           { label: 'Rules', path: '/tenant/admin/rules' },
           { label: 'Members', path: '/tenant/members' },

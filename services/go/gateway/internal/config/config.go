@@ -19,6 +19,7 @@ type Config struct {
 	AuditServiceURL   string
 	FileServiceURL    string
 	PaymentServiceURL string
+	AiServiceURL      string
 	KafkaBrokers      string
 	RateLimitPerMin   int
 	/**
@@ -46,6 +47,7 @@ func Load() *Config {
 		AuditServiceURL:   getEnv("AUDIT_SERVICE_URL", "http://localhost:3002"),
 		FileServiceURL:    getEnv("FILE_SERVICE_URL", "http://localhost:3003"),
 		PaymentServiceURL: getEnv("PAYMENT_SERVICE_URL", "http://localhost:3004"),
+		AiServiceURL:      getEnv("AI_SERVICE_URL", "http://localhost:8000"),
 		KafkaBrokers:      getEnv("KAFKA_BROKERS", "localhost:9092"),
 		RateLimitPerMin:   120,
 		WebOrigins:        getEnv("WEB_ORIGINS", "http://localhost:5100,http://localhost:4200"),

@@ -8,10 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
+	"context"
 	"github.com/medfund/gateway/internal/config"
 	"github.com/medfund/gateway/internal/events"
 	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/routes"
+	"github.com/medfund/shared/flags"
 	"github.com/medfund/shared/httpserver"
 )
 
@@ -66,6 +68,17 @@ func main() {
 
 	// Service routes
 	routes.Register(app, cfg)
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(context.Background()); err != nil {
+		log.Printf("[gateway] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(context.Background(), cfg.KafkaBrokers, "gateway")
 
 	log.Printf("MedFund API Gateway starting on port %s", cfg.Port)
 	log.Fatal(app.Listen(":" + cfg.Port))

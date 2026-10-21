@@ -20,10 +20,14 @@ them alongside the contribution. {@code model_version} stays at
 
 from __future__ import annotations
 
-from typing import Optional
-
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.anonymize import anonymize_features
+from app.core.database import get_optional_session
+from app.schemas.insurance_line import InsuranceLine
+from app.services.prediction_repository import try_record_ai_prediction
 
 router = APIRouter(prefix="/api/v1/pricing", tags=["pricing"])
 
@@ -47,13 +51,13 @@ class ScoreRequest(BaseModel):
     Every field is optional so a sparse profile still scores.
     """
 
-    member_id: Optional[str] = Field(
+    member_id: str | None = Field(
         None, description="UUID of the policy holder (member, vehicle owner, …)"
     )
     tenant_id: str = Field(..., description="Tenant the policy belongs to")
-    insurance_line: Optional[str] = Field(
+    insurance_line: str | None = Field(
         None,
-        description="HEALTH | MOTOR | PROPERTY | LIFE | FUNERAL | … — picks the line-specific scorer.",
+        description="HEALTH | MOTOR | PROPERTY | LIFE | FUNERAL | ... - picks the line-specific scorer.",
     )
     base_amount: float = Field(
         ..., gt=0, description="Scheme-default amount the multiplier will scale"
@@ -70,18 +74,18 @@ class ScoreRequest(BaseModel):
     # ── Well-known HEALTH fields (back-compat) ──────────────────────
     # Older callers populate these directly. New callers SHOULD prefer
     # ``attributes``; the scorer reads either path.
-    age: Optional[int] = Field(None)
-    gender: Optional[str] = Field(None)
+    age: int | None = Field(None)
+    gender: str | None = Field(None)
     dependant_count: int = Field(0)
     chronic_condition_count: int = Field(0)
-    smoking_status: Optional[str] = Field(None)
-    bmi: Optional[float] = Field(None)
+    smoking_status: str | None = Field(None)
+    bmi: float | None = Field(None)
     medication_count: int = Field(0)
     # V050 Layer 5: continuous years the member has been enrolled with the
     # tenant. Feeds the model as a risk-reducing signal so long-service
     # seniors can offset an age loading without a dedicated grandfathered
     # rate schema. Fresh joiners send 0; the scorer treats 0 as neutral.
-    tenure_years: Optional[int] = Field(None, ge=0, le=120)
+    tenure_years: int | None = Field(None, ge=0, le=120)
 
 
 class ScoreResponse(BaseModel):
@@ -153,7 +157,7 @@ def score(req: ScoreRequest) -> ScoreResponse:
     return ScoreResponse(
         multiplier=1.0,
         adjusted_amount=round(req.base_amount, 4),
-        rationale=[f"No scorer registered for line {line!r} — baseline 1.0"],
+        rationale=[f"No scorer registered for line {line!r} - baseline 1.0"],
     )
 
 
@@ -167,14 +171,14 @@ def _clamp(multiplier: float, rationale: list[str]) -> float:
     return multiplier
 
 
-def _as_int(v) -> Optional[int]:
+def _as_int(v) -> int | None:
     try:
         return int(v) if v is not None else None
     except (TypeError, ValueError):
         return None
 
 
-def _as_float(v) -> Optional[float]:
+def _as_float(v) -> float | None:
     try:
         return float(v) if v is not None else None
     except (TypeError, ValueError):
@@ -247,7 +251,7 @@ def _score_health(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No risk signals captured — baseline multiplier 1.0")
+        rationale.append("No risk signals captured: baseline multiplier 1.0")
 
     return ScoreResponse(
         multiplier=round(multiplier, 4),
@@ -298,7 +302,7 @@ def _score_motor(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No motor risk signals captured — baseline multiplier 1.0")
+        rationale.append("No motor risk signals captured: baseline multiplier 1.0")
 
     return ScoreResponse(
         multiplier=round(multiplier, 4),
@@ -372,7 +376,7 @@ def _score_life(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No life risk signals captured — baseline multiplier 1.0")
+        rationale.append("No life risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -444,7 +448,7 @@ def _score_property(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No property risk signals captured — baseline multiplier 1.0")
+        rationale.append("No property risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -491,7 +495,7 @@ def _score_funeral(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No funeral risk signals captured — baseline multiplier 1.0")
+        rationale.append("No funeral risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -561,7 +565,7 @@ def _score_travel(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No travel risk signals captured — baseline multiplier 1.0")
+        rationale.append("No travel risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -616,7 +620,7 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
             rationale.append(f"Waiting period {wait_days}d → ×0.85")
         elif wait_days <= 14:
             multiplier *= 1.30
-            rationale.append(f"Waiting period {wait_days}d → ×1.30 (short — more claims qualify)")
+            rationale.append(f"Waiting period {wait_days}d → ×1.30 (short: more claims qualify)")
 
     # Benefit period — longer expected payout window loads the price.
     benefit = (_attr(req, "benefit_period") or "").upper() or None
@@ -635,7 +639,7 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No disability risk signals captured — baseline multiplier 1.0")
+        rationale.append("No disability risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -652,5 +656,39 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
     status_code=status.HTTP_200_OK,
     summary="Compute a per-member risk multiplier for the contribution amount",
 )
-async def score_route(req: ScoreRequest) -> ScoreResponse:
-    return score(req)
+async def score_route(
+    req: ScoreRequest,
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
+    session: AsyncSession | None = Depends(get_optional_session),
+) -> ScoreResponse:
+    # Route through the pricing registry so a Tranche 2 trained pricing
+    # artifact drops in without a code change. Tranche 1 always returns
+    # the rule-based adapter (per G3).
+    from app.services.pricing_registry import resolve_pricing_model
+
+    line_code = req.insurance_line or "HEALTH"
+    try:
+        model = resolve_pricing_model(InsuranceLine(line_code.upper()))
+        result = model.score(req)
+    except ValueError:
+        result = score(req)
+    # For asset-centric lines (VEHICLE, PROPERTY) the "member_id" field
+    # actually carries the asset id — the entity_type reflects that.
+    person_lines = {"HEALTH", "LIFE", "FUNERAL", "GROUP", "TRAVEL", "DISABILITY"}
+    entity_type = "member" if line_code.upper() in person_lines else "asset"
+    tenant_id = x_tenant_id or req.tenant_id
+    entity_id = req.member_id or "unknown"
+
+    await try_record_ai_prediction(
+        session,
+        tenant_id=str(tenant_id),
+        insurance_line=line_code.upper(),
+        entity_type=entity_type,
+        entity_id=entity_id,
+        prediction_type="pricing",
+        model_version=result.model_version,
+        input_features=anonymize_features(req.model_dump()),
+        output=result.model_dump(),
+        confidence=None,
+    )
+    return result

@@ -1,5 +1,5 @@
 <div class="roles-tab">
-  <div class="section-header">
+  <header class="section-header">
     <div>
       <h3 class="section-title">Roles &amp; Permissions</h3>
       <p class="section-sub">Define which permissions each role grants. Assign roles to staff users so they only see what they should.</p>
@@ -9,11 +9,7 @@
         <app-icon name="plus" [size]="16"></app-icon> New Role
       </button>
     </div>
-  </div>
-
-  @if (loadError) {
-    <div class="error-banner">{{ loadError }}</div>
-  }
+  </header>
 
   @if (loading) {
     <div class="role-list">
@@ -44,17 +40,15 @@
             </div>
           </div>
           <div class="role-actions">
-            <button class="btn btn-ghost" (click)="openEdit(role)">Edit</button>
+            <button class="btn btn-default" (click)="openEdit(role)">Edit</button>
             @if (!role.isSystem) {
-              <button class="btn btn-ghost btn-danger" (click)="delete(role)">Delete</button>
+              <button class="btn btn-danger" (click)="delete(role)">Delete</button>
             }
           </div>
         </div>
       }
       @if (roles.length === 0) {
-        <div class="empty">
-          <p>No roles defined yet. Click <strong>New Role</strong> to add the first one.</p>
-        </div>
+        <p class="empty-state">No roles defined yet. Click New Role to add the first one.</p>
       }
     </div>
   }
@@ -72,9 +66,6 @@
     </div>
 
     <div class="drawer-body">
-      @if (editorError) {
-        <div class="error-banner">{{ editorError }}</div>
-      }
       <div class="form-grid">
         <div class="form-field">
           <label class="form-label">Name <span class="label-hint">(unique identifier)</span></label>
@@ -142,7 +133,7 @@
     </div>
 
     <div class="drawer-footer">
-      <button class="btn btn-ghost" (click)="closeEditor()" [disabled]="editorSaving">Cancel</button>
+      <button class="btn btn-default" (click)="closeEditor()" [disabled]="editorSaving">Cancel</button>
       <button class="btn btn-primary" (click)="saveEditor()" [disabled]="editorSaving">
         {{ editorSaving ? 'Saving…' : (editingMode === 'create' ? 'Create role' : 'Save changes') }}
       </button>
@@ -170,7 +161,7 @@
             [(ngModel)]="selectedCandidateId"
             name="selectedCandidateId"
             [options]="candidateUserOptions"
-            placeholder="— Select a staff user —"
+            placeholder="(Select a staff user)"
           ></app-select>
           <button class="btn btn-primary" (click)="addMember()"
             [disabled]="!selectedCandidateId || membersSaving">Add</button>
@@ -183,11 +174,11 @@
                 <span class="member-name">{{ m.name ?? m.userId }}</span>
                 @if (m.email) { <span class="member-email">{{ m.email }}</span> }
               </div>
-              <button class="btn btn-ghost btn-danger" (click)="removeMember(m)" [disabled]="membersSaving">Remove</button>
+              <button class="btn btn-danger" (click)="removeMember(m)" [disabled]="membersSaving">Remove</button>
             </div>
           }
           @if (members.length === 0) {
-            <p class="empty">No members yet.</p>
+            <p class="empty-state">No members yet.</p>
           }
         </div>
       }

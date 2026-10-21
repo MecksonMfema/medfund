@@ -2,7 +2,7 @@
   <div>
     <h1>CTC payments</h1>
     <p class="page-sub">
-      Claims-to-Contributions transfers — approved member claim amounts
+      Claims-to-Contributions transfers: approved member claim amounts
       offset against the same member's outstanding contributions. Draft
       rows post a CTC_OFFSET transaction when committed.
     </p>
@@ -14,16 +14,6 @@
     </a>
   }
 </header>
-
-@if (banner) {
-  <div class="banner"
-       [class.banner-success]="banner.kind === 'success'"
-       [class.banner-error]="banner.kind === 'error'"
-       [class.banner-info]="banner.kind === 'info'"
-       (click)="banner = null">
-    {{ banner.text }}
-  </div>
-}
 
 <app-data-table
   [columns]="columns"

@@ -19,17 +19,17 @@ export const routes: Routes = [
       {
         path: 'tenants',
         loadComponent: () => import('./pages/platform/tenants/tenants.component').then(m => m.TenantsComponent),
-        data: { title: 'Tenant Management' },
+        data: { title: 'Tenant Management', fullbleed: true },
       },
       {
         path: 'users',
         loadComponent: () => import('./pages/platform/users/users.component').then(m => m.UsersComponent),
-        data: { title: 'User Management' },
+        data: { title: 'User Management', fullbleed: true },
       },
       {
         path: 'audit',
         loadComponent: () => import('./pages/platform/audit/audit.component').then(m => m.AuditComponent),
-        data: { title: 'Audit Logs' },
+        data: { title: 'Audit Logs', fullbleed: true },
       },
       {
         path: 'settings',
@@ -44,7 +44,7 @@ export const routes: Routes = [
       {
         path: 'providers',
         loadComponent: () => import('./pages/providers/providers.component').then(m => m.ProvidersComponent),
-        data: { title: 'Providers' },
+        data: { title: 'Providers', fullbleed: true },
       },
       {
         path: 'jobs',
@@ -65,11 +65,33 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent), data: { title: 'Dashboard' } },
       { path: 'users',     loadComponent: () => import('./pages/tenant-users/tenant-users.component').then(m => m.TenantUsersComponent), data: { title: 'Users' } },
-      { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs' } },
+      { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs', fullbleed: true } },
+      { path: 'ai-predictions',
+        loadComponent: () => import('./pages/tenant-admin/ai-predictions/ai-predictions.component').then(m => m.AiPredictionsComponent),
+        data: { title: 'AI Predictions', fullbleed: true } },
+      { path: 'ai-predictions/models',
+        loadComponent: () => import('./pages/tenant-admin/ai-predictions/models/ai-models.component').then(m => m.AiModelsComponent),
+        data: { title: 'AI Model Registry', fullbleed: true } },
       { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
+      // Phase 17 §C.1 — standalone report-schedules admin page. Deep-linked
+      // from the Reports tab "Manage schedule" column (Phase 9) using a
+      // fragment anchor per row.reportKey; too much surface (recipient list +
+      // run history + per-schedule pickers) to fit as a settings tab.
+      { path: 'settings/report-schedules',
+        loadComponent: () => import('./pages/tenant-admin/settings/report-schedules/report-schedules-page.component')
+          .then(m => m.ReportSchedulesPageComponent),
+        data: { title: 'Report schedules' } },
       // V063 — tariff categories catalogue (required on tariffs and benefits).
       { path: 'tariff-categories', loadComponent: () => import('./pages/tenant-admin/tariff-categories/tariff-categories-list.component').then(m => m.TariffCategoriesListComponent), data: { title: 'Tariff Categories', fullbleed: true } },
+      // Phase 10 — reinsurance module (Reinsurers + Treaties CRUD; bordereau
+      // reports land under /tenant/finance/reports/reinsurance/*).
+      { path: 'reinsurance', loadChildren: () => import('./pages/tenant-admin/reinsurance/reinsurance.routes').then(m => m.REINSURANCE_ROUTES), data: { title: 'Reinsurance' } },
+      // Phase 11 — producer / broker module (Producer + Rate Card CRUD +
+      // assignments; commission reports land under /tenant/finance/reports/commission/*).
+      { path: 'producers', loadChildren: () => import('./pages/tenant-admin/producers/producers.routes').then(m => m.PRODUCERS_ROUTES), data: { title: 'Producers' } },
+      // Phase 12 §A — underwriting (IFRS 17 portfolios + cohorts + legacy retrofit).
+      { path: 'underwriting', loadChildren: () => import('./pages/tenant-admin/underwriting/underwriting.routes').then(m => m.UNDERWRITING_ROUTES), data: { title: 'Underwriting' } },
     ],
   },
   // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent
@@ -134,6 +156,15 @@ export const routes: Routes = [
     children: [],
   },
   { path: 'unauthorized', loadComponent: () => import('./pages/unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent) },
+  // Phase 17 §C.2 — public unsubscribe confirmation page (token-gated, no auth).
+  // Gateway allowlists /api/v1/report-schedule-recipients/unsubscribe/* through
+  // the JWT middleware; this route is the browser-facing landing page.
+  {
+    path: 'public/unsubscribe/:token',
+    loadComponent: () => import('./pages/public/unsubscribe/unsubscribe-page.component')
+      .then(m => m.UnsubscribePageComponent),
+    data: { title: 'Unsubscribe' },
+  },
   // Catch-all — same dispatcher so a 404'd URL doesn't strand the user.
   { path: '**', canActivate: [rootRedirectGuard], children: [] },
 ];

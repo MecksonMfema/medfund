@@ -37,7 +37,7 @@ public class EmailCampaignController {
     private final EmailCampaignService service;
 
     @GetMapping
-    @Operation(summary = "List all campaigns (unpaginated — prefer /page)")
+    @Operation(summary = "List all campaigns (unpaginated - prefer /page)")
     public Flux<EmailCampaignResponse> list() {
         return service.findAll().map(EmailCampaignResponse::from);
     }
@@ -97,7 +97,7 @@ public class EmailCampaignController {
     @PostMapping("/{id}/send")
     @Operation(summary = "Mark a draft campaign as sent",
             description = "Computes recipient count from the audience filter and stamps sent_at. " +
-                    "Actual SMTP dispatch happens out-of-band — this endpoint records that the " +
+                    "Actual SMTP dispatch happens out-of-band - this endpoint records that the " +
                     "tenant intends to send. Idempotent only for drafts.")
     public Mono<EmailCampaignResponse> send(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return service.send(id, AuditActor.id(jwt), AuditActor.email(jwt))
@@ -107,7 +107,7 @@ public class EmailCampaignController {
     @PostMapping("/preview-audience")
     @Operation(summary = "Preview the audience matching a filter",
             description = "Returns the count plus a 10-row sample of matching members. " +
-                    "Body is the audience-filter JSON object — empty {} matches every member.")
+                    "Body is the audience-filter JSON object - empty {} matches every member.")
     public Mono<AudiencePreviewResponse> previewAudience(@RequestBody String filter) {
         return service.previewAudience(filter);
     }

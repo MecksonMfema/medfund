@@ -15,6 +15,9 @@ import { ChangeGroupModalComponent, ChangeGroupPayload } from '../../../../share
 import { ChangeSchemeModalComponent, ChangeSchemePayload } from '../../../../shared/components/change-scheme-modal/change-scheme-modal.component';
 import { SwapDependantModalComponent, SwapDependantPayload } from '../../../../shared/components/swap-dependant-modal/swap-dependant-modal.component';
 import { DeactivateDependantModalComponent, DeactivateDependantPayload } from '../../../../shared/components/deactivate-dependant-modal/deactivate-dependant-modal.component';
+import { MemberDeathModalComponent, RecordMemberDeathPayload } from './member-death-modal.component';
+import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface MemberForm {
   firstName: string;
@@ -77,7 +80,8 @@ const EMPTY_DEPENDANT: DependantForm = {
   selector: 'app-member-detail',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent,
-            ChangeGroupModalComponent, ChangeSchemeModalComponent, SwapDependantModalComponent, DeactivateDependantModalComponent],
+            ChangeGroupModalComponent, ChangeSchemeModalComponent, SwapDependantModalComponent, DeactivateDependantModalComponent,
+            MemberDeathModalComponent, HasPermissionDirective],
   templateUrl: './member-detail.component.html',
   styleUrl: './member-detail.component.scss',
 })
@@ -86,7 +90,6 @@ export class MemberDetailComponent implements OnInit {
   member: Member | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: MemberForm = {
     firstName: '', lastName: '', gender: '', nationalId: '',
@@ -140,6 +143,9 @@ export class MemberDetailComponent implements OnInit {
   private dependantPendingDeactivation: Dependant | null = null;
   deactivateModalName = '';
 
+  /** Backing state for the record-death modal (actuarial Phase 5). */
+  deathModalOpen = false;
+
   readonly genderOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
     { value: 'male', label: 'Male' },
@@ -182,7 +188,7 @@ export class MemberDetailComponent implements OnInit {
   ngOnInit(): void {
     this.memberId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.memberId) {
-      this.errorMessage = 'Member id missing from the URL.';
+      this.toast.error('Member id missing from the URL.');
       return;
     }
     this.loadMember();
@@ -215,7 +221,7 @@ export class MemberDetailComponent implements OnInit {
         if (m.schemeId) this.loadAgeGroups(m.schemeId);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load member';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member'));
         this.loading = false;
       },
     });
@@ -283,7 +289,7 @@ export class MemberDetailComponent implements OnInit {
    *  wired when tenant.pricingModel === 'AI_DRIVEN'. */
   suggestMemberPremium(): void {
     if (!this.member || !this.form.schemeId || !this.member.dateOfBirth) {
-      this.toast.error('Missing scheme or date of birth — the AI needs both to compute a baseline.');
+      this.toast.error('Missing scheme or date of birth: the AI needs both to compute a baseline.');
       return;
     }
     this.memberAiRequesting = true;
@@ -375,7 +381,6 @@ export class MemberDetailComponent implements OnInit {
 
   save(): void {
     this.saving = true;
-    this.errorMessage = null;
     // INDIVIDUAL pricing: amount + effective_from must travel together
     // (DB CHECK + service-level guard). Surface the gap inline so we
     // don't round-trip a 400.
@@ -383,8 +388,7 @@ export class MemberDetailComponent implements OnInit {
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
       this.saving = false;
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.error('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
     // schemeId is intentionally NOT sent — scheme changes must go
@@ -415,9 +419,7 @@ export class MemberDetailComponent implements OnInit {
         this.toast.success('Member updated');
       },
       error: (err) => {
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
         this.saving = false;
       },
     });
@@ -456,6 +458,34 @@ export class MemberDetailComponent implements OnInit {
         this.toast.success(`Member ${label}d`);
       },
       error: (err) => this.toast.error(err?.error?.detail || `${label} failed`),
+    });
+  }
+
+  // ── Record death (Actuarial Phase 5) ──────────────────────────────────
+
+  /** Whether the "Record death" action should render. Hidden once the
+   *  status is already 'deceased' — recording death twice is idempotent
+   *  server-side but there's nothing more the operator can do here. */
+  canRecordDeath(): boolean {
+    return !!this.member && this.member.status !== 'deceased';
+  }
+
+  openMemberDeathModal(): void {
+    this.deathModalOpen = true;
+  }
+
+  onMemberDeathCancel(): void {
+    this.deathModalOpen = false;
+  }
+
+  onMemberDeathSubmit(payload: RecordMemberDeathPayload): void {
+    this.members.recordDeath(this.memberId, payload.deathDate, payload.causeOfDeath).subscribe({
+      next: (updated) => {
+        this.member = updated;
+        this.deathModalOpen = false;
+        this.toast.success('Death recorded');
+      },
+      error: (err) => this.toast.error(err?.error?.detail || err?.error?.title || 'Record death failed'),
     });
   }
 
@@ -634,16 +664,36 @@ export class MemberDetailComponent implements OnInit {
   back(): void { this.router.navigate(['/tenant/members']); }
 
   // ── V048 group change (modal-based) ─────────────────────────────
+  //
+  // The Enrolment form's group picker is the trigger: when the operator
+  // picks a different group, we open the modal pre-populated with the
+  // pick so they only need to confirm the effective date + reason.
+  // Cancel reverts the picker to the current saved value; Submit runs
+  // through the contributions/user backend so waiting-period rules,
+  // classification, and arrears/rebate all fire.
 
   changeGroupModalOpen = false;
+  /** Prefill for the change-group modal — the id the operator picked
+   *  in the Enrolment form's group picker. */
+  pendingGroupChangeId: string | null = null;
 
-  openChangeGroupModal(): void {
+  /** (valueChange) handler on the Enrolment form's group picker. Only
+   *  triggers the modal when the pick genuinely differs from what's
+   *  saved on the member so idle rehydration (prefill labels landing,
+   *  a re-render) doesn't open a modal. */
+  onGroupPickerChange(newGroupId: string | null): void {
     if (!this.member) return;
+    const currentSaved = this.member.groupId ?? null;
+    const pick = newGroupId || null;
+    if (pick === currentSaved) return;
+    this.pendingGroupChangeId = pick;
     this.changeGroupModalOpen = true;
   }
 
   onChangeGroupCancel(): void {
     this.changeGroupModalOpen = false;
+    this.pendingGroupChangeId = null;
+    if (this.member) this.form.groupId = this.member.groupId ?? '';
   }
 
   onChangeGroupSubmit(payload: ChangeGroupPayload): void {
@@ -651,29 +701,50 @@ export class MemberDetailComponent implements OnInit {
     this.members.requestGroupChange(this.member.id, payload).subscribe({
       next: (saved) => {
         this.changeGroupModalOpen = false;
+        this.pendingGroupChangeId = null;
+        if (saved.status === 'APPLIED' || saved.backdated) {
+          if (this.member) this.member.groupId = payload.targetGroupId;
+          this.form.groupId = payload.targetGroupId;
+        } else if (this.member) {
+          this.form.groupId = this.member.groupId ?? '';
+        }
         const label = saved.status === 'APPLIED' || saved.backdated
           ? `Group change applied immediately (back-dated); arrears/rebate posting…`
-          : `Group change booked ${saved.status} — effective ${payload.effectiveDate}`;
+          : `Group change booked ${saved.status}, effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
+      error: (err) => {
+        if (this.member) this.form.groupId = this.member.groupId ?? '';
+        this.toast.error(err?.error?.detail || 'Group change failed');
+      },
     });
   }
 
   // ── Scheme change (modal-based) ─────────────────────────────────
   // Routes through contributions-service so waiting-period rules and
-  // UPGRADE/DOWNGRADE classification apply; the profile form's scheme
-  // picker is read-only precisely so operators can't sidestep this.
+  // UPGRADE/DOWNGRADE classification apply. Triggered from the
+  // Enrolment form's scheme picker: the operator picks a different
+  // scheme, the modal opens pre-populated, and only the effective date
+  // + reason need confirming.
 
   changeSchemeModalOpen = false;
+  /** Prefill for the change-scheme modal — the id the operator picked
+   *  in the Enrolment form's scheme picker. */
+  pendingSchemeChangeId: string | null = null;
 
-  openChangeSchemeModal(): void {
+  onSchemePickerChange(newSchemeId: string | null): void {
     if (!this.member) return;
+    const currentSaved = this.member.schemeId ?? null;
+    const pick = newSchemeId || null;
+    if (pick === currentSaved) return;
+    this.pendingSchemeChangeId = pick;
     this.changeSchemeModalOpen = true;
   }
 
   onChangeSchemeCancel(): void {
     this.changeSchemeModalOpen = false;
+    this.pendingSchemeChangeId = null;
+    if (this.member) this.form.schemeId = this.member.schemeId ?? '';
   }
 
   onChangeSchemeSubmit(payload: ChangeSchemePayload): void {
@@ -681,13 +752,24 @@ export class MemberDetailComponent implements OnInit {
     this.members.requestSchemeChange({ memberId: this.member.id, ...payload }).subscribe({
       next: (saved) => {
         this.changeSchemeModalOpen = false;
+        this.pendingSchemeChangeId = null;
+        if (saved.status === 'EFFECTIVE') {
+          if (this.member) this.member.schemeId = payload.toSchemeId;
+          this.form.schemeId = payload.toSchemeId;
+          this.loadAgeGroups(payload.toSchemeId);
+        } else if (this.member) {
+          this.form.schemeId = this.member.schemeId ?? '';
+        }
         const kind = saved.changeKind ? ` (${saved.changeKind})` : '';
         const label = saved.status === 'EFFECTIVE'
           ? `Scheme change applied immediately${kind}; arrears/rebate posting…`
-          : `Scheme change booked ${saved.status}${kind} — effective ${saved.effectiveDate}`;
+          : `Scheme change booked ${saved.status}${kind}, effective ${saved.effectiveDate}`;
         this.toast.success(label);
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Scheme change failed'),
+      error: (err) => {
+        if (this.member) this.form.schemeId = this.member.schemeId ?? '';
+        this.toast.error(err?.error?.detail || 'Scheme change failed');
+      },
     });
   }
 
@@ -710,8 +792,8 @@ export class MemberDetailComponent implements OnInit {
       next: (saved) => {
         this.swapModalOpen = false;
         const label = saved.status === 'APPLIED'
-          ? `Swap applied — promoted dependant is now the principal.`
-          : `Swap booked ${saved.status} — effective ${payload.effectiveDate}`;
+          ? `Swap applied: promoted dependant is now the principal.`
+          : `Swap booked ${saved.status}, effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Swap failed'),

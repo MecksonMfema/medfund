@@ -7,6 +7,7 @@ import com.medfund.user.dto.CreateFuneralPolicyRequest;
 import com.medfund.user.dto.FuneralPolicyFilterParams;
 import com.medfund.user.dto.FuneralPolicyRow;
 import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PolicyUnderwritingFields;
 import com.medfund.user.dto.UpdateFuneralPolicyRequest;
 import com.medfund.user.entity.FuneralPolicy;
 import com.medfund.user.exception.FuneralPolicyNotFoundException;
@@ -35,6 +36,7 @@ public class FuneralPolicyService {
     private final FuneralPolicyQueryRepository funeralPolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final PolicyIssuedPublisher policyIssuedPublisher;
 
     public Flux<FuneralPolicy> findAll() {
         return funeralPolicyRepository.findAllOrderByCreatedAtDesc();
@@ -79,6 +81,7 @@ public class FuneralPolicyService {
         p.setLivesCovered(request.livesCovered());
         p.setHealthDeclaration(request.healthDeclaration());
         p.setStatus("active");
+        applyUnderwriting(p, request.underwriting());
         p.setCreatedAt(Instant.now());
         p.setUpdatedAt(Instant.now());
         UUID actorUuid = safeParseUuid(actorId);
@@ -89,6 +92,7 @@ public class FuneralPolicyService {
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     return publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
+                            .then(publishPolicyIssued(tenantId, saved))
                             .thenReturn(saved);
                 }));
     }
@@ -109,17 +113,45 @@ public class FuneralPolicyService {
                             request.billingOverrideAmount(),
                             request.billingOverrideReason(),
                             request.billingOverrideEffectiveFrom());
+                    applyUnderwriting(existing, request.underwriting());
 
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(safeParseUuid(actorId));
 
+                    boolean premiumChanged = !java.util.Objects.equals(
+                            previous.getWrittenPremium(), existing.getWrittenPremium());
+
                     return funeralPolicyRepository.save(existing)
                             .flatMap(saved -> Mono.deferContextual(ctx -> {
                                 String tenantId = TenantContext.get(ctx);
-                                return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                                        .thenReturn(saved);
+                                Mono<Void> chain = publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE");
+                                if (premiumChanged) chain = chain.then(publishPolicyIssued(tenantId, saved));
+                                return chain.thenReturn(saved);
                             }));
                 });
+    }
+
+    private static void applyUnderwriting(FuneralPolicy p, PolicyUnderwritingFields uw) {
+        if (uw == null) return;
+        if (uw.writtenPremium() != null) p.setWrittenPremium(uw.writtenPremium());
+        if (uw.writtenPremiumCurrency() != null) p.setWrittenPremiumCurrency(uw.writtenPremiumCurrency());
+        if (uw.boundAt() != null) p.setBoundAt(uw.boundAt());
+        if (uw.coverageStart() != null) p.setCoverageStart(uw.coverageStart());
+        if (uw.coverageEnd() != null) p.setCoverageEnd(uw.coverageEnd());
+        if (uw.renewedFromPolicyId() != null) p.setRenewedFromPolicyId(uw.renewedFromPolicyId());
+        if (uw.portfolioId() != null) p.setPortfolioId(uw.portfolioId());
+        if (uw.cohortId() != null) p.setCohortId(uw.cohortId());
+    }
+
+    private Mono<Void> publishPolicyIssued(String tenantId, FuneralPolicy p) {
+        return policyIssuedPublisher.publish(new PolicyIssuedPublisher.PolicyIssuedPayload(
+                tenantId, p.getId(), p.getPolicyNumber(),
+                "FUNERAL_POLICY", "FUNERAL",
+                p.getWrittenPremium(), p.getWrittenPremiumCurrency(),
+                p.getCoverageStart(), p.getCoverageEnd(), p.getBoundAt(),
+                p.getPrincipalMemberId(), p.getPortfolioId(), p.getCohortId(),
+                p.getRenewedFromPolicyId()
+        ));
     }
 
     @Transactional
@@ -231,6 +263,14 @@ public class FuneralPolicyService {
         c.setBillingOverrideAmount(src.getBillingOverrideAmount());
         c.setBillingOverrideReason(src.getBillingOverrideReason());
         c.setBillingOverrideEffectiveFrom(src.getBillingOverrideEffectiveFrom());
+        c.setWrittenPremium(src.getWrittenPremium());
+        c.setWrittenPremiumCurrency(src.getWrittenPremiumCurrency());
+        c.setBoundAt(src.getBoundAt());
+        c.setCoverageStart(src.getCoverageStart());
+        c.setCoverageEnd(src.getCoverageEnd());
+        c.setRenewedFromPolicyId(src.getRenewedFromPolicyId());
+        c.setPortfolioId(src.getPortfolioId());
+        c.setCohortId(src.getCohortId());
         return c;
     }
 }

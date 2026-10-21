@@ -9,6 +9,7 @@ import {
 import { PermissionService } from '../../../../core/security/permission.service';
 import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
@@ -30,7 +31,6 @@ export class CtcPaymentDetailComponent implements OnInit {
   payment: CtcPayment | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   constructor(
@@ -45,7 +45,7 @@ export class CtcPaymentDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No CTC payment id';
+      this.toast.error('No CTC payment id');
       return;
     }
     this.refresh(id);
@@ -56,7 +56,7 @@ export class CtcPaymentDetailComponent implements OnInit {
     this.finance.getCtcPayment(id).subscribe({
       next: (p) => { this.payment = p; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load CTC payment';
+        this.toast.error(extractErrorMessage(err, 'Failed to load CTC payment'));
         this.loading = false;
       },
     });
@@ -106,11 +106,11 @@ export class CtcPaymentDetailComponent implements OnInit {
     this.finance.commitCtcPayment(this.payment.id).subscribe({
       next: (p) => {
         this.payment = p;
-        this.successMessage = 'CTC payment committed — CTC_OFFSET transaction posted';
+        this.successMessage = 'CTC payment committed: CTC_OFFSET transaction posted';
         this.busy = false;
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to commit');
+        this.toast.error(extractErrorMessage(err, 'Failed to commit'));
         this.busy = false;
       },
     });
@@ -135,12 +135,12 @@ export class CtcPaymentDetailComponent implements OnInit {
         // The endpoint returns the compensating row; re-fetch the original
         // (still at this route) so the page reflects the new `reversed`
         // status.
-        this.successMessage = `Reversal posted — compensating row ${compensating.id.substring(0, 8)}`;
+        this.successMessage = `Reversal posted: compensating row ${compensating.id.substring(0, 8)}`;
         if (this.payment) this.refresh(this.payment.id);
         this.busy = false;
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to reverse');
+        this.toast.error(extractErrorMessage(err, 'Failed to reverse'));
         this.busy = false;
       },
     });

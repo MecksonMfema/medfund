@@ -12,9 +12,11 @@ public record PaymentRunItemResponse(
         UUID paymentId,
         UUID providerId,
         UUID memberId,
+        UUID producerId,
         String payeeType,
         BigDecimal amount,
         String currencyCode,
+        BigDecimal withholdingTaxPct,
         String status,
         Instant createdAt
 ) {
@@ -25,9 +27,11 @@ public record PaymentRunItemResponse(
                 item.getPaymentId(),
                 item.getProviderId(),
                 item.getMemberId(),
+                item.getProducerId(),
                 item.getPayeeType(),
                 item.getAmount(),
                 item.getCurrencyCode(),
+                item.getWithholdingTaxPct(),
                 item.getStatus(),
                 item.getCreatedAt()
         );

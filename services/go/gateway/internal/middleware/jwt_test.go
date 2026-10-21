@@ -174,6 +174,77 @@ func TestHandler_skipsAuthForHealthAndSwagger(t *testing.T) {
 	}
 }
 
+// Phase 17 §B.2 — signed-link download and unsubscribe URLs are clicked
+// from delivery emails so they cannot require a JWT session. The middleware
+// short-circuits on those paths before reaching token extraction.
+func TestHandler_skipsAuthForPhase17PublicPaths(t *testing.T) {
+	m, _, _ := newMiddlewareWithKey(t)
+	app := fiber.New()
+	app.Use(m.Handler())
+	app.Get("/api/v1/reports/scheduled/:jobId/download", func(c *fiber.Ctx) error {
+		return c.SendString("xlsx")
+	})
+	app.Post("/api/v1/report-schedule-recipients/unsubscribe/:token", func(c *fiber.Ctx) error {
+		return c.SendString("done")
+	})
+
+	cases := []struct {
+		method, path string
+	}{
+		{"GET", "/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/download?token=abc"},
+		{"POST", "/api/v1/report-schedule-recipients/unsubscribe/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+	}
+	for _, tc := range cases {
+		resp, err := app.Test(httptest.NewRequest(tc.method, tc.path, nil))
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("%s %s expected 200 (no auth), got %d", tc.method, tc.path, resp.StatusCode)
+		}
+	}
+}
+
+// The rerun endpoint on the same prefix still requires auth — the public
+// bypass is scoped to the /download suffix only.
+func TestHandler_requiresAuthForRerunEndpoint(t *testing.T) {
+	m, _, _ := newMiddlewareWithKey(t)
+	app := fiber.New()
+	app.Use(m.Handler())
+	app.Post("/api/v1/reports/scheduled/:jobId/rerun", func(c *fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+	req := httptest.NewRequest("POST",
+		"/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/rerun", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode != 401 {
+		t.Errorf("expected 401 (auth still required for /rerun), got %d", resp.StatusCode)
+	}
+}
+
+func TestIsPublicPath_matchesOnlyExpectedRoutes(t *testing.T) {
+	cases := map[string]bool{
+		"/api/v1/reports/scheduled/abc/download":                  true,
+		"/api/v1/reports/scheduled/abc/download/extra":            false,
+		"/api/v1/reports/scheduled/abc/rerun":                     false,
+		"/api/v1/reports/scheduled/probe/force-fire":              false,
+		"/api/v1/report-schedule-recipients/unsubscribe/tok":      true,
+		"/api/v1/report-schedule-recipients/unsubscribe/a/b":      true,
+		"/api/v1/tenants/xyz/report-schedules":                    false,
+		// Bare /download with no jobId still matches the bypass; Fiber 404s
+		// at the route layer because the download route requires :jobId.
+		"/api/v1/reports/scheduled/download":                      true,
+	}
+	for path, want := range cases {
+		if got := isPublicPath(path); got != want {
+			t.Errorf("isPublicPath(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
 func TestHandler_returns401WhenTokenMissing(t *testing.T) {
 	m, _, _ := newMiddlewareWithKey(t)
 	app := fiber.New()

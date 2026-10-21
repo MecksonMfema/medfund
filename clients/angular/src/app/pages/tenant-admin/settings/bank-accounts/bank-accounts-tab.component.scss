@@ -1,0 +1,221 @@
+.bank-accounts-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+/* ── Section card ────────────────────────────────────────────────────────── */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.section-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-subtitle {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 60ch;
+}
+
+.section-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.banner {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.banner-success {
+  background: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #065f46);
+}
+
+.empty-state {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: var(--spacing-sm) 0;
+}
+
+/* ── Edit form ───────────────────────────────────────────────────────────── */
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+  padding: var(--spacing-base);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  margin-bottom: var(--spacing-base);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* Match settings' top-level .form-input: 38px, spacing-md padding, radius-md,
+   brand-primary focus border. Applied here to the raw <input>/<textarea>
+   inside .field so we do not have to edit every occurrence in the HTML. */
+.field input,
+.field textarea {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.field textarea {
+  height: auto;
+  min-height: 80px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus { border-color: var(--color-primary); }
+
+.field input:disabled,
+.field textarea:disabled {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Bank-account form: three fields per row filling the section width, so
+   Label / Currency / Bank name land on row 1, Account name / Account # /
+   Branch code on row 2, and SWIFT code on row 3. Notes lives outside this
+   grid and stays full-width. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-base);
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.checkboxes {
+  display: flex;
+  gap: var(--spacing-xl);
+  flex-wrap: wrap;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+/* ── Data table ──────────────────────────────────────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.data-table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.data-table td.muted,
+.muted {
+  color: var(--color-text-muted);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.badge-active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.badge-muted {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-light);
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--spacing-xs, 4px);
+  justify-content: flex-end;
+}

@@ -1,0 +1,57 @@
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="All (DRAFT + APPROVED)"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  data-testid="fac-queue"
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="canAct"
+  [searchable]="false"
+  [showToolbar]="false"
+  [loading]="loading"
+  [emptyMessage]="'Queue is clear'"
+  [emptyDescription]="'Draft and approved facultative cessions land here once they are drafted from the Cedable claims tab.'"
+  [emptyIcon]="'check-circle'">
+</app-data-table>
+
+@if (voidTargetId) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">
+      <h3>Void facultative cession</h3>
+      <p class="modal-sub">Reason will be recorded on the audit trail and cascade to the recovery row.</p>
+      <label>
+        <span>Reason</span>
+        <textarea
+          [(ngModel)]="voidReason"
+          rows="4"
+          maxlength="500"
+          placeholder="e.g. reinsurer withdrew capacity"
+          data-testid="void-reason"
+        ></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn" (click)="cancelVoid()" [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting"
+                data-testid="void-submit">
+          {{ voidSubmitting ? 'Voiding…' : 'Void cession' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/funeral-policies")
-@Tag(name = "Funeral Policies", description = "Funeral insurance policy management — lifecycle + billing overrides")
+@Tag(name = "Funeral Policies", description = "Funeral insurance policy management - lifecycle + billing overrides")
 @SecurityRequirement(name = "bearer-jwt")
 public class FuneralPolicyController {
 
@@ -36,7 +36,7 @@ public class FuneralPolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List funeral policies (unpaginated — prefer /page)")
+    @Operation(summary = "List funeral policies (unpaginated - prefer /page)")
     public Flux<FuneralPolicyResponse> findAll() {
         return funeralPolicyService.findAll().map(FuneralPolicyResponse::from);
     }

@@ -47,6 +47,12 @@ export interface Member {
   billingOverrideAmount?: number | null;
   billingOverrideReason?: string | null;
   billingOverrideEffectiveFrom?: string | null;
+  /** Date of death (V140, actuarial Phase 14 §D). Present only for
+   *  members recorded as deceased via /record-death. */
+  deathDate?: string | null;
+  /** Optional ICD-10 chapter code (e.g. 'I00-I99') or free text. */
+  causeOfDeath?: string | null;
+  terminationDate?: string | null;
 }
 
 export interface Dependant {
@@ -125,6 +131,16 @@ export class MembersService {
 
   clearBillingOverride(id: string): Observable<Member> {
     return this.api.post<Member>(`/members/${id}/clear-billing-override`, {});
+  }
+
+  /**
+   * Record a member's death (actuarial Phase 5). Persists death_date +
+   * optional cause_of_death and transitions status to 'deceased'.
+   * causeOfDeath accepts an ICD-10 chapter code (e.g. 'I00-I99') or
+   * free text; pass null when unknown.
+   */
+  recordDeath(id: string, deathDate: string, causeOfDeath: string | null): Observable<Member> {
+    return this.api.post<Member>(`/members/${id}/record-death`, { deathDate, causeOfDeath });
   }
 
   /** All members belonging to a group — used by GroupDetailComponent. */

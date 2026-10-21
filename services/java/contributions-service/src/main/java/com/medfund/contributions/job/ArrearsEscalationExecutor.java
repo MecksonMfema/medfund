@@ -6,6 +6,7 @@ import com.medfund.contributions.entity.DunningConfig;
 import com.medfund.contributions.repository.DunningConfigRepository;
 import com.medfund.contributions.service.ArrearsNoticePublisher;
 import com.medfund.contributions.service.ArrearsNoticePublisher.ArrearsNoticePayload;
+import com.medfund.contributions.service.ArrearsThresholdPublisher;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.shared.scheduler.JobExecutor;
@@ -57,6 +58,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
     private final BalanceService balanceService;
     private final UserServiceClient userClient;
     private final ArrearsNoticePublisher arrearsPublisher;
+    private final ArrearsThresholdPublisher thresholdPublisher;
     private final DatabaseClient db;
     private final com.medfund.contributions.service.BadDebtService badDebtService;
 
@@ -69,7 +71,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
     public Mono<Void> execute(String tenantId, String settings) {
         log.info("Arrears escalation sweep for tenant: {}", tenantId);
         return dunningRepo.findById(DunningConfig.SINGLETON_ID)
-                .flatMap(config -> {
+                .flatMap(config -> loadAutoLapseConfig(tenantId).flatMap(autoLapse -> {
                     boolean autoSuspend = Boolean.TRUE.equals(config.getAutoSuspend());
                     boolean autoWriteOff = Boolean.TRUE.equals(config.getAutoWriteOff());
                     if (!autoSuspend && !autoWriteOff) {
@@ -84,16 +86,57 @@ public class ArrearsEscalationExecutor implements JobExecutor {
                     //     whose payment has since cleared the age
                     //     threshold and flip them back to active.
                     Mono<Void> escalate = activeCurrencies()
-                            .flatMap(currency -> sweepCurrency(currency, config, autoSuspend, autoWriteOff))
+                            .flatMap(currency -> sweepCurrency(currency, config, autoSuspend, autoWriteOff,
+                                    autoLapse, tenantId))
                             .then();
                     Mono<Void> reactivate = autoSuspend ? reactivateClearedArrears() : Mono.empty();
                     return escalate.then(reactivate);
-                })
+                }))
                 .switchIfEmpty(Mono.defer(() -> {
                     log.warn("No dunning_config row for tenant {}", tenantId);
                     return Mono.empty();
                 }))
                 .then();
+    }
+
+    /**
+     * Snapshot the tenant's auto-lapse config once per sweep. Reads
+     * {@code public.tenant_auto_lapse_config} — a platform-wide table
+     * (V133) so the {@code public.} prefix is mandatory per
+     * {@code bug_public_prefix_silent_rollback}. Absent row or lookup
+     * error means auto-lapse is disabled for the tenant — no
+     * threshold-breached events published this sweep.
+     */
+    private Mono<AutoLapseSnapshot> loadAutoLapseConfig(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) return Mono.just(AutoLapseSnapshot.disabled());
+        UUID tid;
+        try {
+            tid = UUID.fromString(tenantId);
+        } catch (IllegalArgumentException e) {
+            return Mono.just(AutoLapseSnapshot.disabled());
+        }
+        return db.sql("""
+                    SELECT enabled, arrears_threshold_months, grace_window_days
+                      FROM public.tenant_auto_lapse_config
+                     WHERE tenant_id = :tid
+                    """)
+                .bind("tid", tid)
+                .map((row, meta) -> new AutoLapseSnapshot(
+                        Boolean.TRUE.equals(row.get("enabled", Boolean.class)),
+                        row.get("arrears_threshold_months", Integer.class),
+                        row.get("grace_window_days", Integer.class)))
+                .one()
+                .defaultIfEmpty(AutoLapseSnapshot.disabled())
+                .onErrorResume(err -> {
+                    log.warn("Failed to read tenant_auto_lapse_config for tenant {}: {}",
+                            tenantId, err.getMessage());
+                    return Mono.just(AutoLapseSnapshot.disabled());
+                });
+    }
+
+    /** Per-sweep snapshot of the tenant's auto-lapse config (V133 row). */
+    private record AutoLapseSnapshot(boolean enabled, Integer thresholdMonths, Integer graceDays) {
+        static AutoLapseSnapshot disabled() { return new AutoLapseSnapshot(false, null, null); }
     }
 
     /**
@@ -136,9 +179,10 @@ public class ArrearsEscalationExecutor implements JobExecutor {
     }
 
     private Mono<Void> sweepCurrency(String currency, DunningConfig config,
-                                       boolean autoSuspend, boolean autoWriteOff) {
+                                       boolean autoSuspend, boolean autoWriteOff,
+                                       AutoLapseSnapshot autoLapse, String tenantId) {
         int pageSize = 200;
-        return sweepPages(currency, config, autoSuspend, autoWriteOff, 0, pageSize);
+        return sweepPages(currency, config, autoSuspend, autoWriteOff, autoLapse, tenantId, 0, pageSize);
     }
 
     /**
@@ -148,16 +192,18 @@ public class ArrearsEscalationExecutor implements JobExecutor {
      */
     private Mono<Void> sweepPages(String currency, DunningConfig config,
                                     boolean autoSuspend, boolean autoWriteOff,
+                                    AutoLapseSnapshot autoLapse, String tenantId,
                                     int page, int pageSize) {
         return balanceService.listAged(currency, null, null, page, pageSize)
                 .flatMap(pg -> {
                     if (pg.content().isEmpty()) return Mono.<Void>empty();
                     return Flux.fromIterable(pg.content())
-                            .flatMap(row -> processRow(row, config, autoSuspend, autoWriteOff))
+                            .flatMap(row -> processRow(row, config, autoSuspend, autoWriteOff,
+                                    autoLapse, tenantId))
                             .then(pg.content().size() < pageSize
                                     ? Mono.<Void>empty()
                                     : sweepPages(currency, config, autoSuspend, autoWriteOff,
-                                            page + 1, pageSize));
+                                            autoLapse, tenantId, page + 1, pageSize));
                 });
     }
 
@@ -166,9 +212,17 @@ public class ArrearsEscalationExecutor implements JobExecutor {
      * whether to escalate the status, and publishes the corresponding
      * arrears-notice on either path. Every branch is a no-op if the
      * corresponding tenant flag is off.
+     *
+     * <p>When {@code autoLapse.enabled == TRUE} and the subject sits in
+     * SUSPENDED / WRITE_OFF, also publishes
+     * {@code medfund.contributions.arrears-threshold-breached} for the
+     * user-service auto-lapse consumer (P7 chain). Fire-and-forget; a
+     * missed publish will re-fire on the next daily sweep because the
+     * row is still aged.
      */
     private Mono<Void> processRow(BadDebtRow row, DunningConfig config,
-                                    boolean autoSuspend, boolean autoWriteOff) {
+                                    boolean autoSuspend, boolean autoWriteOff,
+                                    AutoLapseSnapshot autoLapse, String tenantId) {
         String bucket = row.agingStatus();
         UUID subjectId = row.subjectId();
         String subjectType = row.subjectType();
@@ -185,6 +239,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
         // flips and operator-triggered flips share one email path.
         Mono<Void> escalate = Mono.empty();
         Mono<Void> reminder = Mono.empty();
+        Mono<Void> lapseBreach = maybePublishThresholdBreached(row, bucket, autoLapse, tenantId);
 
         if ("SUSPENDED".equals(bucket) && autoSuspend) {
             escalate = isGroup
@@ -218,7 +273,39 @@ public class ArrearsEscalationExecutor implements JobExecutor {
             reminder = publishNotice(row, kind, daysUntilNext, nextStep);
         }
 
-        return escalate.then(reminder);
+        return escalate.then(reminder).then(lapseBreach);
+    }
+
+    /**
+     * Publish a threshold-breached event for the auto-lapse consumer
+     * when: (1) the tenant has opted in via
+     * {@code tenant_auto_lapse_config.enabled = TRUE}, (2) the aged row
+     * belongs to a MEMBER (MVP scope — group lapse handling rides the
+     * same rail once the consumer supports it), and (3) the row sits in
+     * SUSPENDED or WRITE_OFF. Idempotency lives in the consumer —
+     * republishing the same breach next sweep is safe.
+     */
+    private Mono<Void> maybePublishThresholdBreached(BadDebtRow row, String bucket,
+                                                      AutoLapseSnapshot autoLapse, String tenantId) {
+        if (autoLapse == null || !autoLapse.enabled()) return Mono.empty();
+        if (!"SUSPENDED".equals(bucket) && !"WRITE_OFF".equals(bucket)) return Mono.empty();
+        if (!"MEMBER".equals(row.subjectType())) return Mono.empty();
+        int months = approximateArrearsMonths(row);
+        return thresholdPublisher.publishBreached(
+                tenantId,
+                row.subjectType(),
+                row.subjectId().toString(),
+                months,
+                row.balance(),
+                row.currencyCode())
+            .doOnError(err -> log.warn("threshold-breached publish failed for member {}: {}",
+                    row.subjectId(), err.getMessage()))
+            .onErrorResume(err -> Mono.empty());
+    }
+
+    private static int approximateArrearsMonths(BadDebtRow row) {
+        long days = row.daysSinceLastActivity() != null ? row.daysSinceLastActivity() : 0L;
+        return (int) Math.max(1L, days / 30L);
     }
 
     /**

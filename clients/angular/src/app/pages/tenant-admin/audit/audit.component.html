@@ -1,4 +1,4 @@
-<div class="page-header">
+<header class="page-header">
   <div>
     <h1>Audit Logs</h1>
     <p class="page-subtitle">Track all activity and changes inside this tenant</p>
@@ -7,37 +7,7 @@
     <app-icon name="download" [size]="18"></app-icon>
     Export CSV
   </button>
-</div>
-
-<!-- Filters -->
-<div class="filter-bar">
-  <div class="filter-group">
-    <label>Entity Type</label>
-    <app-select
-      [(ngModel)]="entityFilter"
-      name="entityFilter"
-      [options]="entityFilterOptions"
-      (ngModelChange)="applyFilters()"
-    ></app-select>
-  </div>
-  <div class="filter-group">
-    <label>Action</label>
-    <app-select
-      [(ngModel)]="actionFilter"
-      name="actionFilter"
-      [options]="actionFilterOptions"
-      (ngModelChange)="applyFilters()"
-    ></app-select>
-  </div>
-  <div class="filter-group">
-    <label>Date From</label>
-    <input class="input" type="date" [(ngModel)]="dateFrom" (ngModelChange)="applyFilters()" />
-  </div>
-  <div class="filter-group">
-    <label>Date To</label>
-    <input class="input" type="date" [(ngModel)]="dateTo" (ngModelChange)="applyFilters()" />
-  </div>
-</div>
+</header>
 
 <app-data-table
   title="Audit Events"
@@ -53,7 +23,40 @@
   searchPlaceholder="Search entity, actor, action..."
   (searchChange)="onSearch($event)"
   (pageChange)="loadPage($event)"
-></app-data-table>
+>
+  <div table-filters class="toolbar-cell cell-entity">
+    <span class="cell-label">Entity</span>
+    <app-select
+      [(ngModel)]="entityFilter"
+      (selectionChange)="applyFilters()"
+      name="entityFilter"
+      [options]="entityFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-action">
+    <span class="cell-label">Action</span>
+    <app-select
+      [(ngModel)]="actionFilter"
+      (selectionChange)="applyFilters()"
+      name="actionFilter"
+      [options]="actionFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-date">
+    <span class="cell-label">From</span>
+    <input type="date" [(ngModel)]="dateFrom" (ngModelChange)="applyFilters()" />
+  </div>
+  <div table-filters class="toolbar-cell cell-date">
+    <span class="cell-label">To</span>
+    <input type="date" [(ngModel)]="dateTo" (ngModelChange)="applyFilters()" />
+  </div>
+</app-data-table>
 
 <!-- Diff Modal -->
 @if (showDiff && selectedEvent) {

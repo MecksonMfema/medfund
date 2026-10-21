@@ -19,6 +19,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Recorded payments and adjustments. Layout mirrors /tenant/billing/schemes
@@ -71,7 +73,6 @@ export class TransactionsListComponent implements OnInit, OnDestroy {
 
   rows: Transaction[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Debounced free-text search wired to the toolbar input. 350 ms keeps
   // keystrokes from spamming the backend without feeling laggy.
@@ -126,12 +127,13 @@ export class TransactionsListComponent implements OnInit, OnDestroy {
     private tenantService: TenantService,
     private router: Router,
     private route: ActivatedRoute,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.error('No active tenant context');
       return;
     }
 
@@ -176,7 +178,6 @@ export class TransactionsListComponent implements OnInit, OnDestroy {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.contributions.searchTransactions({
       currency:        this.selectedCurrency || undefined,
       transactionType: this.selectedType     || undefined,
@@ -195,7 +196,7 @@ export class TransactionsListComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load transactions';
+        this.toast.error(extractErrorMessage(err, 'Failed to load transactions'));
         this.loading = false;
       },
     });

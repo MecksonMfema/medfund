@@ -160,7 +160,7 @@ fi
 
 # ── Step 4: Create realm roles ─────────────────────────────────
 echo "[4/7] Creating realm roles..."
-for ROLE in super_admin tenant_admin claims_clerk claims_assessor finance_officer contributions_officer provider member group_liaison; do
+for ROLE in super_admin tenant_admin claims_clerk claims_assessor finance_officer contributions_officer provider member group_liaison siu_officer siu_supervisor; do
   RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
     "$KEYCLOAK_URL/admin/realms/$REALM/roles" \
     -H "Authorization: Bearer $TOKEN" \
@@ -307,6 +307,10 @@ create_user() {
 create_user "claimsclerk" "claims@medfund.healthcare" "Claims" "Clerk" "claims_clerk"
 create_user "financeofficer" "finance@medfund.healthcare" "Finance" "Officer" "finance_officer"
 create_user "contribofficer" "contrib@medfund.healthcare" "Contributions" "Officer" "contributions_officer"
+# ── SIU officer test user (Phase 19 §A) ────────────────────────
+create_user "siuofficer" "siu@medfund.healthcare" "SIU" "Officer" "siu_officer"
+# ── SIU supervisor test user (Phase 19 §B Phase 7) ─────────────
+create_user "siusupervisor" "siusupervisor@medfund.healthcare" "SIU" "Supervisor" "siu_supervisor"
 create_user "testmember" "member@test.com" "John" "Doe" "member"
 create_user "testprovider" "provider@test.com" "City" "Hospital" "provider"
 
@@ -321,6 +325,8 @@ echo "  │ superadmin       │ admin123      │ super_admin          │"
 echo "  │ claimsclerk      │ test123       │ claims_clerk         │"
 echo "  │ financeofficer   │ test123       │ finance_officer      │"
 echo "  │ contribofficer   │ test123       │ contributions_officer│"
+echo "  │ siuofficer       │ test123       │ siu_officer          │"
+echo "  │ siusupervisor    │ test123       │ siu_supervisor       │"
 echo "  │ testmember       │ test123       │ member               │"
 echo "  │ testprovider     │ test123       │ provider             │"
 echo "  └─────────────────┴───────────────┴──────────────────────┘"

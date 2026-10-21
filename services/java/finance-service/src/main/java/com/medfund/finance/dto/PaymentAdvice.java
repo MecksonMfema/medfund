@@ -44,6 +44,7 @@ public record PaymentAdvice(
             BigDecimal creditAmount,
             String currencyCode,
             Instant postedAt,
-            Integer sequence
+            Integer sequence,
+            UUID backPeriodRunId
     ) {}
 }

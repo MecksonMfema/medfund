@@ -20,6 +20,12 @@ type InitiateRequest struct {
 	Description    string  `json:"description"`
 	ReturnURL      string  `json:"returnUrl"`
 	IdempotencyKey string  `json:"idempotencyKey"`
+	// V075 — outbound-only. Which tenant bank account the payout debits;
+	// carried through so a real provider integration can route.
+	BankAccountID string `json:"bankAccountId,omitempty"`
+	// V075 — "inbound" (default) or "outbound". Recorded on the ledger
+	// row so the UI can distinguish receipts from disbursements.
+	Direction string `json:"direction,omitempty"`
 }
 
 type InitiateResponse struct {

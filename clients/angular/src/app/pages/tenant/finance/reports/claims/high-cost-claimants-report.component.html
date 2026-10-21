@@ -1,0 +1,55 @@
+<header class="page-header">
+  <div>
+    <h1>High-cost claimants</h1>
+    <p class="page-sub">
+      Members whose cumulative paid claims in the window clear the tenant's
+      configured threshold. The threshold is set in
+      <strong>Settings → Reports → High-cost claimant threshold</strong> and
+      converted to the reporting currency at period end.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading || !rows.length"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  [data]="rows"
+  [columns]="columns"
+  [loading]="loading"
+  [searchable]="true"
+  [showToolbar]="true"
+  emptyMessage="No member cleared the threshold in this window."
+  emptyDescription="Either no member crossed the threshold, or the threshold is not configured yet. Set it under Settings → Reports → High-cost claimant threshold; a config-gap warning toast fires when it is missing."
+></app-data-table>

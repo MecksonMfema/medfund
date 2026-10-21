@@ -11,6 +11,15 @@ export interface TableColumn {
   type?: string;
   class?: string;
   sortable?: boolean;
+  /** For type: 'select' — the option catalogue rendered inline. */
+  options?: Array<{ value: string; label: string }>;
+  /**
+   * For type: 'textList' — maps each raw array entry to its display text
+   * (e.g. a tenant UUID to the tenant's name). Identity when omitted.
+   */
+  labelFor?: (value: string) => string;
+  /** For type: 'select' — fires when the user picks a different value. */
+  onSelectChange?: (row: any, value: string) => void;
 }
 
 export interface TableAction {
@@ -32,6 +41,13 @@ export interface TableAction {
    * only — the data-table itself does not consult PermissionService.
    */
   requiresPermission?: string;
+  /** Optional data-testid emitted on the rendered action button. */
+  testid?: string;
+  /** Optional predicate — greys the action out (still visible) when true. */
+  disabled?: (row: any) => boolean;
+  /** Optional native title/tooltip. Static, or per-row via {@link titleFor}. */
+  title?: string;
+  titleFor?: (row: any) => string;
   handler: (row: any) => void;
 }
 
@@ -54,6 +70,15 @@ export class DataTableComponent implements OnInit, OnDestroy {
   @Input() emptyIcon = 'folder-search';
   @Input() searchable = true;
   @Input() searchPlaceholder = 'Search';
+  /**
+   * Whether to render the built-in toolbar row (which always reserves
+   * 48px + a bottom border even when {@code searchable=false} and no
+   * {@code [table-filters]}/{@code [table-actions]} content is projected).
+   * Set to {@code false} on pages that render their own filter strip
+   * above the table — otherwise the empty built-in strip leaves a
+   * visible gap between your strip and the first table row.
+   */
+  @Input() showToolbar = true;
   @Input() pageSize = 20;
   // Server-side mode
   @Input() serverSide = false;
@@ -99,6 +124,12 @@ export class DataTableComponent implements OnInit, OnDestroy {
       distinctUntilChanged(),
       takeUntil(this.destroy$),
     ).subscribe(term => this.searchChange.emit(term));
+  }
+
+  onInlineSelectChange(col: TableColumn, row: any, event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    row[col.key] = value;
+    if (col.onSelectChange) col.onSelectChange(row, value);
   }
 
   ngOnDestroy(): void {

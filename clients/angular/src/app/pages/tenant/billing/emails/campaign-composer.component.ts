@@ -15,6 +15,8 @@ import {
 } from '../../../../core/services/email-senders.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-campaign-composer',
@@ -28,7 +30,6 @@ export class CampaignComposerComponent implements OnInit {
   loading = false;
   saving = false;
   previewing = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   senders: EmailSender[] = [];
@@ -55,6 +56,7 @@ export class CampaignComposerComponent implements OnInit {
     private senderService: EmailSendersService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -79,7 +81,7 @@ export class CampaignComposerComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load composer';
+        this.toast.error(extractErrorMessage(err, 'Failed to load composer'));
         this.loading = false;
       },
     });
@@ -87,11 +89,10 @@ export class CampaignComposerComponent implements OnInit {
 
   previewAudience(): void {
     this.previewing = true;
-    this.errorMessage = null;
     this.campaigns.previewAudience(this.form.audienceFilter || '{}').subscribe({
       next: (resp) => { this.preview = resp; this.previewing = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Audience preview failed';
+        this.toast.error(extractErrorMessage(err, 'Audience preview failed'));
         this.previewing = false;
       },
     });
@@ -100,7 +101,6 @@ export class CampaignComposerComponent implements OnInit {
   saveDraft(): void {
     if (!this.validate()) return;
     this.saving = true;
-    this.errorMessage = null;
     const payload = this.toPayload();
     const stream = this.campaignId
       ? this.campaigns.update(this.campaignId, payload)
@@ -114,7 +114,7 @@ export class CampaignComposerComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -123,7 +123,6 @@ export class CampaignComposerComponent implements OnInit {
     if (!this.validate()) return;
     if (!confirm('Save the draft and send the campaign? Recipients will be computed from the audience filter.')) return;
     this.saving = true;
-    this.errorMessage = null;
     const payload = this.toPayload();
     const persist = this.campaignId
       ? this.campaigns.update(this.campaignId, payload)
@@ -139,30 +138,30 @@ export class CampaignComposerComponent implements OnInit {
           },
           error: (err) => {
             this.saving = false;
-            this.errorMessage = err?.error?.detail || 'Send failed';
+            this.toast.error(extractErrorMessage(err, 'Send failed'));
           },
         });
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
 
   private validate(): boolean {
     if (!this.form.subject.trim()) {
-      this.errorMessage = 'Subject is required';
+      this.toast.warning('Subject is required');
       return false;
     }
     if (!this.form.bodyHtml.trim()) {
-      this.errorMessage = 'Body is required';
+      this.toast.warning('Body is required');
       return false;
     }
     try {
       JSON.parse(this.form.audienceFilter || '{}');
     } catch {
-      this.errorMessage = 'Audience filter must be valid JSON';
+      this.toast.warning('Audience filter must be valid JSON');
       return false;
     }
     return true;

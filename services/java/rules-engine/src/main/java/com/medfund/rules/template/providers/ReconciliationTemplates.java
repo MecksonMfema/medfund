@@ -22,7 +22,7 @@ public class ReconciliationTemplates implements TemplateProvider {
                  all(cond("paymentRun.providerVerified", "EQUALS", "true"),
                      cond("paymentRun.amountDue",        "GREATER_THAN", "0")),
                  action("MATCH_RECORDS", "AUTO", null,
-                        "Verified provider with positive due amount — auto-match candidate"))
+                        "Verified provider with positive due amount - auto-match candidate"))
         );
     }
 }

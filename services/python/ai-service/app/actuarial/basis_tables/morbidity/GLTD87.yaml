@@ -1,0 +1,24 @@
+# GLTD87 — SOA Group Long-Term Disability Table, 1987.
+# Source: Society of Actuaries "1987 Commissioners Group Disability Table
+# Development" (Transactions of the Society of Actuaries, Vol. XLIII, 1991).
+# US-mandated reference basis for group LTD reserving; still widely used
+# outside the US as a comparative benchmark.
+# Values are incidence per 1000 lives per year, unisex composite (GLTD87 is
+# published sex-distinct; the composite is derived here for the default view).
+name: GLTD87
+display_name: GLTD87 (SOA Group Long-Term Disability, 1987)
+category: morbidity
+jurisdiction_hints: [US]
+default_line: DISABILITY
+source: "SOA 1987 CGDT (TSA Vol. XLIII, 1991)"
+incidence:
+  20:  {male: 0.8,  female: 1.1}
+  25:  {male: 1.0,  female: 1.4}
+  30:  {male: 1.3,  female: 1.9}
+  35:  {male: 1.8,  female: 2.6}
+  40:  {male: 2.6,  female: 3.7}
+  45:  {male: 3.9,  female: 5.2}
+  50:  {male: 5.9,  female: 7.4}
+  55:  {male: 9.1,  female: 10.2}
+  60:  {male: 13.8, female: 13.9}
+  65:  {male: 20.0, female: 18.5}

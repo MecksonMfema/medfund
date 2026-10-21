@@ -1,0 +1,85 @@
+// Full-bleed shell. Same shape as pending-claims-list, pre-auth-list,
+// payment-runs-list. Status filter lives inside the data-table's
+// [table-filters] slot and is styled via the .toolbar-cell block below,
+// matching /tenant/finance/runs so both pages read as the same filter
+// language.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+
+// DataTable's toolbar layout is [search][spacer][filters], which pushes
+// projected filters to the far right. Push the spacer past our filter
+// cells via flex order so the filters sit flush against the search bar,
+// matching /tenant/finance/runs.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+// Shared cell + inner-select treatment for every toolbar filter on this
+// page. Width variants live below via .cell-<kind> modifiers.
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  min-height: 48px;
+  background: transparent;
+  border-right: 1px solid var(--color-border-light);
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  app-select { min-width: 140px; flex: 1; }
+
+  // Strip the SelectComponent's default border + rounded background so
+  // the filter reads as a flat toolbar value, not a boxed form input.
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.toolbar-cell.cell-status {
+  flex: 0 0 auto;
+  // Wider than the payment-runs status filter: SIU status labels
+  // ("Closed: confirmed fraud", "Closed: dismissed") are long enough
+  // to truncate in a 200px cell.
+  min-width: 320px;
+
+  app-select { min-width: 240px; }
+}

@@ -132,11 +132,55 @@ const ICONS: Record<string, string> = {
   // on the AI-suggested price widgets. Feather-icons "zap" glyph.
   zap:
     '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  // Brain glyph — sidebar entry for AI Predictions review.
+  brain:
+    '<path d="M8 2a3 3 0 0 0-3 3v.34A3 3 0 0 0 3 8a3 3 0 0 0 1 2.24V11a3 3 0 0 0 2 2.83V15a3 3 0 0 0 3 3h1V4a2 2 0 0 0-2-2zm10 3.34V5a3 3 0 0 0-5-2 2 2 0 0 0-2 2v14h1a3 3 0 0 0 3-3v-1.17A3 3 0 0 0 17 11v-.76A3 3 0 0 0 18 8a3 3 0 0 0-2-2.66z"/>',
   // Single-person silhouette — Identity section icon on member /
   // dependant forms. Distinct from `users` (group) and `user-check`
   // (permission granted) already in the registry.
   user:
     '<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>',
+  // Clock with counter-clockwise arrow — Balance history entry point on
+  // the creditors provider / member detail pages (Phase 6, D6-7).
+  history:
+    '<path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 7 7v2a9 9 0 1 0-9-9H4a9 9 0 1 1 9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>',
+  // Circular arrows — Refresh / retry glyph. Used by the treaty backfill
+  // sidebar entry and any other "re-run" affordance.
+  refresh:
+    '<path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>',
+  // Three stacked plates — layered / tiered / stack indicator. Used by
+  // the Underwriting sidebar entry and the treaty layers section.
+  layers:
+    '<path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>',
+  // File outline with a 2x2 grid of cells inside — reads as a
+  // spreadsheet / Excel export. Used by the KPI tile export button.
+  'file-spreadsheet':
+    '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h3v2H8v-2zm5 0h3v2h-3v-2zm-5 4h3v2H8v-2zm5 0h3v2h-3v-2z"/>',
+  // Rules engine category icons (Phase 15 — RULE_CATEGORIES). These names
+  // are referenced by rules.service.ts:RULE_CATEGORIES and were previously
+  // falling back to the `alert-circle` glyph.
+  // Shield with a `+` inside — Reinsurance category.
+  'shield-plus':
+    '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 14h-2v-3H8v-2h3V7h2v3h3v2h-3v3z"/>',
+  // Two circles connected by a diagonal slash — Commission category.
+  percent:
+    '<path d="M7.5 11C9.43 11 11 9.43 11 7.5S9.43 4 7.5 4 4 5.57 4 7.5 5.57 11 7.5 11zm0-5C8.33 6 9 6.67 9 7.5S8.33 9 7.5 9 6 8.33 6 7.5 6.67 6 7.5 6zM4.004 18.588L18.582 4.01l1.414 1.414L5.418 20.003 4.004 18.588zM16.5 13c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5S18.43 13 16.5 13zm0 5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>',
+  // Rising line-chart segments — Actuarial category. Material `show_chart`.
+  'chart-line':
+    '<path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>',
+  // Three horizontal sliders with knobs — Regulatory Parameter category.
+  // Material `tune`.
+  sliders:
+    '<path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>',
+  // Medical first-aid kit — PMB Classification category. Material
+  // `medical_services` — closest registered analogue to a stethoscope in
+  // the current icon set.
+  stethoscope:
+    '<path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2zm3 9h-4v4h-2v-4H7v-2h4V9h2v4h4v2z"/>',
+  // Division sign (÷) — Benefit Proration category. Reads as "split" /
+  // "divide across periods".
+  divide:
+    '<path d="M19 11H5v2h14v-2zM12 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>',
 };
 
 @Component({

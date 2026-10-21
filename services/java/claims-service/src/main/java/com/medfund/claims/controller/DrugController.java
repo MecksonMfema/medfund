@@ -33,7 +33,7 @@ public class DrugController {
     }
 
     @GetMapping
-    @Operation(summary = "List drugs (unpaginated — prefer /page)")
+    @Operation(summary = "List drugs (unpaginated - prefer /page)")
     public Flux<DrugResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
         return service.findAll(activeOnly).map(DrugResponse::from);
     }

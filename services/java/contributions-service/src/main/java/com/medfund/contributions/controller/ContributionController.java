@@ -74,7 +74,7 @@ public class ContributionController {
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "List contributions by status (unpaginated — prefer /page)")
+    @Operation(summary = "List contributions by status (unpaginated - prefer /page)")
     public Flux<ContributionResponse> findByStatus(@PathVariable String status) {
         return billingService.findContributionsByStatus(status).map(ContributionResponse::from);
     }
@@ -131,7 +131,7 @@ public class ContributionController {
                 + "pricing rules the real commit uses, so future scheme upgrades/downgrades (via "
                 + "billing_age_group_id + billing_override_effective_from) and per-member custom pricing "
                 + "(billing_override_amount) are already reflected. Excludes members whose "
-                + "termination_date lands before the projected periodStart — those are on their last "
+                + "termination_date lands before the projected periodStart - those are on their last "
                 + "serviced cycle and shouldn't be charged for the next one. Never persists a row.")
     @ApiResponse(responseCode = "200", description = "Projection computed")
     public Mono<ChargePreviewResponse> chargePreview(
@@ -231,7 +231,7 @@ public class ContributionController {
     @PostMapping("/billing/revoke")
     @Operation(summary = "Revoke a billing run for next month",
         description = "Deletes every contribution + invoice for the (period, line) so the operator can re-commit. " +
-                "Only the calendar month immediately following today is revocable — once that month becomes the " +
+                "Only the calendar month immediately following today is revocable - once that month becomes the " +
                 "current month the contributions are active and any correction has to go through the corrections flow.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Revoke succeeded"),
@@ -246,7 +246,7 @@ public class ContributionController {
     @PostMapping("/billing/revoke/{invoiceId}")
     @Operation(summary = "Revoke a single contribution statement",
         description = "Deletes just this invoice and its contributions, reversing the running-balance debits " +
-                "and removing the PDF blob. Same next-month-only window as the period-wide revoke — the invoice's " +
+                "and removing the PDF blob. Same next-month-only window as the period-wide revoke - the invoice's " +
                 "periodStart must equal the first of next month. Other statements for the same period are untouched.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Statement revoked"),

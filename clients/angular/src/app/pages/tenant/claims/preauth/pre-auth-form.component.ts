@@ -22,6 +22,8 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Pre-authorization request form. Mirrors the visual grammar of
@@ -51,9 +53,8 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
 })
 export class PreAuthFormComponent implements OnInit {
   saving = false;
-  errorMessage: string | null = null;
 
-  // Beneficiary — the picker returns either a member or a dependant
+  // Beneficiary: the picker returns either a member or a dependant
   // and threads the sponsor's id into memberId.
   beneficiaryId: string | null = null;
   memberId: string | null = null;
@@ -107,6 +108,7 @@ export class PreAuthFormComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -231,13 +233,12 @@ export class PreAuthFormComponent implements OnInit {
 
   // ── Submit ─────────────────────────────────────────────────────────
   submit(): void {
-    this.errorMessage = null;
-    if (!this.memberId) { this.errorMessage = 'Pick a member or dependant'; return; }
-    if (!this.providerId) { this.errorMessage = 'Pick a provider'; return; }
-    if (!this.schemeId) { this.errorMessage = 'Beneficiary is not enrolled on a scheme'; return; }
-    if (!this.form.tariffCode.trim()) { this.errorMessage = 'Tariff code is required'; return; }
+    if (!this.memberId) { this.toast.warning('Pick a member or dependant'); return; }
+    if (!this.providerId) { this.toast.warning('Pick a provider'); return; }
+    if (!this.schemeId) { this.toast.warning('Beneficiary is not enrolled on a scheme'); return; }
+    if (!this.form.tariffCode.trim()) { this.toast.warning('Tariff code is required'); return; }
     if (!this.form.requestedAmount || this.requestedAmountNumber <= 0) {
-      this.errorMessage = 'Requested amount must be greater than zero';
+      this.toast.warning('Requested amount must be greater than zero');
       return;
     }
 
@@ -261,7 +262,7 @@ export class PreAuthFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

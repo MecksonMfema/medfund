@@ -5,6 +5,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreatePropertyRequest;
 import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PolicyUnderwritingFields;
 import com.medfund.user.dto.PropertyFilterParams;
 import com.medfund.user.dto.PropertyRow;
 import com.medfund.user.dto.UpdatePropertyRequest;
@@ -35,6 +36,7 @@ public class PropertyService {
     private final PropertyQueryRepository propertyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final PolicyIssuedPublisher policyIssuedPublisher;
 
     public Flux<Property> findAll() {
         return propertyRepository.findAllOrderByCreatedAtDesc();
@@ -84,6 +86,7 @@ public class PropertyService {
         p.setPropertyAgeYears(request.propertyAgeYears());
         p.setOccupancy(request.occupancy());
         p.setStatus("active");
+        applyUnderwriting(p, request.underwriting());
         p.setCreatedAt(Instant.now());
         p.setUpdatedAt(Instant.now());
         UUID actorUuid = safeParseUuid(actorId);
@@ -94,6 +97,7 @@ public class PropertyService {
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     return publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
+                            .then(publishPolicyIssued(tenantId, saved))
                             .thenReturn(saved);
                 }));
     }
@@ -121,17 +125,45 @@ public class PropertyService {
                             request.billingOverrideAmount(),
                             request.billingOverrideReason(),
                             request.billingOverrideEffectiveFrom());
+                    applyUnderwriting(existing, request.underwriting());
 
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(safeParseUuid(actorId));
 
+                    boolean premiumChanged = !java.util.Objects.equals(
+                            previous.getWrittenPremium(), existing.getWrittenPremium());
+
                     return propertyRepository.save(existing)
                             .flatMap(saved -> Mono.deferContextual(ctx -> {
                                 String tenantId = TenantContext.get(ctx);
-                                return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                                        .thenReturn(saved);
+                                Mono<Void> chain = publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE");
+                                if (premiumChanged) chain = chain.then(publishPolicyIssued(tenantId, saved));
+                                return chain.thenReturn(saved);
                             }));
                 });
+    }
+
+    private static void applyUnderwriting(Property p, PolicyUnderwritingFields uw) {
+        if (uw == null) return;
+        if (uw.writtenPremium() != null) p.setWrittenPremium(uw.writtenPremium());
+        if (uw.writtenPremiumCurrency() != null) p.setWrittenPremiumCurrency(uw.writtenPremiumCurrency());
+        if (uw.boundAt() != null) p.setBoundAt(uw.boundAt());
+        if (uw.coverageStart() != null) p.setCoverageStart(uw.coverageStart());
+        if (uw.coverageEnd() != null) p.setCoverageEnd(uw.coverageEnd());
+        if (uw.renewedFromPolicyId() != null) p.setRenewedFromPolicyId(uw.renewedFromPolicyId());
+        if (uw.portfolioId() != null) p.setPortfolioId(uw.portfolioId());
+        if (uw.cohortId() != null) p.setCohortId(uw.cohortId());
+    }
+
+    private Mono<Void> publishPolicyIssued(String tenantId, Property p) {
+        return policyIssuedPublisher.publish(new PolicyIssuedPublisher.PolicyIssuedPayload(
+                tenantId, p.getId(), p.getPropertyName(),
+                "PROPERTY_POLICY", "PROPERTY",
+                p.getWrittenPremium(), p.getWrittenPremiumCurrency(),
+                p.getCoverageStart(), p.getCoverageEnd(), p.getBoundAt(),
+                p.getOwnerMemberId(), p.getPortfolioId(), p.getCohortId(),
+                p.getRenewedFromPolicyId()
+        ));
     }
 
     @Transactional
@@ -248,6 +280,14 @@ public class PropertyService {
         c.setBillingOverrideAmount(src.getBillingOverrideAmount());
         c.setBillingOverrideReason(src.getBillingOverrideReason());
         c.setBillingOverrideEffectiveFrom(src.getBillingOverrideEffectiveFrom());
+        c.setWrittenPremium(src.getWrittenPremium());
+        c.setWrittenPremiumCurrency(src.getWrittenPremiumCurrency());
+        c.setBoundAt(src.getBoundAt());
+        c.setCoverageStart(src.getCoverageStart());
+        c.setCoverageEnd(src.getCoverageEnd());
+        c.setRenewedFromPolicyId(src.getRenewedFromPolicyId());
+        c.setPortfolioId(src.getPortfolioId());
+        c.setCohortId(src.getCohortId());
         return c;
     }
 }

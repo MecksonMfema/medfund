@@ -153,6 +153,18 @@ export class BalanceService {
     return this.api.get<PageResponse<BadDebtRow>>(`${this.base}/aged-balances`, params);
   }
 
+  /**
+   * XLSX download for the aged-balances list. Same filters as
+   * {@link listAged}; the backend applies them so the workbook mirrors
+   * what's on screen.
+   */
+  exportAgedExcel(currency: string, minAgeDays?: number, q?: string): Observable<Blob> {
+    const params: Record<string, string> = { currency };
+    if (minAgeDays !== undefined && minAgeDays !== null) params['minAgeDays'] = String(minAgeDays);
+    if (q) params['q'] = q;
+    return this.api.getBlob(`${this.base}/aged-balances/export/excel`, params);
+  }
+
   flagBadDebt(body: FlagBadDebtPayload): Observable<unknown> {
     return this.api.post<unknown>(`${this.base}/bad-debts/flag`, body);
   }

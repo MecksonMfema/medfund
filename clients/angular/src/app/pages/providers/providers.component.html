@@ -1,4 +1,4 @@
-<div class="page-header">
+<header class="page-header">
   <div>
     <h1>Provider Network</h1>
     <p class="page-subtitle">Platform-wide registry of service providers across all insurance lines</p>
@@ -7,41 +7,13 @@
     <app-icon name="plus" [size]="18"></app-icon>
     Register Provider
   </button>
-</div>
+</header>
 
 <!-- Stats -->
 <div class="stats-grid">
   <app-stat-card label="Active"              [value]="activeCount"   icon="check-circle" color="green"></app-stat-card>
   <app-stat-card label="Pending Verification" [value]="pendingCount"  icon="alert-circle" color="orange"></app-stat-card>
   <app-stat-card label="Suspended"           [value]="suspendedCount" icon="pause-circle" color="red"></app-stat-card>
-</div>
-
-<!-- Filter bar -->
-<div class="filter-bar">
-  <div class="filter-search">
-    <app-icon name="search" [size]="16"></app-icon>
-    <input
-      class="filter-input"
-      type="text"
-      placeholder="Search by name or registration number…"
-      [ngModel]="searchTerm"
-      (ngModelChange)="onSearchChange($event)"
-    />
-  </div>
-  <app-select
-    [(ngModel)]="statusFilter"
-    name="statusFilter"
-    [options]="statusFilterOptions"
-    (ngModelChange)="onFilterChange()"
-    size="sm"
-  ></app-select>
-  <app-select
-    [(ngModel)]="typeFilter"
-    name="typeFilter"
-    [options]="typeFilterOptions"
-    (ngModelChange)="onFilterChange()"
-    size="sm"
-  ></app-select>
 </div>
 
 <!-- Table -->
@@ -51,15 +23,108 @@
   [columns]="columns"
   [data]="providers"
   [actions]="tableActions"
-  [searchable]="false"
   [serverSide]="true"
   [loading]="loading"
   [totalCount]="totalCount"
   [totalPages]="totalPages"
   [serverPage]="currentPage"
+  searchPlaceholder="Search by name or registration number..."
+  (searchChange)="onSearchChange($event)"
   (pageChange)="onPageChange($event)"
   emptyMessage="No providers registered yet."
-></app-data-table>
+>
+  <div table-filters class="toolbar-cell cell-pfilter">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onFilterChange()"
+      name="statusFilter"
+      [options]="statusFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-pfilter">
+    <span class="cell-label">Type</span>
+    <app-select
+      [(ngModel)]="typeFilter"
+      (selectionChange)="onFilterChange()"
+      name="typeFilter"
+      [options]="typeFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</app-data-table>
+
+<!-- Tenants & lines modal -->
+@if (showMembershipModal && membershipProvider) {
+  <div class="modal-overlay" (click)="closeMembershipModal()">
+    <div class="modal" (click)="$event.stopPropagation()" data-testid="membership-modal">
+      <div class="modal-header">
+        <h2>Tenants &amp; lines</h2>
+        <button class="btn-icon" (click)="closeMembershipModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">
+          {{ membershipProvider.name }} is on the platform registry. A tenant can only
+          claim against it once it is linked here, and only for the lines it is tagged for.
+        </p>
+
+        <div class="form-group">
+          <label>Contracted tenants</label>
+          @if (membershipLoading) {
+            <span class="muted">Loading…</span>
+          } @else if (tenants.length === 0) {
+            <span class="muted">No tenants on the platform yet.</span>
+          } @else {
+            <div class="toggle-grid">
+              @for (tenant of tenants; track tenant.id) {
+                <button
+                  type="button"
+                  class="toggle-chip"
+                  [class.toggle-chip--on]="isTenantLinked(tenant.id)"
+                  [disabled]="isBusy('t:' + tenant.id)"
+                  [attr.data-testid]="'tenant-toggle-' + tenant.slug"
+                  [attr.aria-pressed]="isTenantLinked(tenant.id)"
+                  (click)="toggleTenant(tenant.id)">
+                  <app-icon [name]="isTenantLinked(tenant.id) ? 'check-circle' : 'plus'" [size]="14"></app-icon>
+                  {{ tenant.name }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="form-group">
+          <label>Insurance lines served</label>
+          <div class="toggle-grid">
+            @for (line of insuranceLines; track line.value) {
+              <button
+                type="button"
+                class="toggle-chip"
+                [class.toggle-chip--on]="isLineTagged(line.value)"
+                [disabled]="isBusy('l:' + line.value)"
+                [attr.data-testid]="'line-toggle-' + line.value"
+                [attr.aria-pressed]="isLineTagged(line.value)"
+                (click)="toggleLine(line.value)">
+                <app-icon [name]="isLineTagged(line.value) ? 'check-circle' : 'plus'" [size]="14"></app-icon>
+                {{ line.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-testid="membership-done" (click)="closeMembershipModal()">Done</button>
+      </div>
+    </div>
+  </div>
+}
 
 <!-- Register Provider Modal -->
 @if (showCreateModal) {

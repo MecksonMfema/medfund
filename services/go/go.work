@@ -4,6 +4,7 @@ use (
 	./audit-service
 	./file-service
 	./gateway
+	./market-data-service
 	./notification-service
 	./payment-gateway
 	./shared

@@ -1,0 +1,115 @@
+<div class="page-header">
+  <div>
+    <h1>AI Model Registry</h1>
+    <div class="page-subtitle">
+      Currently-active fraud + pricing model versions per insurance line.
+      Every prediction row records the exact <code>model_version</code>
+      the runtime served; a red <em>SCHEMA_MISMATCH</em> badge means the
+      promoted artifact's canonical-features schema is stale and the
+      runtime has silently reverted to the canonical fallback.
+    </div>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-secondary" (click)="reload()" [disabled]="loading">
+      Refresh
+    </button>
+    <a routerLink=".." class="btn btn-secondary">
+      Back to Predictions
+    </a>
+  </div>
+</div>
+
+<section class="content-shell">
+  <div *ngIf="loadError" class="alert alert-error" role="alert">{{ loadError }}</div>
+
+  <table class="data-table" data-testid="ai-models-table">
+    <thead>
+      <tr>
+        <th>Model type</th>
+        <th>Insurance line</th>
+        <th>Status</th>
+        <th>Active version</th>
+        <th>Model version</th>
+        <th>Trained at</th>
+        <th>Train samples</th>
+        <th>Primary metric</th>
+        <th *ngIf="canPromote()" class="col-actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of models" [attr.data-model-type]="row.model_type" [attr.data-line]="row.line">
+        <td>{{ row.model_type }}</td>
+        <td>{{ row.line }}</td>
+        <td>
+          <span class="badge" [ngClass]="statusBadgeClass(row)"
+                [title]="row.schema_status_detail || ''">
+            {{ statusLabel(row) }}
+          </span>
+        </td>
+        <td>{{ row.active_version || '—' }}</td>
+        <td><code>{{ row.model_version }}</code></td>
+        <td>{{ formattedTrainedAt(row) }}</td>
+        <td class="numeric">{{ row.train_samples | number }}</td>
+        <td class="numeric">{{ primaryMetric(row) }}</td>
+        <td *ngIf="canPromote()" class="col-actions">
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            data-testid="promote-btn"
+            (click)="openPromote(row)">
+            Promote
+          </button>
+        </td>
+      </tr>
+      <tr *ngIf="!loading && models.length === 0">
+        <td colspan="9" class="empty">No models registered.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Confirmation modal per G5 — reviewer confirms the target version. -->
+<div *ngIf="showPromote && promoteRow" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2 class="modal-title">Promote {{ promoteRow.model_type }} model</h2>
+    <p class="modal-body">
+      Confirm the version to promote for
+      <strong>{{ promoteRow.model_type }} / {{ promoteRow.line }}</strong>.
+      The change updates the MinIO manifest and takes effect on every
+      pod within 60 seconds. An audit event with your actor id + email
+      is emitted server-side.
+    </p>
+    <p class="modal-body" *ngIf="promoteRow.active_version">
+      Currently active: <code>{{ promoteRow.active_version }}</code>
+    </p>
+
+    <label class="modal-field">
+      <span>Target version</span>
+      <input
+        type="text"
+        [(ngModel)]="promoteVersionInput"
+        placeholder="v2"
+        data-testid="promote-version-input"
+        [disabled]="promoteSubmitting" />
+    </label>
+    <div *ngIf="promoteError" class="alert alert-error" role="alert">{{ promoteError }}</div>
+
+    <div class="modal-actions">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="cancelPromote()"
+        [disabled]="promoteSubmitting">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-testid="promote-confirm-btn"
+        (click)="confirmPromote()"
+        [disabled]="promoteSubmitting">
+        {{ promoteSubmitting ? 'Promoting…' : 'Confirm promote' }}
+      </button>
+    </div>
+  </div>
+</div>

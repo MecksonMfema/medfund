@@ -127,7 +127,7 @@ class BadDebtsExcelServiceTest {
         try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             Sheet sheet = wb.getSheet("Bad debts");
             assertThat(cellString(sheet, 3, 1)).isEqualTo("All (individuals + groups)");
-            assertThat(cellString(sheet, 5, 1)).isEqualTo("—");
+            assertThat(cellString(sheet, 5, 1)).isEqualTo("-");
         }
     }
 

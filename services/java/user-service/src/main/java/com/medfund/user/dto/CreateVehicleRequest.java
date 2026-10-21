@@ -40,5 +40,7 @@ public record CreateVehicleRequest(
 
         UUID groupId,
 
-        UUID ownerMemberId
+        UUID ownerMemberId,
+
+        PolicyUnderwritingFields underwriting
 ) {}

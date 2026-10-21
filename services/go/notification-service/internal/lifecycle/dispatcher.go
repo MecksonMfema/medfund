@@ -159,7 +159,7 @@ func copyFor(status, reason string) (string, string, string) {
 	case "suspended":
 		return "Your account has been suspended",
 			"Your account has been suspended. During suspension you continue to be billed, but service delivery may be limited at the tenant's discretion.",
-			"To restore access, settle the outstanding balance — accounts suspended for arrears reactivate automatically on the next daily sweep after payment lands."
+			"To restore access, settle the outstanding balance. Accounts suspended for arrears reactivate automatically on the next daily sweep after payment lands."
 	case "deactivated":
 		return "Your account has been deactivated",
 			"Your account has been deactivated. Billing has stopped and any outstanding balance has been written off as bad debt.",
@@ -172,7 +172,7 @@ func copyFor(status, reason string) (string, string, string) {
 		}
 		return "Your account has been reactivated",
 			"Your account has been reactivated.",
-			"Welcome back — you'll continue to receive statements as before."
+			"Welcome back. You'll continue to receive statements as before."
 	default:
 		return "Account status change",
 			fmt.Sprintf("Your account status changed to %s.", status),

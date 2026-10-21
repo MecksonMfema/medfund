@@ -95,7 +95,11 @@ class PaymentServiceTest {
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRepository.existsByPaymentNumber(any())).thenReturn(Mono.just(false));
-        when(paymentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRepository.save(any())).thenAnswer(inv -> {
+            Payment e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentCreated(any(), any(), any())).thenReturn(Mono.empty());
 
@@ -128,7 +132,11 @@ class PaymentServiceTest {
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
-        when(paymentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRepository.save(any())).thenAnswer(inv -> {
+            Payment e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentCommitted(any(), any(), any(), any()))
             .thenReturn(Mono.empty());
@@ -155,7 +163,11 @@ class PaymentServiceTest {
         var payment = createTestPayment();
         payment.setStatus("pending");
         when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
-        when(paymentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRepository.save(any())).thenAnswer(inv -> {
+            Payment e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(

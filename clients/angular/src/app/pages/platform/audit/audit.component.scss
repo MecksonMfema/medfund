@@ -1,38 +1,70 @@
+// Fullbleed shell — matches /platform/tenants + /tenant/admin/audit. Route
+// data.fullbleed = true strips LayoutComponent's outer padding, so the
+// page-header owns its own edge gutter + surface background + bottom
+// border, and the data-table below spans edge-to-edge.
 .page-header {
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-xl);
 }
 .page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
 .page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 
-.filter-bar {
-  display: flex;
-  gap: var(--spacing-base);
-  margin-bottom: var(--spacing-xl);
-  flex-wrap: wrap;
+// Match /tenant/admin/audit toolbar behaviour: filters sit next to the
+// built-in search on the left. DataTable's default is [search][spacer][filters];
+// push the spacer past the projected filters so search + filter cells hug
+// the left edge.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+// Width variants for each filter cell inside [table-filters].
+.toolbar-cell.cell-entity,
+.toolbar-cell.cell-action { flex: 0 0 auto; min-width: 200px; }
+.toolbar-cell.cell-date   { flex: 0 0 auto; min-width: 170px; }
+
+.toolbar-cell.cell-entity app-select,
+.toolbar-cell.cell-action app-select { min-width: 140px; flex: 1; }
+
+// Strip the SelectComponent's default border + rounded background so the
+// select reads as a flat toolbar value rather than a boxed form input.
+.toolbar-cell.cell-entity,
+.toolbar-cell.cell-action {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  // Widen the panel past the compact trigger so long labels like
+  // "Password Reset Email Sent" render in full.
+  ::ng-deep .select-panel {
+    right: auto;
+    min-width: 260px;
+  }
 }
 
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 160px;
+// DataTable's outer .table-container has `overflow: hidden` (rounded
+// corners) and `.table-scroll` has `overflow-x: auto` (which implicitly
+// sets `overflow-y: auto` per CSS spec) — both clip the filter dropdown
+// panel when the table has few rows and collapses tight. Release them
+// here and give the container a min-height as a defensive floor.
+:host ::ng-deep .table-container,
+:host ::ng-deep .table-toolbar,
+:host ::ng-deep .table-scroll {
+  overflow: visible !important;
 }
-
-.filter-group label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-select.input {
-  appearance: none;
-  cursor: pointer;
-}
+:host ::ng-deep .table-container { min-height: 360px; }
+:host ::ng-deep .select-panel { z-index: 1000; }
 
 // ── Diff Modal ────────────────────────────────────────────────────────────────
 
@@ -224,8 +256,6 @@ select.input {
 
 @media (max-width: 768px) {
   .page-header { flex-direction: column; gap: var(--spacing-base); }
-  .filter-bar { flex-direction: column; }
-  .filter-group { min-width: 100%; }
 }
 
 @media (max-width: 600px) {

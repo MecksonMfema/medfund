@@ -206,6 +206,20 @@ export class UsersComponent implements OnInit, OnDestroy {
     if (this.selectedTenantId) this.loadMembers();
   }
 
+  /** Subtitle text for the Members data-table — plain string, no ternary in the
+   *  template so we don't feed a changing expression into the data-table on
+   *  every CD cycle. */
+  get membersSubtitle(): string {
+    return this.selectedTenantId ? `${this.members.length} users` : 'Pick a tenant';
+  }
+
+  /** Empty-state text used when the data-table has no rows to render. */
+  get membersEmptyMessage(): string {
+    return this.selectedTenantId
+      ? 'No members found for this tenant.'
+      : 'Select a tenant to view its members and staff.';
+  }
+
   onMemberSearchChange(q: string): void {
     this.memberSearch = q;
     this.memberSearch$.next(q);

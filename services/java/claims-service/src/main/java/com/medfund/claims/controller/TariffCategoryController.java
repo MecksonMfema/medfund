@@ -52,7 +52,7 @@ public class TariffCategoryController {
     }
 
     @GetMapping
-    @Operation(summary = "List tariff categories (unpaginated — prefer /page)",
+    @Operation(summary = "List tariff categories (unpaginated - prefer /page)",
         description = "Returns categories in sort_order + label. Pass activeOnly=true to hide "
                     + "deactivated rows (default false so admins can un-deactivate).")
     public Flux<TariffCategoryResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {

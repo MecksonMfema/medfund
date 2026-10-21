@@ -22,7 +22,7 @@ public class ContributionBillingTemplates implements TemplateProvider {
                  all(cond("contribution.daysOverdue", "GREATER_THAN", "30"),
                      cond("contribution.paid",        "EQUALS",       "false")),
                  action("APPLY_LATE_FEE", "25.00",
-                        "Flat late fee — contribution overdue more than 30 days")),
+                        "Flat late fee - contribution overdue more than 30 days")),
 
             rule("BILL02 - Escalated late fee after 90 days",
                  "Members 90+ days overdue trigger an escalated 100.00 fee on top of any earlier ones.",
@@ -30,7 +30,7 @@ public class ContributionBillingTemplates implements TemplateProvider {
                  all(cond("contribution.daysOverdue", "GREATER_THAN", "90"),
                      cond("contribution.paid",        "EQUALS",       "false")),
                  action("APPLY_LATE_FEE", "100.00",
-                        "Escalated late fee — contribution overdue more than 90 days"))
+                        "Escalated late fee - contribution overdue more than 90 days"))
         );
     }
 }

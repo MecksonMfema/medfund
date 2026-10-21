@@ -172,11 +172,11 @@ export class MemberFormComponent {
    *  everything else is optional risk-signal enrichment. */
   suggestPremium(): void {
     if (!this.form.schemeId) {
-      this.toast.error('Pick a scheme first — the AI needs it to compute a baseline.');
+      this.toast.error('Pick a scheme first: the AI needs it to compute a baseline.');
       return;
     }
     if (!this.form.dateOfBirth) {
-      this.toast.error('Enter a date of birth — the AI uses it to pick the age-band.');
+      this.toast.error('Enter a date of birth: the AI uses it to pick the age-band.');
       return;
     }
     this.aiRequesting = true;

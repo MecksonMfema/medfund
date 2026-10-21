@@ -59,6 +59,30 @@ public class ClaimEventPublisher {
                                                 String memberId, String dependantId,
                                                 String benefitId, String policyYear,
                                                 String payeeType, String tenantId) {
+        return publishClaimAdjudicated(claimId, claimNumber, decision, providerId, approvedAmount,
+                currencyCode, insuranceLine, memberId, dependantId, benefitId, policyYear,
+                payeeType, tenantId,
+                null, null, null, null, null, null, null);
+    }
+
+    /**
+     * V077 overload — carries the 7-bucket cost-share breakdown when
+     * {@link CostShareCalculator} ran on the auto-approve branch. All 7
+     * amount params are nullable strings; a null lands as an empty string
+     * so downstream consumers that don't read them continue to work
+     * unchanged (G3 compat). The 13-arg overload above stays a thin shim
+     * for callers that don't compute a breakdown (reject / manual-review).
+     */
+    public Mono<Void> publishClaimAdjudicated(String claimId, String claimNumber, String decision,
+                                                String providerId, String approvedAmount, String currencyCode,
+                                                String insuranceLine,
+                                                String memberId, String dependantId,
+                                                String benefitId, String policyYear,
+                                                String payeeType, String tenantId,
+                                                String allowedAmount, String deductibleApplied,
+                                                String copayAmount, String coinsuranceAmount,
+                                                String notCoveredAmount, String shortfallAmount,
+                                                String memberResponsibility) {
         var payload = new java.util.LinkedHashMap<String, String>();
         payload.put("event", "CLAIM_ADJUDICATED");
         payload.put("claimId", claimId);
@@ -87,6 +111,15 @@ public class ClaimEventPublisher {
         // Reactor context). Without it the finance-side member_payables
         // insert lands in public and returns silent errors.
         payload.put("tenantId",     nz(tenantId));
+        // V077: 7-bucket cost-share breakdown. Additive-only; consumers
+        // that only read approvedAmount continue to work (G3 compat).
+        payload.put("allowedAmount",        nz(allowedAmount));
+        payload.put("deductibleApplied",    nz(deductibleApplied));
+        payload.put("copayAmount",          nz(copayAmount));
+        payload.put("coinsuranceAmount",    nz(coinsuranceAmount));
+        payload.put("notCoveredAmount",     nz(notCoveredAmount));
+        payload.put("shortfallAmount",      nz(shortfallAmount));
+        payload.put("memberResponsibility", nz(memberResponsibility));
         return publishEvent("medfund.claims.adjudicated", claimId, payload);
     }
 
@@ -110,6 +143,41 @@ public class ClaimEventPublisher {
             "authNumber", authNumber,
             "decision", decision
         ));
+    }
+
+    /**
+     * V078 (Phase 4): emit {@code medfund.claims.eob-issued} after a claim
+     * adjudicates with a cost-share breakdown. Consumed by notification-service
+     * (email + SMS + PDF EOB). Additive-only topic — no existing consumers to
+     * worry about breaking on the first release.
+     *
+     * <p>{@code reasonCodesJson} is a pre-serialised JSON array of
+     * {@link CarcRarcMapper.CarcRarc} — kept as a string for wire-compatibility
+     * with the flat LinkedHashMap payload every other topic uses.
+     */
+    public Mono<Void> publishEobIssued(String claimId, String claimNumber, String memberId,
+                                        String currencyCode,
+                                        String allowedAmount, String deductibleApplied,
+                                        String copayAmount, String coinsuranceAmount,
+                                        String notCoveredAmount, String shortfallAmount,
+                                        String memberResponsibility,
+                                        String reasonCodesJson, String tenantId) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "CLAIM_EOB_ISSUED");
+        payload.put("claimId", claimId);
+        payload.put("claimNumber", nz(claimNumber));
+        payload.put("memberId", nz(memberId));
+        payload.put("currencyCode", nz(currencyCode));
+        payload.put("allowedAmount",        nz(allowedAmount));
+        payload.put("deductibleApplied",    nz(deductibleApplied));
+        payload.put("copayAmount",          nz(copayAmount));
+        payload.put("coinsuranceAmount",    nz(coinsuranceAmount));
+        payload.put("notCoveredAmount",     nz(notCoveredAmount));
+        payload.put("shortfallAmount",      nz(shortfallAmount));
+        payload.put("memberResponsibility", nz(memberResponsibility));
+        payload.put("reasonCodes", nz(reasonCodesJson));
+        payload.put("tenantId", nz(tenantId));
+        return publishEvent("medfund.claims.eob-issued", claimId, payload);
     }
 
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {

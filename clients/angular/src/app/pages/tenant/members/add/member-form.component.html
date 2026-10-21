@@ -1,3 +1,5 @@
+<!-- Persistent form-state banner: kept inline per design-system.md
+     "When to use a toast vs an inline banner". Do not migrate. -->
 <div class="member-form-page">
   <header class="page-header">
     <div>
@@ -10,6 +12,8 @@
     </a>
   </header>
 
+  <!-- Persistent form-state banner: kept inline per design-system.md
+       "When to use a toast vs an inline banner". Do not migrate. -->
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }

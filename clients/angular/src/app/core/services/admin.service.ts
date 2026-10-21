@@ -70,6 +70,12 @@ export interface Tenant {
    * the same base.
    */
   memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
+  /**
+   * Regulator jurisdiction code (V131). Gates regulator-templated
+   * reports, e.g. ZW_IPEC_SHORT_TERM, ZW_IPEC_LIFE, ZA_FSCA_SHORT_TERM.
+   * Empty / undefined = no regulator-format reports surfaced.
+   */
+  jurisdictionCode?: string;
   createdAt: string;
 }
 
@@ -410,7 +416,7 @@ export class AdminService {
     return this.api.post<Tenant>('/tenants', data);
   }
 
-  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN'; memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX' }): Observable<Tenant> {
+  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN'; memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX'; jurisdictionCode?: string }): Observable<Tenant> {
     return this.api.put<Tenant>(`/tenants/${id}`, data);
   }
 
@@ -812,17 +818,32 @@ export class AdminService {
     );
   }
 
-  // Platform Settings
-  getPlatformSettings(): Observable<any> {
-    return this.api.get<any>('/platform/settings');
+  // ── Platform settings (super admin) ───────────────────────────────────────
+
+  getPlatformSettings(): Observable<PlatformSettings> {
+    return this.api.get<PlatformSettings>('/platform/settings');
   }
 
-  getEmailTemplates(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/email-templates');
+  /** Patch semantics: omitted fields are left untouched server-side. */
+  updatePlatformSettings(patch: PlatformSettingsPatch): Observable<PlatformSettings> {
+    return this.api.put<PlatformSettings>('/platform/settings', patch);
   }
 
-  getFeatureFlags(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/feature-flags');
+  /** Uploads the logo bytes. The server persists them on the singleton
+   *  settings row, so no follow-up PUT is needed; the returned URL is
+   *  cache-busted with the new updatedAt. */
+  uploadPlatformLogo(file: File): Observable<{ logoUrl: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.api.postMultipart<{ logoUrl: string }>('/platform/settings/logo', form);
+  }
+
+  getFeatureFlags(): Observable<PlatformFeatureFlag[]> {
+    return this.api.get<PlatformFeatureFlag[]>('/platform/feature-flags');
+  }
+
+  updateFeatureFlag(key: string, enabled: boolean): Observable<PlatformFeatureFlag> {
+    return this.api.put<PlatformFeatureFlag>(`/platform/feature-flags/${key}`, { enabled });
   }
 
   // ── Tenant email templates ────────────────────────────────────────────────
@@ -862,4 +883,39 @@ export interface TenantEmailTemplateUpdate {
   htmlBody: string;
   textBody?: string;
   enabled?: boolean;
+}
+
+/** Mirrors tenancy-service {@code PlatformSettingsResponse}. */
+export interface PlatformSettings {
+  platformName: string | null;
+  supportEmail: string | null;
+  /** Points at /api/v1/public/platform/logo?v=... , or null when unset. */
+  logoUrl: string | null;
+  themeTemplateId: string | null;
+  darkMode: boolean | null;
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+/** Mirrors tenancy-service {@code UpdatePlatformSettingsRequest}. Logo bytes
+ *  travel through the dedicated multipart endpoint, so there is no logoUrl. */
+export interface PlatformSettingsPatch {
+  platformName?: string;
+  supportEmail?: string;
+  themeTemplateId?: string;
+  darkMode?: boolean;
+  heroTitle?: string;
+  heroSubtitle?: string;
+}
+
+/** Mirrors tenancy-service {@code PlatformFeatureFlagResponse}. */
+export interface PlatformFeatureFlag {
+  key: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
 }

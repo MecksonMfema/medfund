@@ -11,6 +11,10 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
+import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
+import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface PropertyFormState {
   propertyName: string;
@@ -41,7 +45,8 @@ interface PropertyFormState {
 @Component({
   selector: 'app-property-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent,
+    PolicyStatusActionButtonsComponent, PolicyStatusActionModalComponent],
   templateUrl: './property-form.component.html',
   styleUrl: './property-form.component.scss',
 })
@@ -50,7 +55,6 @@ export class PropertyFormComponent implements OnInit {
   property: Property | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: PropertyFormState = {
     propertyName: '', address: '', sumInsured: null,
@@ -64,6 +68,11 @@ export class PropertyFormComponent implements OnInit {
   schemeSublabel: string | null = null;
   groupLabel: string | null = null;
   ownerLabel: string | null = null;
+
+  readonly policySource: PolicySource = 'PROPERTY_POLICY';
+  pendingAction: PolicyAction | null = null;
+  submittingAction = false;
+  actionServerError: string | null = null;
 
   readonly constructionTypeOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -131,7 +140,7 @@ export class PropertyFormComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load property';
+        this.toast.error(extractErrorMessage(err, 'Failed to load property'));
       },
     });
   }
@@ -164,18 +173,15 @@ export class PropertyFormComponent implements OnInit {
     if (this.form.sumInsured == null)   missing.push('sum insured');
     if (!this.form.schemeId)            missing.push('scheme');
     if (missing.length > 0) {
-      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
-      this.toast.error(this.errorMessage);
+      this.toast.warning(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     if (this.individualPricing
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
-    this.errorMessage = null;
     this.saving = true;
 
     const payload: any = {
@@ -210,9 +216,7 @@ export class PropertyFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -230,7 +234,7 @@ export class PropertyFormComponent implements OnInit {
         this.form.billingOverrideEffectiveFrom = '';
         this.toast.success('Custom premium cleared');
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Clear failed')),
     });
   }
 
@@ -238,7 +242,7 @@ export class PropertyFormComponent implements OnInit {
     if (!this.isEdit) return;
     this.policies.suspendProperty(this.propertyId!).subscribe({
       next: (saved) => { this.property = saved; this.toast.success('Property suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -247,7 +251,38 @@ export class PropertyFormComponent implements OnInit {
     if (!confirm('Terminate this property\'s policy? It will stop billing next cycle.')) return;
     this.policies.terminateProperty(this.propertyId!).subscribe({
       next: (saved) => { this.property = saved; this.toast.success('Property terminated'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
+    });
+  }
+
+  onLifecycleActionClicked(action: PolicyAction): void {
+    if (!this.isEdit) return;
+    this.pendingAction = action;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionCancelled(): void {
+    if (this.submittingAction) return;
+    this.pendingAction = null;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionSubmitted(payload: PolicyStatusActionSubmit): void {
+    if (!this.pendingAction || !this.propertyId) return;
+    const action = this.pendingAction;
+    this.submittingAction = true;
+    this.actionServerError = null;
+    this.policies.applyPolicyLifecycleAction(this.policySource, this.propertyId, action, payload).subscribe({
+      next: () => {
+        this.submittingAction = false;
+        this.pendingAction = null;
+        this.toast.success(`Property policy ${action} recorded`);
+        this.loadProperty();
+      },
+      error: (err) => {
+        this.submittingAction = false;
+        this.actionServerError = err?.error?.detail || err?.error?.title || `${action} failed`;
+      },
     });
   }
 }

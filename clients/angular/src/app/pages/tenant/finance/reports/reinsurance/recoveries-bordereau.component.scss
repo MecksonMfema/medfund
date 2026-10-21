@@ -1,0 +1,81 @@
+/* Local additions on top of the shared receipts-report.component.scss (Phase 8 modals).
+   Toolbar / rate-table / button primitives come from styles.scss. */
+
+.rate-table .muted {
+  color: var(--color-text-muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  width: 460px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-xl);
+
+  h3 { margin: 0 0 var(--spacing-xs) 0; font-size: var(--font-size-lg); }
+  .modal-sub { margin: 0 0 var(--spacing-base) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-md);
+
+    span { color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+    input, textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-base);
+      font-family: inherit;
+    }
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+// Per-page toolbar-cell widths so each dropdown label + option list
+// reads without truncation. Mirrors the cession bordereau polish so
+// the two reinsurance pages sit side-by-side identically.
+.toolbar-cell.cell-year,
+.toolbar-cell.cell-quarter {
+  min-width: 220px;
+}
+
+.toolbar-cell.cell-search {
+  min-width: 300px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-year app-select,
+.toolbar-cell.cell-quarter app-select,
+.toolbar-cell.cell-search app-select,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

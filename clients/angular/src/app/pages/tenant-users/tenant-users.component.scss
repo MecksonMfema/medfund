@@ -8,6 +8,38 @@
   line-height: 1.6;
 }
 
+// Match /tenant/finance/runs toolbar behaviour: filters sit next to the
+// built-in search on the left. DataTable's default layout is
+// [search][spacer][filters], which pushes projected filters to the far
+// right. Push the spacer past the filters via flex-order so search + filter
+// cells hug the left edge.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+// Status filter cell inside [table-filters]. Fixed width so the select
+// doesn't stretch, plus flush styling on the SelectComponent trigger so
+// it reads as a labelled toolbar value rather than a boxed form input.
+.toolbar-cell.cell-status {
+  flex: 0 0 auto;
+  min-width: 200px;
+
+  app-select { min-width: 140px; flex: 1; }
+
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+
 // ── Stat cards ────────────────────────────────────────────────────────────────
 
 .stats-grid {
@@ -362,4 +394,37 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-regular);
   color: var(--color-text-muted);
+}
+
+// ── View-only member detail grid ─────────────────────────────────────────────
+// Renders inside .modal-body — two-column label/value pairs, collapses to a
+// single column on narrow viewports.
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm) var(--spacing-lg);
+  margin: 0;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  dt {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+  }
+  dd {
+    margin: 0;
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    word-break: break-word;
+  }
 }

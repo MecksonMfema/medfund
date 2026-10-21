@@ -76,7 +76,7 @@ before decomposing.
 | Go high-throughput services | `services/go/{gateway,notification-service,audit-service,file-service,payment-gateway}`, plus `services/go/shared` | Fiber v2, Kafka consumers |
 | Elixir umbrella | `services/elixir/apps/{live_dashboard,chat_service}` | Phoenix 1.7, LiveView, PubSub |
 | Python AI service | `services/python/ai-service` | FastAPI, uv-managed |
-| Angular web app | `clients/angular` | Angular 19, role-based routing (super admin, tenant admin, operations, provider, member portals) |
+| Angular web app | `clients/angular` |    19, role-based routing (super admin, tenant admin, operations, provider, member portals) |
 | Flutter mobile / PWA | `clients/flutter` | Member + provider companion |
 | Infrastructure & scripts | `infra/`, `scripts/`, `docker-compose.yml`, `Makefile` | |
 | Architecture docs | `.claude/*.md` (14 topic docs — see `.claude/CLAUDE.md`) | Read the relevant one before diving in |

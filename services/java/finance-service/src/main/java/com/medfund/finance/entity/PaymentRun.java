@@ -3,11 +3,13 @@ package com.medfund.finance.entity;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Table("payment_runs")
@@ -57,6 +59,25 @@ public class PaymentRun {
      *  Null until every item in the run has settled. */
     @Column("settlement_date")
     private Instant settlementDate;
+
+    /** V075 — the tenant bank account this run debits. Set at create time. */
+    @Column("source_bank_account_id")
+    private UUID sourceBankAccountId;
+
+    /** V100 — commission accrual window covered by a PRODUCER-payee run.
+     *  Null for PROVIDER + MEMBER runs (which drain outstanding balances
+     *  regardless of period). Snap to 1st-of-month / last-day-of-month per
+     *  feedback_effective_date_snap. */
+    @Column("period_start")
+    private LocalDate periodStart;
+
+    @Column("period_end")
+    private LocalDate periodEnd;
+
+    /** Populated by the paginated query repo via a join on tenant_bank_accounts;
+     *  null on entity loads via findById. Not persisted. */
+    @Transient
+    private String sourceBankAccountLabel;
 
     @CreatedDate
     @Column("created_at")
@@ -108,6 +129,18 @@ public class PaymentRun {
 
     public Instant getSettlementDate() { return settlementDate; }
     public void setSettlementDate(Instant settlementDate) { this.settlementDate = settlementDate; }
+
+    public UUID getSourceBankAccountId() { return sourceBankAccountId; }
+    public void setSourceBankAccountId(UUID sourceBankAccountId) { this.sourceBankAccountId = sourceBankAccountId; }
+
+    public LocalDate getPeriodStart() { return periodStart; }
+    public void setPeriodStart(LocalDate periodStart) { this.periodStart = periodStart; }
+
+    public LocalDate getPeriodEnd() { return periodEnd; }
+    public void setPeriodEnd(LocalDate periodEnd) { this.periodEnd = periodEnd; }
+
+    public String getSourceBankAccountLabel() { return sourceBankAccountLabel; }
+    public void setSourceBankAccountLabel(String sourceBankAccountLabel) { this.sourceBankAccountLabel = sourceBankAccountLabel; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

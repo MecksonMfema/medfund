@@ -102,8 +102,11 @@ func TestRunAsync_concurrencyCapBoundsInFlightChains(t *testing.T) {
 	track := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		if inFlight > peak {
-			peak = inFlight
+		// inFlight is mutated with atomics from the worker goroutines, so read
+		// it atomically here too — a plain read under mu races the AddInt32s.
+		cur := atomic.LoadInt32(&inFlight)
+		if cur > peak {
+			peak = cur
 		}
 	}
 

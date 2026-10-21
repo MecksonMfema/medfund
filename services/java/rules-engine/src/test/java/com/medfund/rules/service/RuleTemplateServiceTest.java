@@ -3,18 +3,26 @@ package com.medfund.rules.service;
 import com.medfund.rules.model.RuleCategory;
 import com.medfund.rules.model.RuleDefinition;
 import com.medfund.rules.template.TemplateProvider;
+import com.medfund.rules.template.providers.ActuarialTemplates;
 import com.medfund.rules.template.providers.AgeGroupTemplates;
 import com.medfund.rules.template.providers.BenefitLimitTemplates;
 import com.medfund.rules.template.providers.ClinicalValidationTemplates;
 import com.medfund.rules.template.providers.CoPaymentTemplates;
+import com.medfund.rules.template.providers.CommissionTemplates;
 import com.medfund.rules.template.providers.ContributionBillingTemplates;
 import com.medfund.rules.template.providers.ContributionPricingTemplates;
 import com.medfund.rules.template.providers.EligibilityTemplates;
+import com.medfund.rules.template.providers.FraudTriageTemplates;
+import com.medfund.rules.template.providers.Ifrs17ModelTemplates;
 import com.medfund.rules.template.providers.MemberLifecycleTemplates;
 import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
+import com.medfund.rules.template.providers.PmbClassificationTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
+import com.medfund.rules.template.providers.PremiumEarningTemplates;
 import com.medfund.rules.template.providers.ProviderPaymentTemplates;
 import com.medfund.rules.template.providers.ReconciliationTemplates;
+import com.medfund.rules.template.providers.RegulatoryParameterTemplates;
+import com.medfund.rules.template.providers.ReinsuranceTemplates;
 import com.medfund.rules.template.providers.SchemeChangeProrationTemplates;
 import com.medfund.rules.template.providers.TariffPricingTemplates;
 import com.medfund.rules.template.providers.UnderwritingTemplates;
@@ -55,7 +63,15 @@ class RuleTemplateServiceTest {
                 new CoPaymentTemplates(),
                 new ProviderPaymentTemplates(),
                 new ReconciliationTemplates(),
-                new ModifierAdjustmentTemplates()
+                new ModifierAdjustmentTemplates(),
+                new ReinsuranceTemplates(),
+                new CommissionTemplates(),
+                new PremiumEarningTemplates(),
+                new ActuarialTemplates(),
+                new Ifrs17ModelTemplates(),
+                new RegulatoryParameterTemplates(),
+                new PmbClassificationTemplates(),
+                new FraudTriageTemplates()
         );
         service = new RuleTemplateService(providers);
     }
@@ -75,6 +91,7 @@ class RuleTemplateServiceTest {
      * a {@code SET_APPROVED_AMOUNT} action verb — see
      * {@link com.medfund.rules.template.providers.ModifierAdjustmentTemplates}
      * for the raw-DRL escape hatch tenants use today.
+     *
      */
     private static final Set<String> INTENTIONALLY_EMPTY_CATEGORIES = Set.of(
             RuleCategory.MODIFIER_ADJUSTMENT.name()

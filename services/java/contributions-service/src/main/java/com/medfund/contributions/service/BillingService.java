@@ -11,6 +11,7 @@ import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.entity.BillingCycleConfig;
 import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.entity.Invoice;
+import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.dto.BillingRevokeResponse;
 import com.medfund.contributions.dto.RevokeBillingRequest;
 import com.medfund.contributions.exception.BillingCooldownException;
@@ -23,6 +24,7 @@ import com.medfund.contributions.repository.BillingCycleConfigRepository;
 import com.medfund.contributions.repository.ContributionQueryRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
+import com.medfund.contributions.premium.service.BillingContributionEarningHook;
 import com.medfund.contributions.repository.SchemeRepository;
 import com.medfund.contributions.service.candidate.PersonCandidate;
 import com.medfund.shared.audit.AuditActor;
@@ -69,6 +71,8 @@ public class BillingService {
     private final DatabaseClient db;
     private final AiPricingClient aiPricingClient;
     private final InvoiceSnapshotService invoiceSnapshotService;
+    private final ArrearsThresholdPublisher arrearsThresholdPublisher;
+    private final BillingContributionEarningHook earningHook;
     /**
      * Per-insurance-line candidate resolvers, keyed by
      * {@link com.medfund.contributions.service.candidate.CandidateResolver#supportedLine()}.
@@ -90,6 +94,8 @@ public class BillingService {
                           DatabaseClient db,
                           AiPricingClient aiPricingClient,
                           InvoiceSnapshotService invoiceSnapshotService,
+                          ArrearsThresholdPublisher arrearsThresholdPublisher,
+                          BillingContributionEarningHook earningHook,
                           java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> resolvers) {
         this.contributionRepository = contributionRepository;
         this.contributionQueryRepository = contributionQueryRepository;
@@ -104,6 +110,8 @@ public class BillingService {
         this.db = db;
         this.aiPricingClient = aiPricingClient;
         this.invoiceSnapshotService = invoiceSnapshotService;
+        this.arrearsThresholdPublisher = arrearsThresholdPublisher;
+        this.earningHook = earningHook;
         // Tolerant of a null/empty resolver list so unit tests that mock
         // the service without spinning up the Spring context still work.
         // In production Spring auto-collects every @Component
@@ -196,6 +204,11 @@ public class BillingService {
                 contribution.setUpdatedAt(Instant.now());
                 contribution.setCreatedBy(UUID.fromString(actorId));
                 contribution.setUpdatedBy(UUID.fromString(actorId));
+                // Grill note 12 — inherit the scheme's default IFRS 17 portfolio
+                // so the earning_schedule row carries the same dimension as the
+                // policy tables. Null-safe: pre-underwriting schemes have no
+                // default, and reports treat null portfolio as MISC.
+                contribution.setPortfolioId(scheme.getDefaultPortfolioId());
 
                 // Run tenant pricing rules before persistence. The pricing service
                 // mutates contribution.amount in place when SET_PREMIUM /
@@ -206,7 +219,10 @@ public class BillingService {
                     // Same pairing as persistContribution — every contribution
                     // write must land on the running balance or the customer's
                     // outstanding drifts.
-                    .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
+                    .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved))
+                    // Phase 12 §A — project one earning_schedule row per HEALTH
+                    // contribution (earns entirely within its billing period).
+                    .flatMap(earningHook::onContributionCreated);
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -241,23 +257,71 @@ public class BillingService {
                 contribution.setUpdatedAt(Instant.now());
                 contribution.setUpdatedBy(UUID.fromString(actorId));
 
-                return contributionRepository.save(contribution)
+                // Snapshot the aged bucket BEFORE applying the payment so
+                // we can detect a SUSPENDED / WRITE_OFF → GRACE transition
+                // and publish arrears-cleared to the auto-lapse consumer.
+                // Member-level only in MVP; group aged bucket handling
+                // rides the same rail once the consumer supports it.
+                Mono<String> preBucket = contribution.getMemberId() != null && contribution.getCurrencyCode() != null
+                        ? balanceService.currentBucketFor(contribution.getMemberId(), contribution.getCurrencyCode())
+                        : Mono.just("GRACE");
+
+                return preBucket.flatMap(pre -> contributionRepository.save(contribution)
                     .flatMap(saved -> balanceService.applyContributionPaid(saved).thenReturn(saved))
+                    .flatMap(saved -> maybePublishArrearsCleared(saved, pre).thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Contribution", saved.getId().toString(),
-                                contributionName(saved),
-                                "UPDATE", actorId, actorEmail,
-                                Map.of("status", previousStatus),
-                                Map.of("status", saved.getStatus(),
-                                       "paymentMethod", saved.getPaymentMethod(),
-                                       "paymentReference", saved.getPaymentReference()))
-                            .then(eventPublisher.publishContributionPaid(
-                                saved.getId().toString(),
-                                saved.getMemberId() != null ? saved.getMemberId().toString() : "",
-                                saved.getAmount() != null ? saved.getAmount().toString() : ""))
-                            .thenReturn(saved);
-                    }));
+                        // Resolve the scheme once so the paid-event carries the
+                        // insurance line the reinsurance premium-cession consumer
+                        // needs to route to the right treaty. Falls back to
+                        // HEALTH when the scheme row has no explicit line
+                        // (matches priceOneMember's convention).
+                        return schemeRepository.findById(saved.getSchemeId())
+                            .map(s -> s.getInsuranceLine() != null ? s.getInsuranceLine() : "HEALTH")
+                            .defaultIfEmpty("HEALTH")
+                            .flatMap(insuranceLine -> publishAudit(tenantId, "Contribution",
+                                    saved.getId().toString(),
+                                    contributionName(saved),
+                                    "UPDATE", actorId, actorEmail,
+                                    Map.of("status", previousStatus),
+                                    Map.of("status", saved.getStatus(),
+                                           "paymentMethod", saved.getPaymentMethod(),
+                                           "paymentReference", saved.getPaymentReference()))
+                                .then(eventPublisher.publishContributionPaid(
+                                    saved.getId().toString(),
+                                    saved.getMemberId() != null ? saved.getMemberId().toString() : "",
+                                    saved.getAmount() != null ? saved.getAmount().toString() : "",
+                                    saved.getCurrencyCode(),
+                                    insuranceLine,
+                                    saved.getPaidAt() != null ? saved.getPaidAt().toString() : "",
+                                    tenantId))
+                                .thenReturn(saved));
+                    })));
+            });
+    }
+
+    /**
+     * Publish {@code medfund.contributions.arrears-cleared} when a payment
+     * drops the member from SUSPENDED / WRITE_OFF back into GRACE.
+     * Consumed by the auto-lapse chain in user-service to cancel a
+     * pending scheduled LAPSED status. Best-effort — failures are logged
+     * inside the publisher and do not roll back the payment.
+     */
+    private Mono<Void> maybePublishArrearsCleared(Contribution saved, String preBucket) {
+        if (saved.getMemberId() == null || saved.getCurrencyCode() == null) return Mono.empty();
+        if (!"SUSPENDED".equals(preBucket) && !"WRITE_OFF".equals(preBucket)) return Mono.empty();
+        return balanceService.currentBucketFor(saved.getMemberId(), saved.getCurrencyCode())
+            .flatMap(post -> {
+                if (!"GRACE".equals(post)) return Mono.<Void>empty();
+                return Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    return arrearsThresholdPublisher.publishCleared(
+                            tenantId,
+                            "MEMBER",
+                            saved.getMemberId().toString(),
+                            BigDecimal.ZERO,
+                            saved.getCurrencyCode());
+                });
             });
     }
 
@@ -981,6 +1045,38 @@ public class BillingService {
                 .collectList()
                 .cache();
 
+        // 3a) Snapshot the affected contributions before the DELETE so
+        //     the commission consumer in finance-service can reverse
+        //     the matching commission accruals. Joins schemes for the
+        //     insurance_line — the commission consumer keys on it.
+        //     Cached because it's consumed once (in the post-audit
+        //     publish) but the enumeration must happen before the DELETE
+        //     erases the rows.
+        Mono<List<RevokedContributionSnapshot>> captureContributionSnapshots = db.sql("""
+                SELECT c.id, c.member_id, c.group_id, c.amount, c.currency_code,
+                       c.invoice_id, s.insurance_line
+                  FROM contributions c
+                  LEFT JOIN schemes s ON s.id = c.scheme_id
+                 WHERE c.period_start = :start
+                   AND c.period_end   = :end
+                   AND ( NULLIF(:line, '') IS NULL
+                      OR s.insurance_line = :line )
+                """)
+                .bind("start", req.periodStart())
+                .bind("end",   req.periodEnd())
+                .bind("line",  lineBind)
+                .map(row -> new RevokedContributionSnapshot(
+                        row.get("id",             UUID.class),
+                        row.get("invoice_id",     UUID.class),
+                        row.get("member_id",      UUID.class),
+                        row.get("group_id",       UUID.class),
+                        row.get("amount",         BigDecimal.class),
+                        row.get("currency_code",  String.class),
+                        row.get("insurance_line", String.class)))
+                .all()
+                .collectList()
+                .cache();
+
         // 3) Capture (bucket, object_key) pointers for every invoice
         //    we're about to remove so we can publish per-blob delete
         //    events after the DELETE. invoice_pdfs is ON DELETE
@@ -1033,42 +1129,75 @@ public class BillingService {
         });
 
         return reverseBalances
-                .then(capturePdfPointers)
-                .flatMap(pointers -> deletedContributions
-                        .flatMap(contributions -> deletedInvoices
-                                .flatMap(invoices -> Mono.deferContextual(ctx -> {
-                                    String tenantId = TenantContext.get(ctx);
-                                    log.info("[revoke] tenant={} period={} to {} line={} deleted invoices={} contributions={} pdfBlobs={}",
-                                            tenantId, req.periodStart(), req.periodEnd(), line,
-                                            invoices, contributions, pointers.size());
+                .then(captureContributionSnapshots)
+                .flatMap(snapshots -> capturePdfPointers
+                        .flatMap(pointers -> deletedContributions
+                                .flatMap(contributions -> deletedInvoices
+                                        .flatMap(invoices -> Mono.deferContextual(ctx -> {
+                                            String tenantId = TenantContext.get(ctx);
+                                            log.info("[revoke] tenant={} period={} to {} line={} deleted invoices={} contributions={} pdfBlobs={}",
+                                                    tenantId, req.periodStart(), req.periodEnd(), line,
+                                                    invoices, contributions, pointers.size());
 
-                                    // 6) Tell file-service to delete each MinIO blob
-                                    //    that was just orphaned. Fire-and-forget; the
-                                    //    revoke succeeds even if Kafka is down.
-                                    Mono<Void> publishDeletes = Flux.fromIterable(pointers)
-                                            .concatMap(p -> eventPublisher.publishInvoicePdfDeleted(
-                                                    tenantId,
-                                                    p.invoiceId() == null ? null : p.invoiceId().toString(),
-                                                    p.bucket(),
-                                                    p.objectKey()))
-                                            .then();
+                                            // 6) Tell file-service to delete each MinIO blob
+                                            //    that was just orphaned. Fire-and-forget; the
+                                            //    revoke succeeds even if Kafka is down.
+                                            Mono<Void> publishDeletes = Flux.fromIterable(pointers)
+                                                    .concatMap(p -> eventPublisher.publishInvoicePdfDeleted(
+                                                            tenantId,
+                                                            p.invoiceId() == null ? null : p.invoiceId().toString(),
+                                                            p.bucket(),
+                                                            p.objectKey()))
+                                                    .then();
 
-                                    return publishDeletes.then(
-                                            publishAudit(tenantId, "BillingCycle", "revoke",
-                                                    req.periodStart() + " to " + req.periodEnd(),
-                                                    "DELETE", actorId, actorEmail,
-                                                    Map.of("contributions", String.valueOf(contributions),
-                                                            "invoices", String.valueOf(invoices),
-                                                            "pdfBlobs", String.valueOf(pointers.size()),
-                                                            "periodStart", req.periodStart().toString(),
-                                                            "periodEnd", req.periodEnd().toString(),
-                                                            "insuranceLine", line == null ? "(all)" : line),
-                                                    null))
-                                            .thenReturn(new BillingRevokeResponse(
-                                                    contributions, invoices,
-                                                    req.periodStart(), req.periodEnd(), line, now));
-                                }))));
+                                            return publishDeletes.then(
+                                                    publishAudit(tenantId, "BillingCycle", "revoke",
+                                                            req.periodStart() + " to " + req.periodEnd(),
+                                                            "DELETE", actorId, actorEmail,
+                                                            Map.of("contributions", String.valueOf(contributions),
+                                                                    "invoices", String.valueOf(invoices),
+                                                                    "pdfBlobs", String.valueOf(pointers.size()),
+                                                                    "periodStart", req.periodStart().toString(),
+                                                                    "periodEnd", req.periodEnd().toString(),
+                                                                    "insuranceLine", line == null ? "(all)" : line),
+                                                            null))
+                                                    .doOnSuccess(v -> publishContributionRevokedEvents(
+                                                            snapshots, tenantId, actorId, actorEmail))
+                                                    .thenReturn(new BillingRevokeResponse(
+                                                            contributions, invoices,
+                                                            req.periodStart(), req.periodEnd(), line, now));
+                                        })))));
     }
+
+    /**
+     * Fire-and-forget per-contribution {@code CONTRIBUTION_REVOKED} publish.
+     * The DELETE has already committed and audit-logged before this runs, so
+     * a Kafka outage here can't undo the revoke — the commission consumer
+     * side is idempotent (the underlying {@code commission_transaction} row is
+     * still there and can be reversed on a later replay) so a temporarily
+     * dropped event is recoverable.
+     */
+    private void publishContributionRevokedEvents(List<RevokedContributionSnapshot> snapshots,
+                                                  String tenantId, String actorId, String actorEmail) {
+        if (snapshots == null || snapshots.isEmpty()) return;
+        Flux.fromIterable(snapshots)
+                .concatMap(s -> eventPublisher.publishContributionRevoked(
+                        s.contributionId() == null ? null : s.contributionId().toString(),
+                        s.invoiceId()      == null ? null : s.invoiceId().toString(),
+                        s.memberId()       == null ? null : s.memberId().toString(),
+                        s.groupId()        == null ? null : s.groupId().toString(),
+                        s.amount()         == null ? null : s.amount().toPlainString(),
+                        s.currencyCode(),
+                        s.insuranceLine(),
+                        tenantId, actorId, actorEmail))
+                .subscribe();
+    }
+
+    /** Snapshot of a contribution captured before revoke-driven DELETE so the
+     *  commission consumer downstream can reverse the matching accrual. */
+    private record RevokedContributionSnapshot(
+            UUID contributionId, UUID invoiceId, UUID memberId, UUID groupId,
+            BigDecimal amount, String currencyCode, String insuranceLine) {}
 
     /**
      * Per-statement revoke — narrows {@link #revokeBilling} to a single
@@ -1104,6 +1233,30 @@ public class BillingService {
                             .concatMap(c -> balanceService.reverseContributionDebit(c).thenReturn(1L))
                             .count();
 
+                    // 1a) Snapshot this invoice's contributions before DELETE
+                    //     so the commission consumer downstream can reverse
+                    //     accruals. Cached because it's consumed once (in the
+                    //     post-audit publish) but must run before the DELETE.
+                    Mono<List<RevokedContributionSnapshot>> captureContributionSnapshots = db.sql("""
+                            SELECT c.id, c.member_id, c.group_id, c.amount, c.currency_code,
+                                   c.invoice_id, s.insurance_line
+                              FROM contributions c
+                              LEFT JOIN schemes s ON s.id = c.scheme_id
+                             WHERE c.invoice_id = :id
+                            """)
+                            .bind("id", invoiceId)
+                            .map(row -> new RevokedContributionSnapshot(
+                                    row.get("id",             UUID.class),
+                                    row.get("invoice_id",     UUID.class),
+                                    row.get("member_id",      UUID.class),
+                                    row.get("group_id",       UUID.class),
+                                    row.get("amount",         BigDecimal.class),
+                                    row.get("currency_code",  String.class),
+                                    row.get("insurance_line", String.class)))
+                            .all()
+                            .collectList()
+                            .cache();
+
                     // 2) Capture MinIO pointer BEFORE the invoice DELETE fires
                     //    the ON DELETE CASCADE on invoice_pdfs.
                     Mono<PdfPointer> capturePointer = db.sql("""
@@ -1132,43 +1285,46 @@ public class BillingService {
                             .fetch().rowsUpdated();
 
                     return reverseBalances
-                            .then(capturePointer)
-                            .flatMap(pointer -> deletedContributions
-                                    .flatMap(cCount -> deletedInvoice
-                                            .flatMap(iCount -> Mono.deferContextual(ctx -> {
-                                                String tenantId = TenantContext.get(ctx);
-                                                log.info("[revoke] tenant={} invoice={} number={} deleted contributions={} pdfBlob={}",
-                                                        tenantId, invoiceId, invoice.getInvoiceNumber(),
-                                                        cCount, pointer.objectKey() != null);
+                            .then(captureContributionSnapshots)
+                            .flatMap(snapshots -> capturePointer
+                                    .flatMap(pointer -> deletedContributions
+                                            .flatMap(cCount -> deletedInvoice
+                                                    .flatMap(iCount -> Mono.deferContextual(ctx -> {
+                                                        String tenantId = TenantContext.get(ctx);
+                                                        log.info("[revoke] tenant={} invoice={} number={} deleted contributions={} pdfBlob={}",
+                                                                tenantId, invoiceId, invoice.getInvoiceNumber(),
+                                                                cCount, pointer.objectKey() != null);
 
-                                                Mono<Void> publishBlobDelete = pointer.objectKey() == null
-                                                        ? Mono.empty()
-                                                        : eventPublisher.publishInvoicePdfDeleted(
-                                                                tenantId,
-                                                                invoiceId.toString(),
-                                                                pointer.bucket(),
-                                                                pointer.objectKey());
+                                                        Mono<Void> publishBlobDelete = pointer.objectKey() == null
+                                                                ? Mono.empty()
+                                                                : eventPublisher.publishInvoicePdfDeleted(
+                                                                        tenantId,
+                                                                        invoiceId.toString(),
+                                                                        pointer.bucket(),
+                                                                        pointer.objectKey());
 
-                                                return publishBlobDelete.then(
-                                                        publishAudit(tenantId, "Invoice",
-                                                                invoiceId.toString(),
-                                                                invoice.getInvoiceNumber(),
-                                                                "DELETE", actorId, actorEmail,
-                                                                Map.of(
-                                                                        "invoiceNumber", invoice.getInvoiceNumber(),
-                                                                        "periodStart", String.valueOf(invoice.getPeriodStart()),
-                                                                        "periodEnd", String.valueOf(invoice.getPeriodEnd()),
-                                                                        "totalAmount", String.valueOf(invoice.getTotalAmount())),
-                                                                Map.of(
-                                                                        "contributionsDeleted", String.valueOf(cCount),
-                                                                        "invoicesDeleted", String.valueOf(iCount),
-                                                                        "pdfBlobDeleted", String.valueOf(pointer.objectKey() != null))))
-                                                        .thenReturn(new BillingRevokeResponse(
-                                                                cCount, iCount,
-                                                                invoice.getPeriodStart(),
-                                                                invoice.getPeriodEnd(),
-                                                                null, now));
-                                            }))));
+                                                        return publishBlobDelete.then(
+                                                                publishAudit(tenantId, "Invoice",
+                                                                        invoiceId.toString(),
+                                                                        invoice.getInvoiceNumber(),
+                                                                        "DELETE", actorId, actorEmail,
+                                                                        Map.of(
+                                                                                "invoiceNumber", invoice.getInvoiceNumber(),
+                                                                                "periodStart", String.valueOf(invoice.getPeriodStart()),
+                                                                                "periodEnd", String.valueOf(invoice.getPeriodEnd()),
+                                                                                "totalAmount", String.valueOf(invoice.getTotalAmount())),
+                                                                        Map.of(
+                                                                                "contributionsDeleted", String.valueOf(cCount),
+                                                                                "invoicesDeleted", String.valueOf(iCount),
+                                                                                "pdfBlobDeleted", String.valueOf(pointer.objectKey() != null))))
+                                                                .doOnSuccess(v -> publishContributionRevokedEvents(
+                                                                        snapshots, tenantId, actorId, actorEmail))
+                                                                .thenReturn(new BillingRevokeResponse(
+                                                                        cCount, iCount,
+                                                                        invoice.getPeriodStart(),
+                                                                        invoice.getPeriodEnd(),
+                                                                        null, now));
+                                                    })))));
                 });
     }
 
@@ -1401,9 +1557,24 @@ public class BillingService {
         c.setUpdatedAt(now);
         c.setCreatedBy(actorUuid);
         c.setUpdatedBy(actorUuid);
-        return contributionRepository.save(c)
-                .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
+        // Inherit the scheme's default IFRS 17 portfolio at save time
+        // (Phase 12 §A grill note 12). Falls through null-safely when the
+        // scheme has no default configured.
+        return schemeRepository.findById(priced.schemeId())
+                .map(Scheme::getDefaultPortfolioId)
+                .defaultIfEmpty(EMPTY_UUID_SENTINEL)
+                .flatMap(portfolioId -> {
+                    if (portfolioId != EMPTY_UUID_SENTINEL) c.setPortfolioId(portfolioId);
+                    return contributionRepository.save(c);
+                })
+                .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved))
+                // Phase 12 §A — earning_schedule projection.
+                .flatMap(earningHook::onContributionCreated);
     }
+
+    // Sentinel used only to distinguish "scheme found, portfolio_id is null" from
+    // "scheme lookup returned empty". Never leaks past persistContribution.
+    private static final UUID EMPTY_UUID_SENTINEL = new UUID(0L, 0L);
 
     /**
      * Per-tenant entry point: reads the tenant's pricing_model + the

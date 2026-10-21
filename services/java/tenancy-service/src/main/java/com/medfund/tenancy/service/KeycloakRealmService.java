@@ -1,14 +1,15 @@
 package com.medfund.tenancy.service;
 
+import com.medfund.tenancy.entity.PlatformSettings;
 import com.medfund.tenancy.entity.Tenant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.util.HtmlUtils;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -19,10 +20,9 @@ import java.util.Map;
  * Manages Keycloak realms for tenants via the Keycloak Admin REST API.
  * Creates realm, OIDC clients (Angular + Flutter), and default roles.
  */
+@Slf4j
 @Service
 public class KeycloakRealmService {
-
-    private static final Logger log = LoggerFactory.getLogger(KeycloakRealmService.class);
 
     private final WebClient webClient;
 
@@ -34,6 +34,18 @@ public class KeycloakRealmService {
 
     @Value("${keycloak.admin.password:admin}")
     private String adminPassword;
+
+    /** Realm the super-admin portal authenticates against. */
+    @Value("${keycloak.platform-realm:medfund-platform}")
+    private String platformRealm;
+
+    /**
+     * Origin the browser uses to reach the platform. The logo endpoint is
+     * served relative to the gateway, but Keycloak renders the login page on
+     * its own origin, so the {@code <img src>} it embeds has to be absolute.
+     */
+    @Value("${platform.public-base-url:http://localhost:3000}")
+    private String publicBaseUrl;
 
     public KeycloakRealmService(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
@@ -183,5 +195,73 @@ public class KeycloakRealmService {
                 .retrieve()
                 .bodyToMono(Map.class)
                 .map(m -> (Map<String, Object>) m);
+    }
+
+    // ── Platform realm branding (called on every platform-settings mutation) ───
+
+    /**
+     * Patch the platform realm so the Keycloak-hosted login screen reflects
+     * the saved platform branding. Keycloak's realm update applies only the
+     * fields present in the payload, so this is a partial patch and leaves
+     * every other realm setting alone.
+     *
+     * <p>Best-effort by design: a Keycloak outage must not fail the admin's
+     * save. The row is already committed and the audit event already emitted
+     * by the time this runs, so a failure is logged and swallowed, matching
+     * {@link #createRealm}.
+     */
+    public Mono<Void> updatePlatformRealmBranding(PlatformSettings settings) {
+        Map<String, Object> realmPatch = new HashMap<>();
+        if (settings.getPlatformName() != null) {
+            realmPatch.put("displayName", settings.getPlatformName());
+        }
+        String htmlName = buildDisplayNameHtml(settings);
+        if (htmlName != null) {
+            realmPatch.put("displayNameHtml", htmlName);
+        }
+        if (realmPatch.isEmpty()) {
+            return Mono.empty();
+        }
+
+        return getAdminToken()
+                .flatMap(token -> webClient.put()
+                        .uri(keycloakUrl + "/admin/realms/" + platformRealm)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(realmPatch)
+                        .retrieve()
+                        .toBodilessEntity()
+                        .then())
+                .doOnSuccess(v -> log.info("Keycloak realm branding synced: {}", platformRealm))
+                .onErrorResume(e -> {
+                    log.warn("Keycloak realm branding sync failed for {}; "
+                            + "settings persisted, login screen unchanged", platformRealm, e);
+                    return Mono.empty();
+                });
+    }
+
+    /**
+     * Hero block rendered above the login form by Keycloak's default theme.
+     * {@code displayNameHtml} is emitted raw by the theme, so every operator
+     * supplied value is HTML-escaped here. The logo src is server-derived
+     * (see {@link PlatformSettings#logoPath()}) and made absolute against the
+     * gateway origin because Keycloak serves the login page from its own.
+     */
+    private String buildDisplayNameHtml(PlatformSettings s) {
+        var sb = new StringBuilder();
+        String logoPath = s.logoPath();
+        if (logoPath != null) {
+            sb.append("<img src=\"").append(HtmlUtils.htmlEscape(publicBaseUrl + logoPath))
+                    .append("\" alt=\"").append(HtmlUtils.htmlEscape(
+                            s.getPlatformName() != null ? s.getPlatformName() : "logo"))
+                    .append("\" />");
+        }
+        if (s.getHeroTitle() != null && !s.getHeroTitle().isBlank()) {
+            sb.append("<h1>").append(HtmlUtils.htmlEscape(s.getHeroTitle())).append("</h1>");
+        }
+        if (s.getHeroSubtitle() != null && !s.getHeroSubtitle().isBlank()) {
+            sb.append("<p>").append(HtmlUtils.htmlEscape(s.getHeroSubtitle())).append("</p>");
+        }
+        return sb.isEmpty() ? null : sb.toString();
     }
 }

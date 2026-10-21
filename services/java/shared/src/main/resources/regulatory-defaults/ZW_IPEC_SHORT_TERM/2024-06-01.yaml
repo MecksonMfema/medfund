@@ -1,0 +1,19 @@
+# IPEC solvency defaults for ZW_IPEC_SHORT_TERM insurers (Phase 16 §A / Phase 10).
+# Effective from 2024-06-01. Tenant admins can override any of these via
+# rules-engine RuleCategory.REGULATORY_PARAMETER (Phase 15 wiring) — the
+# calculator resolves rules-engine first, falls back here, throws otherwise.
+#
+# Sources (synthetic — hand-approximated from IPEC public bulletins pending
+# compliance-domain sign-off per parent-plan "Owed back" list):
+#   - min_solvency_ratio: IPEC minimum required ratio
+#   - min_required_capital_multiplier: applied to (net earned premium + reserves)
+#   - reserve_haircut_pct: haircut on IBNR + OSC when computing admitted capital
+# All rates are decimal (0.30 = 30%).
+
+jurisdiction: ZW_IPEC_SHORT_TERM
+effective_from: 2024-06-01
+parameters:
+  min_solvency_ratio: 1.30
+  min_required_capital_multiplier: 0.30
+  reserve_haircut_pct: 0.10
+  reinsurance_recoverable_pct_haircut: 0.05

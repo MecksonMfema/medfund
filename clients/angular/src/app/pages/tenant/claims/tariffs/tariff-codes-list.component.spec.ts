@@ -7,6 +7,7 @@ import {
   TariffCodeRow,
 } from '../../../../core/services/claims-config.service';
 import { TariffCategoriesService } from '../../../../core/services/tariff-categories.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * Guards the two contracts this list depends on:
@@ -28,6 +29,7 @@ class StubActivatedRoute {
 describe('TariffCodesListComponent', () => {
   let config: jasmine.SpyObj<ClaimsConfigService>;
   let categoriesSvc: jasmine.SpyObj<TariffCategoriesService>;
+  let toast: jasmine.SpyObj<ToastService>;
   let component: TariffCodesListComponent;
 
   const emptyPage = (): PageResponse<TariffCodeRow> => ({
@@ -51,6 +53,9 @@ describe('TariffCodesListComponent', () => {
     categoriesSvc = jasmine.createSpyObj<TariffCategoriesService>(
       'TariffCategoriesService', ['list'],
     );
+    toast = jasmine.createSpyObj<ToastService>(
+      'ToastService', ['error', 'warning', 'success', 'info'],
+    );
 
     config.getSchedule.and.returnValue(of({
       id: 'schedule-1', name: 'Std', effectiveDate: '2026-01-01', status: 'active',
@@ -62,7 +67,7 @@ describe('TariffCodesListComponent', () => {
     config.createCode.and.returnValue(of({} as any));
 
     component = new TariffCodesListComponent(
-      config, categoriesSvc, new StubActivatedRoute() as unknown as ActivatedRoute,
+      config, categoriesSvc, new StubActivatedRoute() as unknown as ActivatedRoute, toast,
     );
     component.ngOnInit();
   });
@@ -143,7 +148,7 @@ describe('TariffCodesListComponent', () => {
     component.submitDraft();
 
     expect(config.createCode).not.toHaveBeenCalled();
-    expect(component.errorMessage).toBe('Category is required');
+    expect(toast.warning).toHaveBeenCalledWith('Category is required');
     expect(component.saving).toBeFalse();
   });
 
@@ -188,9 +193,9 @@ describe('TariffCodesListComponent', () => {
 
     component.toggleForm();
 
-    // Rows still show; the operator just gets a banner steering them away
+    // Rows still show; the operator just gets a toast steering them away
     // from creating a code until the catalogue comes back.
     expect(component.rows).toEqual([]);
-    expect(component.errorMessage).toContain('Categories catalogue');
+    expect(toast.error).toHaveBeenCalledWith(jasmine.stringMatching(/Categories catalogue/));
   });
 });

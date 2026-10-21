@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EntityPickerComponent } from '../entity-picker/entity-picker.component';
 
@@ -34,11 +34,15 @@ export interface ChangeSchemePayload {
   templateUrl: './change-scheme-modal.component.html',
   styleUrl: './change-scheme-modal.component.scss',
 })
-export class ChangeSchemeModalComponent {
+export class ChangeSchemeModalComponent implements OnChanges {
   @Input() memberName = '';
   @Input() currentSchemeName: string | null = null;
   @Input() currentSchemeId: string | null = null;
   @Input() open = false;
+  /** When the modal is opened by picking a new scheme in the parent
+   *  form's entity-picker, the parent passes the picked id here so
+   *  the target-scheme field is pre-populated instead of blank. */
+  @Input() initialToSchemeId: string | null = null;
 
   @Output() cancel = new EventEmitter<void>();
   @Output() submit = new EventEmitter<ChangeSchemePayload>();
@@ -47,6 +51,15 @@ export class ChangeSchemeModalComponent {
   effectiveDate = this.firstOfMonthOffset(1);
   reason = '';
   error: string | null = null;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open'] && this.open) {
+      this.toSchemeId = this.initialToSchemeId ?? '';
+      this.effectiveDate = this.firstOfMonthOffset(1);
+      this.reason = '';
+      this.error = null;
+    }
+  }
 
   onEffectiveDateChange(): void {
     if (!this.effectiveDate) return;

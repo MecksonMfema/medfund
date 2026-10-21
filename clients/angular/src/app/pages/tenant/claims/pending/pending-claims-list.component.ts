@@ -10,6 +10,8 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-pending-claims-list',
@@ -21,7 +23,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class PendingClaimsListComponent implements OnInit {
   rows: ClaimRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -76,7 +77,7 @@ export class PendingClaimsListComponent implements OnInit {
     },
   ];
 
-  constructor(private claims: ClaimsService, private route: ActivatedRoute, private router: Router) {}
+  constructor(private claims: ClaimsService, private route: ActivatedRoute, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void {
     const data = this.route.snapshot.data;
@@ -113,7 +114,7 @@ export class PendingClaimsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load claims';
+        this.toast.error(extractErrorMessage(err, 'Failed to load claims'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

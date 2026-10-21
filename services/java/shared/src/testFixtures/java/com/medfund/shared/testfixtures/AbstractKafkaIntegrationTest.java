@@ -10,8 +10,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
@@ -33,13 +31,17 @@ import java.util.UUID;
  * fresh consumer (unique group id) on each call so previous tests don't
  * leak offsets — each call sees every retained event in the topic.
  */
-@Testcontainers
 public abstract class AbstractKafkaIntegrationTest {
 
-    @Container
     protected static final KafkaContainer KAFKA =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
-            .withReuse(true);
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+
+    static {
+        // Started once per JVM, NOT per test class — the @Testcontainers
+        // extension would otherwise stop the container at the end of each class
+        // and invalidate any cached Spring context pool (see AbstractIntegrationTest).
+        KAFKA.start();
+    }
 
     @DynamicPropertySource
     static void kafkaProperties(DynamicPropertyRegistry registry) {
@@ -66,6 +68,39 @@ public abstract class AbstractKafkaIntegrationTest {
     }
 
     protected JsonNode consumeAuditEvent(String topic, String entityTypeFilter, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> entityTypeFilter == null
+                || entityTypeFilter.equals(node.path("entityType").asText()),
+            timeout);
+    }
+
+    /**
+     * Read the first message on {@code topic} whose {@code details} text
+     * contains {@code detailsContains}, parsed as the audit envelope JSON
+     * shape. Returns {@code null} on timeout.
+     *
+     * <p>Multiple IT classes share one broker/topic for the JVM, and every
+     * consumer uses a fresh group reading from earliest, so events from
+     * unrelated earlier tests stay visible. Tests that assert on specific
+     * events must match on content ({@code details}) rather than grabbing
+     * the first event on the topic.
+     */
+    protected JsonNode consumeAuditEventContaining(String topic, String detailsContains, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> node.path("details").asText().contains(detailsContains),
+            timeout);
+    }
+
+    /**
+     * Scans a topic from the earliest offset for the first record matching an
+     * arbitrary predicate. Protected because a shared Kafka container serves
+     * every IT in the JVM: a test that asserts on "the first record of type X"
+     * silently picks up another class's record once a second test publishes
+     * the same type. Filter on something that identifies your own event.
+     */
+    protected JsonNode consumeAuditEventMatching(String topic,
+                                               java.util.function.Predicate<JsonNode> matcher,
+                                               Duration timeout) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
         // Unique group + earliest offset → every call sees the full topic, no
@@ -85,8 +120,7 @@ public abstract class AbstractKafkaIntegrationTest {
                 for (ConsumerRecord<String, String> rec : records) {
                     try {
                         JsonNode node = MAPPER.readTree(rec.value());
-                        if (entityTypeFilter == null
-                            || entityTypeFilter.equals(node.path("entityType").asText())) {
+                        if (matcher.test(node)) {
                             return node;
                         }
                     } catch (Exception ignored) {

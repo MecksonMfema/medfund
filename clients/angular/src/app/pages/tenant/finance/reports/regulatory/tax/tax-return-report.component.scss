@@ -1,0 +1,30 @@
+// Shared per-page overrides for the two tax return report pages
+// (VAT + tax-withheld). Matches the PMB spend + AML alerts polish so
+// every regulator page sits with the same toolbar rhythm.
+
+.toolbar-cell.cell-date {
+  min-width: 220px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toolbar-cell.toolbar-cell-cta {
+  align-self: flex-end;
+}
+
+.ajp-slot {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

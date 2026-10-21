@@ -1,12 +1,18 @@
 package com.medfund.claims.service;
 
+import com.medfund.claims.costshare.AppliedRuleAction;
 import com.medfund.claims.dto.AdjudicationResult;
+import com.medfund.claims.dto.AdjudicationResult.CostShareBreakdown;
 import com.medfund.claims.dto.AdjudicationResult.StageResult;
 import com.medfund.claims.dto.AiSignals;
 import com.medfund.claims.entity.Claim;
+import com.medfund.claims.entity.ClaimLine;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -36,6 +42,20 @@ import java.util.List;
  */
 @Service
 public class AdjudicationDecisionEngine {
+
+    /**
+     * V077 — cost-share calculator, injected via setter so existing unit tests
+     * that construct this class via no-arg new work unchanged. The Mono-returning
+     * {@link #decide(Claim, List, List, AiSignals, BigDecimal, List)} overload
+     * requires this bean; the sync {@link #decide(Claim, List, AiSignals, BigDecimal)}
+     * overload does not touch it.
+     */
+    private CostShareCalculator costShareCalculator;
+
+    @Autowired(required = false)
+    public void setCostShareCalculator(CostShareCalculator costShareCalculator) {
+        this.costShareCalculator = costShareCalculator;
+    }
 
     /** Confidence threshold above which the AI is trusted to auto-approve. */
     static final double AUTO_APPROVE_CONFIDENCE = 0.8;
@@ -143,6 +163,42 @@ public class AdjudicationDecisionEngine {
 
         return new AdjudicationResult(
                 "APPROVED", approved, null, null, stages, signals);
+    }
+
+    /**
+     * Async decide with cost-share computation on the auto-approve branch (Phase 2, G3).
+     * Reject / manual-review branches return {@code Mono.just(...)} of the sync result
+     * — no calculator call, no cost-share breakdown.
+     *
+     * <p>On auto-approve, {@link CostShareCalculator} splits {@code approvedAmount}
+     * into the 7 buckets and the returned result's {@code approvedAmount} is
+     * rewritten to the plan-paid portion ({@code allowedAmount - memberResponsibility}).
+     * That preserves the wire-shape existing consumers of
+     * {@code medfund.claims.adjudicated} depend on.
+     */
+    public Mono<AdjudicationResult> decide(Claim claim, List<ClaimLine> lines, List<StageResult> stages,
+                                           AiSignals ai, BigDecimal ruleAdjustedTotal,
+                                           List<AppliedRuleAction> ruleActions) {
+        AdjudicationResult syncResult = decide(claim, stages, ai, ruleAdjustedTotal);
+        if (!"APPROVED".equals(syncResult.decision()) || costShareCalculator == null) {
+            return Mono.just(syncResult);
+        }
+        List<AppliedRuleAction> actions = ruleActions != null ? ruleActions : Collections.emptyList();
+        return costShareCalculator.compute(claim, lines, actions, ruleAdjustedTotal)
+                .map(cs -> {
+                    BigDecimal planPaid = cs.allowedAmount()
+                            .subtract(cs.memberResponsibility())
+                            .max(BigDecimal.ZERO);
+                    // Preserve upcoding tie-break — the sync branch may have already picked
+                    // signals.suggestedAmount() when it was lower than allowed. If so keep
+                    // it; otherwise use the freshly-computed plan-paid.
+                    BigDecimal approved = syncResult.approvedAmount() != null
+                            && syncResult.approvedAmount().compareTo(planPaid) < 0
+                            ? syncResult.approvedAmount()
+                            : planPaid;
+                    return new AdjudicationResult("APPROVED", approved, null, null,
+                            stages, syncResult.aiSignals(), cs);
+                });
     }
 
     private StageResult firstHardFailure(List<StageResult> stages) {

@@ -23,7 +23,7 @@
         <input type="date" [(ngModel)]="effectiveDate" (blur)="onEffectiveDateChange()" />
         @if (isBackdated()) {
           <div class="hint hint--warn">
-            Back-dated — applies immediately and posts arrears/rebate on the member's ledger.
+            Back-dated: applies immediately and posts arrears/rebate on the member's ledger.
           </div>
         }
       </div>

@@ -1,0 +1,42 @@
+# IASB IFRS 17 Illustrative Example 3 — PAA measurement golden.
+#
+# Single HEALTH cohort with 12-month coverage per Phase 15 §11 plan spec.
+# Values ("LRC opening 100, closing 30 after 70% earned; LIC opening 5,
+# closing 8 net of paid claims + new incurred") are the plan's hand-picked
+# regression targets and pin the LRC/LIC journal arithmetic + the 17.59
+# discount opt-out for ≤12mo coverage.
+#
+# LRC:  100 opening + 0 new_business + 0 premiums received - 70 earned
+#       + 0 loss_component - 0 finance_expense = 30 closing.
+# LIC:  5 opening + 12 claims_incurred - 9 claims_paid + 0 ra_change
+#       + 0 finance_expense = 8 closing.
+input:
+  job_id: "iasb-ex3-paa"
+  tenant_id: "iasb-example-tenant"
+  portfolio_id: "iasb-ex3-health-portfolio"
+  cohort_id: "iasb-ex3-cohort-2024"
+  currency: "USD"
+  reporting_period_start: "2024-01-01"
+  reporting_period_end: "2024-12-31"
+  earliest_coverage_start: "2024-01-01"
+  latest_coverage_end: "2024-12-31"
+  finance_expense_presentation: "PL_ONLY"
+  applied_rule_name: "IFRS17 Default — HEALTH"
+
+  opening_lrc: "100"
+  opening_lic: "5"
+  new_business_written: "0"
+  premiums_received: "0"
+  earned_in_period: "70"
+
+  claims_incurred: "12"
+  claims_paid: "9"
+
+  median_settlement_days: 60
+
+expected:
+  lrc_closing: "30"
+  lic_closing: "8"
+  discounting_applied: false
+  discounting_skip_reason: "IFRS_17_59_coverage_and_settlement_le_12mo"
+  model: "PAA"

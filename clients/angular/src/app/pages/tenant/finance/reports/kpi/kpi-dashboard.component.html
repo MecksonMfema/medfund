@@ -1,0 +1,115 @@
+<header class="page-header">
+  <div>
+    <h1>Executive KPIs</h1>
+    <p class="page-sub">
+      Loss, acquisition, combined, frequency and severity: composed from the
+      contributions, claims and commission ledgers in real time. Per-currency
+      ratios stay native; the composite is converted to the reporting currency.
+    </p>
+  </div>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [ngModel]="filters.insuranceLine ?? ''"
+      (selectionChange)="onLineChange($event)"
+      name="insuranceLine"
+      [options]="insuranceLineOptions"
+      placeholder="All insurance lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-picker">
+    <span class="cell-label">Scheme</span>
+    <app-entity-picker
+      kind="scheme"
+      [value]="schemeId"
+      [prefillLabel]="schemeLabel"
+      placeholder="Search schemes…"
+      (selected)="onSchemePicked($event)">
+    </app-entity-picker>
+  </div>
+
+  <div class="toolbar-cell cell-picker">
+    <span class="cell-label">Producer</span>
+    <app-entity-picker
+      kind="producer"
+      [value]="producerId"
+      [prefillLabel]="producerLabel"
+      placeholder="Search producers…"
+      (selected)="onProducerPicked($event)">
+    </app-entity-picker>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [ngModel]="filters.reportingCurrency ?? ''"
+      (selectionChange)="onCurrencyChange($event)"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (disabled) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="chart" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">Executive KPIs are disabled</div>
+    <div class="empty-state__description">
+      Enable at least one KPI in
+      <a routerLink="/tenant/admin/settings/reports">Settings → Reports</a>
+      to see loss, acquisition, combined, frequency and severity ratios here.
+    </div>
+  </div>
+} @else if (loading) {
+  <div class="tile-grid">
+    @for (k of KPI_KEYS; track k) {
+      <div class="kpi-tile-skeleton"></div>
+    }
+  </div>
+} @else if (!hasAnyTile) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="chart" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No KPI data for this period</div>
+    <div class="empty-state__description">
+      Nothing has posted to the contributions, claims or commission ledgers
+      in the current filter window yet. Broaden the filters above or wait
+      for the first cycle to close.
+    </div>
+  </div>
+} @else {
+  <div class="tile-grid">
+    @for (k of KPI_KEYS; track k) {
+      @if (tileEnvelope(k)) {
+        <app-kpi-tile
+          [key]="k"
+          [label]="tileLabels[k]"
+          [composite]="compositeFor(k)"
+          [basisNote]="basisFor(k)"
+          [perCurrency]="perCurrencyFor(k)"
+          [sparklineData]="sparklineFor(k)"
+          [warnings]="warningsFor(k)"
+          [periodLabel]="periodLabel"
+          [trendDirection]="directionFor(k)"
+          [valueFormat]="tileFormats[k]"
+          [loading]="loading"
+          [exporting]="isExporting(k)"
+          (exportRequested)="exportKpi($event)"
+        ></app-kpi-tile>
+      }
+    }
+  </div>
+}

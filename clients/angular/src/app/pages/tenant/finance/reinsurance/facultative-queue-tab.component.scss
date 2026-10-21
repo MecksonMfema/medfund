@@ -1,0 +1,67 @@
+// Cession-queue tab. Toolbar + data-table are shared primitives; only
+// the void modal is tab-scoped.
+
+// Flatten the app-select trigger inside the toolbar. See the sibling
+// candidates-tab component for the reason this rule has to live in a
+// component-scoped file rather than styles.scss.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+
+    span { color: var(--color-text-secondary, #4b5563); font-weight: 500; }
+    textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

@@ -3,6 +3,8 @@ package com.medfund.user.service;
 import com.medfund.rules.fact.MemberLifecycleFact;
 import com.medfund.rules.fact.TimeFact;
 import com.medfund.user.entity.Member;
+import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.status.MemberStatusTransitionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
@@ -26,9 +28,14 @@ import java.time.temporal.ChronoUnit;
 public class MemberLifecycleFactBuilder {
 
     private final DatabaseClient db;
+    private final MemberRepository memberRepository;
+    private final MemberStatusTransitionService statusTransitionService;
 
-    public MemberLifecycleFactBuilder(DatabaseClient db) {
+    public MemberLifecycleFactBuilder(DatabaseClient db, MemberRepository memberRepository,
+                                      MemberStatusTransitionService statusTransitionService) {
         this.db = db;
+        this.memberRepository = memberRepository;
+        this.statusTransitionService = statusTransitionService;
     }
 
     public Mono<Facts> build(Member member, String requestedTransition) {
@@ -113,6 +120,32 @@ public class MemberLifecycleFactBuilder {
         }
         // Age group + underwriting level surface in audit only on first cut —
         // adding member columns for them is a follow-up migration.
+    }
+
+    /**
+     * Phase 13 §A per L3 + grill note 8 — persist-through variant of
+     * {@link #applyOutcomes} for the auto-termination path. The old flow
+     * wrote {@code member.setStatus("terminated")} directly (the one write
+     * site outside the central pathway); this routes through
+     * {@link MemberStatusTransitionService} so the flip lands a
+     * {@code member_status_history} row with {@code reason_code='auto_termination'}
+     * in the same transaction. Mirrors the applyOrSchedule post-step:
+     * termination_date stamps after the transitioned save.
+     */
+    public Mono<Member> applyTermination(Member member, MemberLifecycleFact fact) {
+        if (!fact.isTerminationRequested() || "terminated".equalsIgnoreCase(member.getStatus())) {
+            return Mono.just(member);
+        }
+        LocalDate termDate = LocalDate.now();
+        return statusTransitionService
+                .transition(member.getId(), "terminated", "auto_termination",
+                        "Rules-engine auto-termination",
+                        null,                      // system-initiated, no actor id
+                        "rules-engine@insureflow") // marker email per feedback_audit_actor_email
+                .flatMap(terminated -> {
+                    terminated.setTerminationDate(termDate);
+                    return memberRepository.save(terminated);
+                });
     }
 
     private static String asUpperCase(String s) {

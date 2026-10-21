@@ -1,0 +1,235 @@
+.actuarial-bases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.sub-tabs-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-sm);
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 70ch;
+}
+
+/* ── Sub-nav (pill row for the three basis sub-tabs) ─────────────────────── */
+
+.sub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.sub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sub-tab:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.sub-tab.active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.sub-tab-body {
+  padding-top: var(--spacing-sm);
+}
+
+/* ── Shared sub-tab content styling (mortality / morbidity / persistency) ── */
+
+.actuarial-basis-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* ── Section card ────────────────────────────────────────────────────────── */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.section-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
+}
+
+.section-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.banner {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.banner-success {
+  background: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #065f46);
+}
+
+.empty-state {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: var(--spacing-sm) 0;
+}
+
+/* ── Data table ──────────────────────────────────────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--font-size-sm);
+  vertical-align: middle;
+}
+
+.data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.data-table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.data-table tr.pending { opacity: 0.5; }
+.data-table tr.editing { background: var(--color-bg); }
+
+.row-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: flex-end;
+}
+
+/* ── Form inputs (shared) ────────────────────────────────────────────────── */
+
+/* Matches settings' top-level .form-input: 38px, spacing-md padding,
+   radius-md, brand-primary focus border. */
+.form-input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-fast);
+
+  &:focus    { border-color: var(--color-primary); }
+  &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
+}
+
+/* Inputs inside the data table shrink to a tighter row-friendly height. */
+.data-table .form-input {
+  height: 34px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Add-row form ────────────────────────────────────────────────────────── */
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+  margin-top: var(--spacing-base);
+  padding: var(--spacing-base);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.field.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* Four-column grid so the four basic fields in every basis form (line,
+   cohort/attained age/gender, retention/mortality/morbidity, effective
+   from) land on a single row filling the section width, with the wider
+   source-note field wrapping to a full-width row beneath via
+   .field-wide (grid-column: 1 / -1). Collapses to fewer columns on
+   narrower viewports so the row never crushes below usable width. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-base);
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}

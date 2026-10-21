@@ -4,8 +4,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
-  Adjustment,
   FinanceService,
+  Note,
   Payment,
   ProviderBalance,
 } from '../../../../core/services/finance.service';
@@ -13,8 +13,10 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
-type Tab = 'payments' | 'adjustments';
+type Tab = 'payments' | 'notes';
 
 @Component({
   selector: 'app-provider-balance-detail',
@@ -26,21 +28,21 @@ type Tab = 'payments' | 'adjustments';
 export class ProviderBalanceDetailComponent implements OnInit {
   balance: ProviderBalance | null = null;
   payments: Payment[] = [];
-  adjustments: Adjustment[] = [];
+  notes: Note[] = [];
   loading = false;
-  errorMessage: string | null = null;
   activeTab: Tab = 'payments';
 
   constructor(
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const providerId = this.route.snapshot.paramMap.get('id');
     if (!providerId) {
-      this.errorMessage = 'No provider id';
+      this.toast.error('No provider id');
       return;
     }
     this.refresh(providerId);
@@ -51,16 +53,16 @@ export class ProviderBalanceDetailComponent implements OnInit {
     forkJoin({
       balance: this.finance.getCreditorProviderDetail(providerId).pipe(catchError(() => of(null))),
       payments: this.finance.getPaymentsByProvider(providerId).pipe(catchError(() => of([] as Payment[]))),
-      adjustments: this.finance.getAdjustmentsByProvider(providerId).pipe(catchError(() => of([] as Adjustment[]))),
+      notes: this.finance.getNotesByProvider(providerId).pipe(catchError(() => of([] as Note[]))),
     }).subscribe({
-      next: ({ balance, payments, adjustments }) => {
+      next: ({ balance, payments, notes }) => {
         this.balance = balance;
         this.payments = payments;
-        this.adjustments = adjustments;
+        this.notes = notes;
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load provider';
+        this.toast.error(extractErrorMessage(err, 'Failed to load provider'));
         this.loading = false;
       },
     });
@@ -70,5 +72,10 @@ export class ProviderBalanceDetailComponent implements OnInit {
 
   back(): void {
     this.router.navigate(['/tenant/finance/creditors']);
+  }
+
+  balanceHistory(): void {
+    const id = this.balance?.providerId ?? this.route.snapshot.paramMap.get('id');
+    if (id) this.router.navigate(['/tenant/finance/reports/balance-history/provider', id]);
   }
 }

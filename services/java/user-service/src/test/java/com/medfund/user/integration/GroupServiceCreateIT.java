@@ -1,7 +1,7 @@
 package com.medfund.user.integration;
 
 import com.medfund.shared.audit.AuditPublisher;
-import com.medfund.shared.testfixtures.AbstractPostgresIntegrationTest;
+import com.medfund.shared.testfixtures.AbstractDedicatedPostgresIntegrationTest;
 import com.medfund.shared.testfixtures.TenantTestContext;
 import com.medfund.shared.testfixtures.WithTenant;
 import com.medfund.user.dto.CreateGroupRequest;
@@ -69,7 +69,7 @@ import static org.mockito.Mockito.when;
     "spring.flyway.baseline-on-migrate=true",
 })
 @Import(GroupServiceCreateIT.SecurityStub.class)
-class GroupServiceCreateIT extends AbstractPostgresIntegrationTest {
+class GroupServiceCreateIT extends AbstractDedicatedPostgresIntegrationTest {
 
     @TestConfiguration
     static class SecurityStub {

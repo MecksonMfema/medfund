@@ -29,14 +29,14 @@ public class ProviderPaymentTemplates implements TemplateProvider {
                  RuleCategory.PROVIDER_PAYMENT, 80,
                  all(cond("paymentRun.providerVerified", "EQUALS", "false")),
                  action("WITHHOLD_PAYMENT", "10",
-                        "Withhold 10% — provider not yet verified")),
+                        "Withhold 10% - provider not yet verified")),
 
             rule("PR03 - Block runs with no claims processed",
                  "Don't pay providers in months where no claims have been settled.",
                  RuleCategory.PROVIDER_PAYMENT, 70,
                  all(cond("paymentRun.outstandingClaimsCount", "EQUALS", "0")),
                  action("WITHHOLD_PAYMENT", "100",
-                        "Withhold 100% — no claims processed in this period")),
+                        "Withhold 100% - no claims processed in this period")),
 
             rule("PR04 - Auto-offset when advance covers item",
                  "Withhold 100% of a run item whose amount is fully covered by "

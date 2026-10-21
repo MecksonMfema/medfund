@@ -1,0 +1,151 @@
+<header class="page-header">
+  <div>
+    <h1>Treaty backfill</h1>
+    <p class="page-sub">
+      Fuzzy-match treaty <code>producer_ref</code> free text to a registered
+      producer and set the <code>producer_id</code> foreign key. High-confidence
+      hits auto-accept; medium-confidence rows queue below for review.
+    </p>
+  </div>
+  <button type="button"
+          class="btn btn-primary"
+          [disabled]="running || saving"
+          (click)="runBackfill()">
+    <app-icon name="play-circle" [size]="14"></app-icon>
+    {{ running ? 'Running...' : 'Run now' }}
+  </button>
+</header>
+
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+<section class="backfill-body">
+  <div class="progress-card">
+    <div class="progress-card__heading">
+      <h2 class="progress-card__title">Job progress</h2>
+      <span class="progress-card__hint">Updates every 2 seconds while a run is active.</span>
+    </div>
+
+    <div class="progress-stats">
+      <div class="stat">
+        <span class="stat-label">Processed</span>
+        <span class="stat-value">{{ progress.processed }}</span>
+      </div>
+      <div class="stat stat--good">
+        <span class="stat-label">Auto-accepted</span>
+        <span class="stat-value">{{ progress.autoAccepted }}</span>
+      </div>
+      <div class="stat stat--warn">
+        <span class="stat-label">Pending</span>
+        <span class="stat-value">{{ progress.pending }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Skipped</span>
+        <span class="stat-value">{{ progress.skipped }}</span>
+      </div>
+      <div class="stat stat--bad">
+        <span class="stat-label">Failed</span>
+        <span class="stat-value">{{ progress.failed }}</span>
+      </div>
+    </div>
+
+    <div class="progress-meta">
+      @if (progress.startedAt) {
+        <span><span class="meta-label">Started</span> {{ progress.startedAt | date:'medium' }}</span>
+      }
+      @if (progress.completedAt) {
+        <span><span class="meta-label">Completed</span> {{ progress.completedAt | date:'medium' }}</span>
+      }
+      @if (progress.running) {
+        <span class="run-chip">
+          <app-icon name="clock" [size]="12"></app-icon>
+          Running
+        </span>
+      }
+      @if (progress.errorMessage) {
+        <span class="err-chip">
+          <app-icon name="alert-triangle" [size]="12"></app-icon>
+          {{ progress.errorMessage }}
+        </span>
+      }
+    </div>
+  </div>
+
+  <div class="candidates-card">
+    <div class="candidates-card__heading">
+      <h2 class="candidates-card__title">Pending candidates</h2>
+      <span class="candidates-card__hint">
+        Review medium-confidence matches. Accept sets <code>producer_id</code>;
+        Reject removes the row without changing the treaty.
+      </span>
+    </div>
+
+    @if (loading) {
+      <div class="empty-state">Loading...</div>
+    } @else if (candidates.length === 0) {
+      <div class="empty-state">
+        No pending backfill candidates. Run the job to look for new matches.
+      </div>
+    } @else {
+      <table class="inline-table">
+        <thead>
+          <tr>
+            <th>Treaty</th>
+            <th>Source ref</th>
+            <th>Candidate producer</th>
+            <th>Confidence</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of candidates; track c.id) {
+            <tr>
+              <td>{{ c.treatyRef }}</td>
+              <td><code>{{ c.treatyProducerRef }}</code></td>
+              <td>
+                <div class="candidate-name">{{ c.candidateProducerName }}</div>
+                @if (c.candidateProducerCode) {
+                  <div class="candidate-code"><code>{{ c.candidateProducerCode }}</code></div>
+                }
+              </td>
+              <td>
+                <div class="confidence-bar" [attr.data-band]="confidenceBand(c.confidenceScore)">
+                  <div class="fill" [style.width.%]="confidencePercent(c.confidenceScore)"></div>
+                  <span>{{ confidencePercent(c.confidenceScore) }}%</span>
+                </div>
+              </td>
+              <td class="row-actions">
+                <button type="button" class="btn btn-primary btn-sm" (click)="accept(c)">
+                  <app-icon name="check-circle" [size]="14"></app-icon>
+                  Accept
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" (click)="reject(c)">
+                  <app-icon name="x-circle" [size]="14"></app-icon>
+                  Reject
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (candidates.length === pageSize) {
+        <div class="pager">
+          <button type="button" class="btn btn-default btn-sm"
+                  [disabled]="page === 1"
+                  (click)="onPageChange(page - 1)">
+            <app-icon name="chevron-left" [size]="14"></app-icon>
+            Previous
+          </button>
+          <span class="pager-meta">Page {{ page }}</span>
+          <button type="button" class="btn btn-default btn-sm"
+                  (click)="onPageChange(page + 1)">
+            Next
+            <app-icon name="chevron-right" [size]="14"></app-icon>
+          </button>
+        </div>
+      }
+    }
+  </div>
+</section>

@@ -10,6 +10,8 @@ import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.AdvancePaymentService;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,14 +29,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/advance-payments")
 @RequiredArgsConstructor
-@Tag(name = "Advance Payments", description = "Provider / member prepayments — full lifecycle (record, approve, reverse, offset).")
+@Tag(name = "Advance Payments", description = "Provider / member prepayments - full lifecycle (record, approve, reverse, offset).")
 @SecurityRequirement(name = "bearer-jwt")
 public class AdvancePaymentController {
 
     private final AdvancePaymentService service;
 
     @GetMapping
-    @Operation(summary = "List advance payments (unpaginated — prefer /page)")
+    @RequiresReport(ReportKey.ADVANCE_PAYMENTS)
+    @Operation(summary = "List advance payments (unpaginated - prefer /page)")
     public Flux<AdvancePaymentResponse> list(@RequestParam(required = false) UUID providerId,
                                               @RequestParam(required = false) UUID memberId) {
         if (providerId != null) return service.findByProvider(providerId).map(AdvancePaymentResponse::from);
@@ -43,6 +46,7 @@ public class AdvancePaymentController {
     }
 
     @GetMapping("/page")
+    @RequiresReport(ReportKey.ADVANCE_PAYMENTS)
     @Operation(summary = "Server-side paginated, sortable, filterable advance-payments list",
         description = "Feeds /tenant/finance/payments/advance. Provider + member names joined.")
     @ApiResponse(responseCode = "200", description = "Page of advance payments")
@@ -61,12 +65,14 @@ public class AdvancePaymentController {
     }
 
     @GetMapping("/{id}")
+    @RequiresReport(ReportKey.ADVANCE_PAYMENTS)
     @Operation(summary = "Get an advance payment")
     public Mono<AdvancePaymentResponse> get(@PathVariable UUID id) {
         return service.findById(id).map(AdvancePaymentResponse::from);
     }
 
     @GetMapping("/{id}/applications")
+    @RequiresReport(ReportKey.ADVANCE_PAYMENTS)
     @Operation(summary = "List payment-run applications that consumed this advance",
         description = "Empty until the offset flow has written any application rows.")
     public Flux<AdvancePaymentApplicationResponse> listApplications(@PathVariable UUID id) {

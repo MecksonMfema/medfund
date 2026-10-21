@@ -1,0 +1,58 @@
+// Per-page overrides for the AML/STR alerts queue. Shared shell
+// (.page-header / .header-actions / .tx-toolbar / .toolbar-cell /
+// .banner / .rate-table) comes from receipts-report.component.scss via
+// styleUrls, so this file only carries the AML-specific bits: filter
+// cell width, right-aligned total counter, and per-cell table tweaks.
+
+.toolbar-cell.cell-select {
+  min-width: 320px;
+}
+
+.toolbar-cell.cell-select app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Right-align the "total" pill so it sits opposite the status filter,
+// matching the layout other queue pages use for a lightweight counter.
+.tx-toolbar .toolbar-cell.right {
+  margin-left: auto;
+  align-items: flex-end;
+}
+.tx-toolbar .toolbar-cell .cell-value {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+// Table cell modifiers reused across the alerts + workflow modals.
+.rate-table td.mono {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.rate-table td.small {
+  font-size: var(--font-size-xs);
+}
+.rate-table td.clip {
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rate-table .muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.rate-table .empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--spacing-xl);
+}
+
+.actions-cell .btn + .btn {
+  margin-left: var(--spacing-xs);
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

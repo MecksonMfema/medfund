@@ -1,11 +1,23 @@
 import { Routes } from '@angular/router';
+import { permissionGuard } from '../../../auth/auth.guard';
 
 /**
  * /tenant/policies/* parent. Each per-line child lazy-loads its own
  * routes file so adding a seventh line is one entry here + one routes
  * file in a new folder.
+ *
+ * <p>Also carries the Phase 12 §C polymorphic endorsements page at
+ * /tenant/policies/endorsements/:policySource/:policyId — the plan's
+ * fallback route for tenants whose per-line detail screens aren't tabbed.
  */
 export const POLICIES_ROUTES: Routes = [
+  {
+    path: 'endorsements/:policySource/:policyId',
+    canActivate: [permissionGuard(['policy:draft_endorsement'])],
+    loadComponent: () =>
+      import('./endorsements/endorsement-history.component').then(m => m.EndorsementHistoryComponent),
+    data: { title: 'Policy endorsements', sidebar: 'operational' },
+  },
   {
     path: 'vehicles',
     loadChildren: () => import('./vehicles/vehicles.routes').then(m => m.VEHICLES_ROUTES),

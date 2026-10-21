@@ -27,10 +27,6 @@
   </div>
 </section>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <app-data-table
   [columns]="ageGroupColumns"
   [data]="rows"

@@ -78,11 +78,11 @@ public class BeneficiaryBenefitController {
 
     @PostMapping("/reseed")
     @PreAuthorize("hasAuthority('super-admin')")
-    @Operation(summary = "Dev/test utility — seed missing beneficiary_benefits rows for the current year",
+    @Operation(summary = "Dev/test utility - seed missing beneficiary_benefits rows for the current year",
         description = "Runs the same INSERT ... ON CONFLICT DO NOTHING shape used by V060 and the "
                     + "yearly rollover executor, for the CURRENT calendar year, filtered to "
                     + "usage_mode <> 'NO_TRACKING' and schemes with tracks_member_balances=true. "
-                    + "Idempotent — a re-run is a no-op. Restricted to super-admin because it "
+                    + "Idempotent - a re-run is a no-op. Restricted to super-admin because it "
                     + "touches every member row in the tenant.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Rows inserted (0 when already fully seeded)"),

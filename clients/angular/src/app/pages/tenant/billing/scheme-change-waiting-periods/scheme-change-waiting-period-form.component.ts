@@ -14,6 +14,8 @@ import {
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-scheme-change-waiting-period-form',
@@ -27,7 +29,6 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
   benefitTypes: BenefitType[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: {
     changeType: 'UPGRADE' | 'DOWNGRADE';
@@ -53,6 +54,7 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
     private catalogue: BillingCatalogueService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -77,13 +79,13 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
               isActive: found.isActive,
             };
           } else {
-            this.errorMessage = 'Rule not found';
+            this.toast.error('Rule not found');
           }
         }
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load form data';
+        this.toast.error(extractErrorMessage(err, 'Failed to load form data'));
         this.loading = false;
       },
     });
@@ -91,7 +93,7 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
 
   submit(): void {
     if (this.form.waitingDays < 0) {
-      this.errorMessage = 'Waiting days cannot be negative';
+      this.toast.warning('Waiting days cannot be negative');
       return;
     }
     const payload: UpsertSchemeChangeWaitingPeriodPayload = {
@@ -102,7 +104,6 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
       isActive: this.form.isActive,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.ruleId
       ? this.waitingService.updateSchemeChange(this.ruleId, payload)
       : this.waitingService.createSchemeChange(payload);
@@ -113,7 +114,7 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

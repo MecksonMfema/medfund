@@ -1,0 +1,112 @@
+<div class="actuarial-basis-tab" data-testid="ifrs17-market-data-tab">
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Market data auto-fetch</h3>
+        <p class="section-sub">
+          Enrol each currency for automated yield-curve fetches from a
+          jurisdictional source. The market-data-service polls this list
+          on its cron cadence (default: daily 06:00 UTC) and writes the
+          fetched curves back to the Yield Curves tab with a source badge
+          of RBZ_AUTO or SARB_AUTO. Manual (ADMIN) rows continue to win:
+          auto-fetched rows never overwrite an admin edit.
+        </p>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Enrol currency
+        </button>
+      </div>
+    </header>
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else if (rows.length === 0 && !addingOpen) {
+      <p class="empty-state">
+        No auto-fetch enrolments yet. Click <strong>Enrol currency</strong>
+        to configure the daemon to fetch a curve daily.
+      </p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Currency</th>
+            <th>Source</th>
+            <th>Auto-fetch</th>
+            <th>Updated by</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.id) {
+            <tr [class.pending]="row.pending">
+              <td><strong>{{ row.currency }}</strong></td>
+              <td><span class="badge badge-source">{{ row.source }}</span></td>
+              <td>
+                <label class="toggle">
+                  <input type="checkbox"
+                         [checked]="row.autoFetchEnabled"
+                         [disabled]="row.pending"
+                         (change)="toggleEnabled(row)" />
+                  <span class="badge" [class.badge-active]="row.autoFetchEnabled" [class.badge-muted]="!row.autoFetchEnabled">
+                    {{ row.autoFetchEnabled ? 'Enabled' : 'Paused' }}
+                  </span>
+                </label>
+              </td>
+              <td>{{ row.updatedByEmail || '-' }}</td>
+              <td class="col-actions">
+                <div class="row-actions">
+                  <button type="button" class="btn btn-danger btn-sm"
+                          (click)="remove(row)" [disabled]="row.pending">
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (addingOpen) {
+      <form #addFormRef class="add-form" (submit)="$event.preventDefault(); add()">
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">Currency (ISO 4217)</span>
+            <input type="text" class="form-input" minlength="3" maxlength="3"
+                   [(ngModel)]="newRow.currency"
+                   name="mdNewCurrency" required placeholder="USD" />
+          </label>
+          <label class="field">
+            <span class="field-label">Source</span>
+            <app-select
+              [(ngModel)]="newRow.source"
+              name="mdNewSource"
+              [options]="sourceOptions"
+              required
+            ></app-select>
+          </label>
+          <label class="field field-inline">
+            <input type="checkbox"
+                   [(ngModel)]="newRow.autoFetchEnabled"
+                   name="mdNewEnabled" />
+            <span>Enable auto-fetch immediately</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="adding">
+            {{ adding ? 'Enrolling...' : 'Enrol currency' }}
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</div>

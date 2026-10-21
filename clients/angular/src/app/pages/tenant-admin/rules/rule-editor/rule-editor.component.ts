@@ -61,6 +61,21 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
   { id: 'SCHEDULE_PAYMENT_RUN', label: 'Schedule payment run', description: 'Trigger a provider payment run on the given date.', valueHint: 'TODAY  or  2026-05-15' },
   { id: 'WITHHOLD_PAYMENT',     label: 'Withhold payment',     description: 'Hold back a percentage of the run amount.', valueHint: '10  (= 10%)' },
   { id: 'MATCH_RECORDS',        label: 'Match records',        description: 'Mark a candidate match in reconciliation.' },
+
+  // Commission (Phase 11)
+  { id: 'PAY_COMMISSION',       label: 'Pay commission',       description: 'Record a commission accrual against a producer. Value picks between a rate-card lookup and a basis-point kicker on top of the base.', valueHint: 'RATE_CARD:<uuid>  or  KICKER:<bp>[:<reason>]' },
+
+  // Premium earning (Phase 12)
+  { id: 'ACCRUE_PREMIUM',       label: 'Accrue premium',       description: 'Pick an earning method for the policy at bind time. Value encodes the method and an optional front-loaded percent for LINEAR_WITH_LOADING.', valueHint: 'EARNING_METHOD:DAILY_LINEAR  or  EARNING_METHOD:MONTHLY_24THS  or  EARNING_METHOD:LINEAR_WITH_LOADING:15' },
+
+  // Actuarial (Phase 14)
+  { id: 'SELECT_LDF',           label: 'Select LDF method',    description: 'Pick a loss-development-factor selection method for IBNR / loss-triangle chain-ladder compute. Value encodes the method as LDF_METHOD:<name> where <name> is volume, simple, or 5yr.', valueHint: 'LDF_METHOD:volume  or  LDF_METHOD:simple  or  LDF_METHOD:5yr' },
+
+  // IFRS 17 (Phase 15 §9)
+  { id: 'SELECT_IFRS17_MODEL',  label: 'Select IFRS 17 model', description: 'Pick the IFRS 17 measurement model (PAA / GMM / VFA) + coverage-unit pattern + variable-fee pattern (VFA only) + finance-expense presentation for a portfolio. Value encodes the choices as IFRS17_MODEL:<model>:<coverage>:<fee>:<expense>. Fee is null for non-VFA models.', valueHint: 'IFRS17_MODEL:PAA:TIME:null:PL_ONLY  or  IFRS17_MODEL:GMM:TIME:null:OCI_OPTION  or  IFRS17_MODEL:VFA:TIME:FIXED_PCT:OCI_OPTION' },
+
+  // Regulatory parameter override (Phase 16 §Phase-15)
+  { id: 'SET_REGULATORY_PARAMETER', label: 'Set regulatory parameter', description: 'Override a numeric parameter that would otherwise resolve from a bundled regulator YAML default (IPEC solvency ratio, IPEC min-required-capital multiplier, etc.). Value encodes the override as PARAMETER_VALUE:<decimal>. Rule conditions must filter on regulatoryParameter.parameterKey + regulatoryParameter.jurisdiction so the override only fires for the intended lookup.', valueHint: 'PARAMETER_VALUE:1.30  or  PARAMETER_VALUE:0.20' },
 ];
 
 interface EditorFormState {
@@ -272,6 +287,23 @@ export class RuleEditorComponent implements OnInit {
 
   get actionTakesValue(): boolean {
     return !!this.actionValueHint;
+  }
+
+  /**
+   * V077 copay-waiver check (G14). True when the operator has authored an
+   * APPLY_COPAY action whose value resolves to zero — either the literal
+   * "0" or the "FIXED:0" shape CoPaymentTemplates uses for waivers. The
+   * template surfaces a non-blocking warning banner so a silent waiver
+   * doesn't slip into production; the save path stays green.
+   */
+  get isCopayWaiver(): boolean {
+    if (this.form.actionType !== 'APPLY_COPAY') return false;
+    const raw = (this.form.actionValue ?? '').trim();
+    if (!raw) return false;
+    if (/^FIXED:\s*0(?:\.0+)?$/i.test(raw)) return true;
+    // Bare-number: match "0", "0.0", "0.00" — anything that parses to zero.
+    const asNumber = Number(raw);
+    return !isNaN(asNumber) && asNumber === 0;
   }
 
   private formFromTemplate(t: RuleTemplate): EditorFormState {

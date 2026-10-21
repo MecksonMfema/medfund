@@ -8,25 +8,27 @@
     </div>
   }
 
-  <div class="table-toolbar">
-    @if (searchable) {
-      <div class="table-search">
-        <app-icon name="search" [size]="16"></app-icon>
-        <input
-          type="text"
-          [placeholder]="searchPlaceholder"
-          [(ngModel)]="searchTerm"
-          (ngModelChange)="onSearch()"
-          class="search-input"
-        />
-      </div>
-    }
+  @if (showToolbar) {
+    <div class="table-toolbar">
+      @if (searchable) {
+        <div class="table-search">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input
+            type="text"
+            [placeholder]="searchPlaceholder"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="onSearch()"
+            class="search-input"
+          />
+        </div>
+      }
 
-    <div class="toolbar-spacer"></div>
+      <div class="toolbar-spacer"></div>
 
-    <ng-content select="[table-filters]"></ng-content>
-    <ng-content select="[table-actions]"></ng-content>
-  </div>
+      <ng-content select="[table-filters]"></ng-content>
+      <ng-content select="[table-actions]"></ng-content>
+    </div>
+  }
 
   <div class="table-scroll">
     <table>
@@ -46,7 +48,7 @@
                     [class.is-asc]="sortKey === col.key && sortDirection === 'asc'"
                     [class.is-desc]="sortKey === col.key && sortDirection === 'desc'"
                     [attr.aria-label]="sortKey === col.key
-                      ? 'Sorted ' + sortDirection + 'ending — click to ' + (sortDirection === 'asc' ? 'sort descending' : 'sort ascending')
+                      ? 'Sorted ' + sortDirection + 'ending: click to ' + (sortDirection === 'asc' ? 'sort descending' : 'sort ascending')
                       : 'Click to sort'"
                   >
                     <app-icon name="chevron-up"   [size]="14" class="sort-arrow sort-arrow--asc"></app-icon>
@@ -86,13 +88,24 @@
                   @case ('label') {
                     {{ toLabel(row[col.key]) }}
                   }
+                  @case ('holderType') {
+                    @if (row[col.key]) {
+                      <span class="badge holder-chip"
+                            [class.holder-chip--group]="row[col.key] === 'GROUP'"
+                            [class.holder-chip--individual]="row[col.key] === 'INDIVIDUAL'">
+                        {{ row[col.key] === 'INDIVIDUAL' ? 'Individual' : 'Group' }}
+                      </span>
+                    } @else {
+                      <span class="muted">-</span>
+                    }
+                  }
                   @case ('line') {
                     @if (row[col.key]) {
                       <span class="badge line-chip" [attr.data-line]="row[col.key]">
                         {{ toLineLabel(row[col.key]) }}
                       </span>
                     } @else {
-                      <span class="muted">—</span>
+                      <span class="muted">-</span>
                     }
                   }
                   @case ('lineList') {
@@ -103,7 +116,16 @@
                         </span>
                       }
                     } @else {
-                      <span class="muted">—</span>
+                      <span class="muted">-</span>
+                    }
+                  }
+                  @case ('textList') {
+                    @if (row[col.key] && row[col.key].length > 0) {
+                      @for (item of row[col.key]; track item) {
+                        <span class="badge text-chip">{{ col.labelFor ? col.labelFor(item) : item }}</span>
+                      }
+                    } @else {
+                      <span class="muted">-</span>
                     }
                   }
                   @case ('pdfFlag') {
@@ -112,6 +134,17 @@
                     } @else {
                       <span class="muted small">rendering…</span>
                     }
+                  }
+                  @case ('select') {
+                    <select
+                      class="inline-select"
+                      [value]="row[col.key]"
+                      (click)="$event.stopPropagation()"
+                      (change)="onInlineSelectChange(col, row, $event)">
+                      @for (opt of col.options || []; track opt.value) {
+                        <option [value]="opt.value">{{ opt.label }}</option>
+                      }
+                    </select>
                   }
                   @default {
                     <span [class]="col.class || ''">{{ row[col.key] }}</span>
@@ -126,6 +159,9 @@
                     <button
                       class="action-btn"
                       [class]="'action-btn action-btn--' + ((action.colorFor && action.colorFor(row)) || action.color || 'default')"
+                      [attr.data-testid]="action.testid || null"
+                      [attr.title]="(action.titleFor && action.titleFor(row)) || action.title || null"
+                      [disabled]="action.disabled ? action.disabled(row) : null"
                       (click)="$event.stopPropagation(); action.handler(row)"
                     >
                       @if ((action.iconFor && action.iconFor(row)) || action.icon; as iconName) {

@@ -333,16 +333,21 @@ describe('insurance-lines parsers', () => {
   // captures with a required field they can't satisfy.
 
   describe('providerModeForLine', () => {
-    it('lines that can be provider-paid OR member-reimbursed are OPTIONAL', () => {
-      // The distinction between "network payment" and "member paid
-      // out-of-pocket then claimed reimbursement" is a per-submission
-      // choice, not a per-line rule — every line except the true
-      // no-provider payout lines accepts either shape.
-      for (const line of ['HEALTH', 'GROUP', 'TRAVEL', 'VEHICLE', 'PROPERTY', 'FUNERAL']) {
+    it('service lines REQUIRE a provider; FUNERAL alone is OPTIONAL', () => {
+      // e7b8fb36 ("Separate service provider from payee routing on claims")
+      // made the provider mandatory for every line where care/repair is
+      // delivered by a contracted party. FUNERAL stays OPTIONAL because some
+      // tenants run the funeral parlour themselves. Angular and the canonical
+      // Java map (ClaimService.PROVIDER_MODE_BY_LINE) agree; the spec had not
+      // caught up.
+      for (const line of ['HEALTH', 'GROUP', 'TRAVEL', 'VEHICLE', 'PROPERTY']) {
         expect(providerModeForLine(line))
-          .withContext(`${line} allows either a provider OR a member reimbursement`)
-          .toBe('OPTIONAL');
+          .withContext(`${line} requires a contracted service provider`)
+          .toBe('REQUIRED');
       }
+      expect(providerModeForLine('FUNERAL'))
+        .withContext('FUNERAL provider is optional — the tenant may be the funeral director')
+        .toBe('OPTIONAL');
     });
 
     it('LIFE and DISABILITY are always paid to the member (FORBIDDEN)', () => {

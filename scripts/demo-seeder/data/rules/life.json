@@ -1,0 +1,325 @@
+[
+  {
+    "ruleKey": "life.member-lifecycle.auto-terminate-arrears-6mo",
+    "name": "Auto-terminate policies 6 months in arrears",
+    "description": "LIFE policies more than 6 months in arrears are auto-terminated.",
+    "category": "MEMBER_LIFECYCLE",
+    "templateId": "member.auto-terminate",
+    "priority": 100,
+    "enabled": true,
+    "definition": {
+      "id": "life.member-lifecycle.auto-terminate-arrears-6mo",
+      "name": "Auto-terminate 6mo arrears",
+      "category": "MEMBER_LIFECYCLE",
+      "priority": 100,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.arrearsMonths", "operator": ">=", "value": 6}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "POLICY_TERMINATED",
+        "message": "Policy auto-terminated: 6+ months in arrears."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.underwriting.occupation-hazard-loading",
+    "name": "Occupation hazard premium loading",
+    "description": "Members in HAZARDOUS occupations get a 1.5x premium loading.",
+    "category": "UNDERWRITING",
+    "templateId": "underwriting.occupation-loading",
+    "priority": 95,
+    "enabled": true,
+    "definition": {
+      "id": "life.underwriting.occupation-hazard-loading",
+      "name": "Hazardous occupation loading",
+      "category": "UNDERWRITING",
+      "priority": 95,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.occupationClass", "operator": "==", "value": "HAZARDOUS"}
+        ]
+      },
+      "action": {
+        "type": "APPLY_LOADED_PREMIUM",
+        "value": "1.5"
+      }
+    }
+  },
+  {
+    "ruleKey": "life.underwriting.medical-risk-loading",
+    "name": "Medical-risk premium loading",
+    "description": "Members flagged HIGH medical risk get a 1.25x premium loading.",
+    "category": "UNDERWRITING",
+    "templateId": "underwriting.medical-loading",
+    "priority": 94,
+    "enabled": true,
+    "definition": {
+      "id": "life.underwriting.medical-risk-loading",
+      "name": "Medical risk loading",
+      "category": "UNDERWRITING",
+      "priority": 94,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.medicalRiskClass", "operator": "==", "value": "HIGH"}
+        ]
+      },
+      "action": {
+        "type": "APPLY_LOADED_PREMIUM",
+        "value": "1.25"
+      }
+    }
+  },
+  {
+    "ruleKey": "life.age-group.age-band-premium",
+    "name": "Age-band premium routing",
+    "description": "Assign the ADULT age band for members aged 25-54.",
+    "category": "AGE_GROUP",
+    "templateId": "age-group.band",
+    "priority": 90,
+    "enabled": true,
+    "definition": {
+      "id": "life.age-group.age-band-premium",
+      "name": "Adult age band",
+      "category": "AGE_GROUP",
+      "priority": 90,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.age", "operator": ">=", "value": 25},
+          {"field": "member.age", "operator": "<=", "value": 54}
+        ]
+      },
+      "action": {
+        "type": "SET_AGE_GROUP",
+        "value": "ADULT"
+      }
+    }
+  },
+  {
+    "ruleKey": "life.contribution-billing.arrears-suspension",
+    "name": "Suspend on arrears 3 months",
+    "description": "Suspend LIFE policies 3+ months in arrears (pre-termination).",
+    "category": "CONTRIBUTION_BILLING",
+    "templateId": "billing.arrears-suspend",
+    "priority": 85,
+    "enabled": true,
+    "definition": {
+      "id": "life.contribution-billing.arrears-suspension",
+      "name": "Arrears suspension",
+      "category": "CONTRIBUTION_BILLING",
+      "priority": 85,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.arrearsMonths", "operator": ">=", "value": 3},
+          {"field": "member.arrearsMonths", "operator": "<", "value": 6}
+        ]
+      },
+      "action": {
+        "type": "FLAG_FOR_REVIEW",
+        "message": "Policy 3+ months in arrears — flag for suspension review."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.waiting-period.senior-180d",
+    "name": "Senior enrolment 180d waiting",
+    "description": "Life policyholders aged 65+ at enrolment have a 180-day general waiting period.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.senior",
+    "priority": 80,
+    "enabled": true,
+    "definition": {
+      "id": "life.waiting-period.senior-180d",
+      "name": "Senior 180d wait",
+      "category": "WAITING_PERIOD",
+      "priority": 80,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.ageAtEnrollment", "operator": ">=", "value": 65},
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 180}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_SENIOR",
+        "message": "Senior 180-day waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.waiting-period.senior-730d",
+    "name": "Senior enrolment 2yr waiting for death benefit",
+    "description": "Life policyholders enrolling at 70+ have a 2-year waiting period on natural-cause death.",
+    "category": "WAITING_PERIOD",
+    "templateId": "waiting-period.senior-death",
+    "priority": 79,
+    "enabled": true,
+    "definition": {
+      "id": "life.waiting-period.senior-730d",
+      "name": "Senior 2yr death wait",
+      "category": "WAITING_PERIOD",
+      "priority": 79,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.ageAtEnrollment", "operator": ">=", "value": 70},
+          {"field": "member.daysSinceEnrollment", "operator": "<", "value": 730},
+          {"field": "claim.causeOfDeath", "operator": "==", "value": "NATURAL"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "WAITING_PERIOD_SENIOR_DEATH",
+        "message": "Natural-cause death within 2-year senior waiting period."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.waiting-period.waiver-of-premium",
+    "name": "Waiver-of-premium disability rider",
+    "description": "Members with permanent disability rider have premium waived after 6 months.",
+    "category": "CONTRIBUTION_BILLING",
+    "templateId": "billing.wop",
+    "priority": 78,
+    "enabled": true,
+    "definition": {
+      "id": "life.waiting-period.waiver-of-premium",
+      "name": "Waiver of premium",
+      "category": "CONTRIBUTION_BILLING",
+      "priority": 78,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "member.hasDisabilityRider", "operator": "==", "value": true},
+          {"field": "member.daysSinceDisability", "operator": ">=", "value": 180}
+        ]
+      },
+      "action": {
+        "type": "SET_PREMIUM",
+        "value": "0"
+      }
+    }
+  },
+  {
+    "ruleKey": "life.benefit-limit.sum-assured-cap",
+    "name": "Sum-assured cap enforcement",
+    "description": "Cap payouts at the policy sum-assured value.",
+    "category": "BENEFIT_LIMIT",
+    "templateId": "benefit-limit.sum-assured",
+    "priority": 70,
+    "enabled": true,
+    "definition": {
+      "id": "life.benefit-limit.sum-assured-cap",
+      "name": "Sum assured cap",
+      "category": "BENEFIT_LIMIT",
+      "priority": 70,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.claimedAmount", "operator": ">", "value": "policy.sumAssured"}
+        ]
+      },
+      "action": {
+        "type": "WARN",
+        "message": "Claim exceeds sum assured; approved amount capped at policy face value."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.tariff.policy-premium-schedule",
+    "name": "Term-life 10yr premium schedule",
+    "description": "Base premium for Term10 policies computed from sum assured (0.5%).",
+    "category": "CONTRIBUTION_PRICING",
+    "templateId": "pricing.term-schedule",
+    "priority": 65,
+    "enabled": true,
+    "definition": {
+      "id": "life.tariff.policy-premium-schedule",
+      "name": "Term10 premium schedule",
+      "category": "CONTRIBUTION_PRICING",
+      "priority": 65,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "policy.productCode", "operator": "==", "value": "TERM_10"}
+        ]
+      },
+      "action": {
+        "type": "SET_PREMIUM",
+        "value": "policy.sumAssured * 0.005"
+      }
+    }
+  },
+  {
+    "ruleKey": "life.eligibility.cover-in-force",
+    "name": "Cover must be in force for claim",
+    "description": "Reject claims when the policy status is not in-force at the event date.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.cover-in-force",
+    "priority": 100,
+    "enabled": true,
+    "definition": {
+      "id": "life.eligibility.cover-in-force",
+      "name": "Cover in force",
+      "category": "ELIGIBILITY",
+      "priority": 100,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "policy.status", "operator": "!=", "value": "IN_FORCE"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "COVER_NOT_IN_FORCE",
+        "message": "Life policy is not in force at the event date."
+      }
+    }
+  },
+  {
+    "ruleKey": "life.eligibility.cover-start-date",
+    "name": "Cover cannot start before enrolment",
+    "description": "Reject claims for events before the policy cover start date.",
+    "category": "ELIGIBILITY",
+    "templateId": "eligibility.cover-start",
+    "priority": 99,
+    "enabled": true,
+    "definition": {
+      "id": "life.eligibility.cover-start-date",
+      "name": "Event before cover start",
+      "category": "ELIGIBILITY",
+      "priority": 99,
+      "enabled": true,
+      "conditions": {
+        "operator": "AND",
+        "items": [
+          {"field": "claim.eventDate", "operator": "<", "value": "policy.coverStartDate"}
+        ]
+      },
+      "action": {
+        "type": "REJECT",
+        "rejectionCode": "EVENT_BEFORE_COVER_START",
+        "message": "Event date is before the policy cover start date."
+      }
+    }
+  }
+]

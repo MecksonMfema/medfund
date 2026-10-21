@@ -26,7 +26,7 @@ import org.springframework.context.annotation.Configuration;
     type = SecuritySchemeType.HTTP,
     scheme = "bearer",
     bearerFormat = "JWT",
-    description = "Keycloak JWT token — tenant-scoped realm"
+    description = "Keycloak JWT token - tenant-scoped realm"
 )
 public class OpenApiConfig {
 }

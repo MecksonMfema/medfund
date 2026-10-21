@@ -65,7 +65,11 @@ class ReconciliationServiceTest {
         );
         String actorId = UUID.randomUUID().toString();
 
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -101,7 +105,11 @@ class ReconciliationServiceTest {
         );
         String actorId = UUID.randomUUID().toString();
 
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -127,7 +135,11 @@ class ReconciliationServiceTest {
         String actorId = UUID.randomUUID().toString();
 
         when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -158,7 +170,11 @@ class ReconciliationServiceTest {
 
         when(paymentRepository.sumPaidUpTo(eq("USD"), any(Instant.class)))
                 .thenReturn(Mono.just(new BigDecimal("500.00")));
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -185,7 +201,11 @@ class ReconciliationServiceTest {
                 null);
 
         when(paymentRepository.sumPaidUpTo(eq("USD"), any(Instant.class))).thenReturn(Mono.empty());
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -210,7 +230,11 @@ class ReconciliationServiceTest {
                 LocalDate.now(),
                 null);
 
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -229,7 +253,11 @@ class ReconciliationServiceTest {
         recon.setStatus("unmatched");
 
         when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -246,7 +274,11 @@ class ReconciliationServiceTest {
         recon.setStatus("investigating");
 
         when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
-        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> {
+            BankReconciliation e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(

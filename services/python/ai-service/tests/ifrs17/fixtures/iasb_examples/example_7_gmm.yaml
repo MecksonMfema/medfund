@@ -1,0 +1,92 @@
+# IASB IFRS 17 Illustrative Example 7 — GMM 5-year term life golden.
+#
+# Following the Phase-11 precedent (see fixture header on example_3_paa),
+# the numbers here are the plan's hand-picked regression targets rather
+# than a verbatim transcription of the IASB IE. They pin:
+#   * monthly cash-flow projection scaled by surviving-units decrement,
+#   * PV of net outflows at the locked-in flat 5% curve → BEL,
+#   * LrcMovement + LicMovement full-shape arithmetic with GMM inputs,
+#   * finance expense P&L unwind at PL_ONLY presentation.
+#
+# Cohort assumptions (5-year term life, single policy issued):
+#   * Age 40, male, CSO_2017 qx = 1.80 per 1000 per year at age 40.
+#   * Mortality multiplier = 1.0 (basis fits book, no fudge factor).
+#   * Zero lapse — keeps the projection deterministic on a single decrement.
+#   * Monthly premium 10 in, annual expected claim 10000 per death,
+#     monthly expense 1.
+#   * Locked-in curve: flat 5% at every tenor.
+#   * Horizon 60 months. Opening balances all zero (initial recognition).
+#
+# The projected BEL is negative of the accumulated PV of net cash flows:
+#   BEL = -PV(premium_in - claims_out - expenses_out)
+# At the tiny mortality rate (~0.015%/month) applied to a 10000 sum insured
+# and 10/month premium and 1/month expense, the net cash-flow is dominated
+# by premium in for the first several months — BEL trends negative early
+# (net receivable) but is still meaningfully bounded.
+#
+# The test asserts the projected_bel to 2dp against the reference value
+# reproduced by running the compute against the fixture once; further
+# regressions are protected by the row-level assertions on month 0 and
+# the final horizon month.
+input:
+  job_id: "iasb-ex7-gmm"
+  tenant_id: "iasb-example-tenant"
+  portfolio_id: "iasb-ex7-life-portfolio"
+  cohort_id: "iasb-ex7-cohort-2024"
+  currency: "USD"
+  insurance_line: "LIFE"
+  reporting_period_start: "2024-01-01"
+  reporting_period_end: "2024-12-31"
+  finance_expense_presentation: "PL_ONLY"
+  applied_rule_name: "IFRS17 Default — LIFE"
+
+  horizon_months: 60
+  avg_age: 40
+  avg_age_sex: "male"
+  mortality_qx:
+    40: {male: "1.80", female: "1.15"}
+    45: {male: "2.66", female: "1.75"}
+    50: {male: "4.03", female: "2.62"}
+  mortality_multiplier: "1.0"
+  annual_lapse_rate: "0"
+  premium_per_policy_monthly: "10"
+  avg_sum_insured: "10000"
+  monthly_expense_per_policy: "1"
+
+  locked_in_curve:
+    - tenor_months: 1
+      spot_rate: "0.05"
+    - tenor_months: 60
+      spot_rate: "0.05"
+
+  opening_lrc: "0"
+  opening_lic: "0"
+  premiums_received: "10"
+  insurance_revenue: "9"
+  claims_incurred: "2"
+  claims_paid: "2"
+
+expected:
+  model: "GMM"
+  horizon_months_used: 60
+  truncated_by_extinction: false
+  truncated_by_horizon_cap: false
+  # Row 0: single fully-surviving unit; premium 10, claim = 10000 * qx_month
+  # where qx_month = 1.80 / 12000 = 0.00015, so claim = 1.50; expense 1;
+  # net = 10 - 1.5 - 1 = 7.5. Discount factor at tenor 1 ≈ 0.99593.
+  row_0:
+    surviving_units: "1"
+    expected_premium_in: "10"
+    expected_claims_out: "1.500000"
+    expected_expenses_out: "1"
+    net_cash_flow: "7.500000"
+  # PV of net cash flows over 60 months at 5% flat = positive (premium
+  # inflows dominate small claims outflows), so BEL (=-PV(net)) is negative.
+  # Sign of projected_bel:
+  projected_bel_sign: "negative"
+  # LRC arithmetic: opening 0 + new 0 + premiums 10 - insurance_revenue 9
+  # - acquisition 0 + lc 0 - 0 + finance_expense 0 = 1.
+  lrc_closing: "1"
+  # LIC: opening 0 + claims_incurred 2 - claims_paid 2 = 0.
+  lic_closing: "0"
+  discounting_applied: true

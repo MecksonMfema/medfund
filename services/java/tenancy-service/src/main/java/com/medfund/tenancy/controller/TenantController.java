@@ -33,7 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tenants")
 @RequiredArgsConstructor
-@Tag(name = "Tenants", description = "Tenant lifecycle management — super admin only")
+@Tag(name = "Tenants", description = "Tenant lifecycle management - super admin only")
 @SecurityRequirement(name = "bearer-jwt")
 public class TenantController {
 
@@ -166,7 +166,7 @@ public class TenantController {
     @DeleteMapping("/{id}/email-templates/{key}")
     @Operation(summary = "Reset a tenant's email template override",
             description = "Removes the tenant's override so subsequent sends fall back " +
-                    "to the platform default. Idempotent — succeeds whether or not an " +
+                    "to the platform default. Idempotent - succeeds whether or not an " +
                     "override exists.")
     @ApiResponse(responseCode = "204", description = "Override removed (or absent)")
     public Mono<ResponseEntity<Void>> resetEmailTemplate(

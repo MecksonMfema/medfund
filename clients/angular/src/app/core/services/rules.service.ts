@@ -52,7 +52,23 @@ export type RuleCategory =
   | 'CLINICAL_VALIDATION'
   // Finance
   | 'PROVIDER_PAYMENT'
-  | 'RECONCILIATION';
+  | 'RECONCILIATION'
+  // Reinsurance
+  | 'REINSURANCE'
+  // Commission
+  | 'COMMISSION'
+  // Premium earning
+  | 'PREMIUM_EARNING'
+  // Actuarial
+  | 'ACTUARIAL'
+  // IFRS 17
+  | 'IFRS17_MODEL'
+  // Regulatory parameter override
+  | 'REGULATORY_PARAMETER'
+  // PMB (Prescribed Minimum Benefit) classification
+  | 'PMB_CLASSIFICATION'
+  // Fraud triage — auto-open SIU cases from fraud_flag rows (§B Phase 10)
+  | 'FRAUD_TRIAGE';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -79,6 +95,22 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   // Finance
   { id: 'PROVIDER_PAYMENT',     label: 'Provider Payment',     icon: 'banknote' },
   { id: 'RECONCILIATION',       label: 'Reconciliation',       icon: 'activity' },
+  // Reinsurance
+  { id: 'REINSURANCE',          label: 'Reinsurance',          icon: 'shield-plus' },
+  // Commission
+  { id: 'COMMISSION',           label: 'Commission',           icon: 'percent' },
+  // Premium earning
+  { id: 'PREMIUM_EARNING',      label: 'Premium Earning',      icon: 'trending-up' },
+  // Actuarial
+  { id: 'ACTUARIAL',            label: 'Actuarial',            icon: 'chart-line' },
+  // IFRS 17
+  { id: 'IFRS17_MODEL',         label: 'IFRS 17 Model',        icon: 'file-spreadsheet' },
+  // Regulatory parameter override
+  { id: 'REGULATORY_PARAMETER', label: 'Regulatory Parameter', icon: 'sliders' },
+  // PMB (Prescribed Minimum Benefit) classification (Phase 17 §B REG7)
+  { id: 'PMB_CLASSIFICATION',   label: 'PMB Classification',   icon: 'stethoscope' },
+  // Fraud triage — auto-open SIU cases from fraud_flag (Phase 19 §B Phase 10)
+  { id: 'FRAUD_TRIAGE',         label: 'Fraud Triage',         icon: 'shield' },
 ];
 
 export interface RuleDefinition {
@@ -123,6 +155,12 @@ export interface DryRunRequest {
   contribution?: Record<string, unknown>;
   /** Provider payment-run fact — for PROVIDER_PAYMENT, RECONCILIATION rules. */
   paymentRun?: Record<string, unknown>;
+  /** Premium-at-bind fact — for PREMIUM_EARNING rules. */
+  premium?: Record<string, unknown>;
+  /** Triangle-shape fact — for ACTUARIAL rules (finance-service builds this at IBNR/LOSS submit). */
+  triangle?: Record<string, unknown>;
+  /** Per-development-period LDF candidates — for ACTUARIAL rules that select at dev-period granularity. */
+  devPeriod?: Record<string, unknown>;
   /** "Today" fact — drives date-aware rules without reading the system clock. */
   time?: Record<string, unknown>;
 }

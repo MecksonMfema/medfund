@@ -7,6 +7,10 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @Configuration
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.contributions.repository",
+        // Phase 12 §A — earning_schedule + earning_schedule_run repos live under
+        // the premium subpackage so they're organised with the module they belong
+        // to; still scanned here so the standard R2DBC repository proxy applies.
+        "com.medfund.contributions.premium.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — the in-app bell reads/writes rows against
         // public.notifications from any service that hosts JobEventPublisher.

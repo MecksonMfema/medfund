@@ -1,0 +1,107 @@
+.reports-hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-base);
+}
+
+.hub-counter {
+  text-align: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+
+  .hub-count {
+    display: block;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+  }
+
+  .hub-count-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--spacing-base);
+}
+
+.hub-family-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-base);
+}
+
+.hub-family-title {
+  margin: 0 0 var(--spacing-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.hub-report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hub-report-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+
+  &:hover {
+    background: var(--color-sidebar-bg-hover);
+    border-color: var(--color-primary-light);
+  }
+}
+
+.hub-report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.hub-report-name {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.badge-cadenced {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.general-error {
+  padding: 10px 14px;
+  background: var(--color-error-light);
+  color: #c4162d;
+  border-radius: var(--radius-sm);
+}
+
+.page-subtitle {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  max-width: 640px;
+}

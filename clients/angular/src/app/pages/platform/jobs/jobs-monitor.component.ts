@@ -12,6 +12,8 @@ import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.
 import { HumanizePipe } from '../../../shared/pipes/humanize.pipe';
 import { TenantPickerComponent } from '../../../shared/components/tenant-picker/tenant-picker.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 @Component({
   selector: 'app-jobs-monitor',
@@ -25,6 +27,12 @@ export class JobsMonitorComponent implements OnInit {
   selected: ScheduledJob | null = null;
   runs: ScheduledJobRun[] = [];
 
+  /** Client-side pagination for the runs table: 25 rows per page over the
+   *  full loaded run buffer. Resets to page 1 whenever a new job is picked
+   *  or the runs list is refreshed. */
+  readonly runsPageSize = 25;
+  runsPage = 1;
+
   /** null = "All tenants" (cross-tenant view, the default for super admin). */
   tenantFilter: string | null = null;
 
@@ -36,7 +44,6 @@ export class JobsMonitorComponent implements OnInit {
   loadingRuns = false;
   busyJobId: string | null = null;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // ── Add-job form state ──
@@ -49,7 +56,7 @@ export class JobsMonitorComponent implements OnInit {
     return this.jobTypes.map(jt => ({ value: jt.type, label: jt.displayName, description: jt.description }));
   }
 
-  constructor(private admin: AdminService) {}
+  constructor(private admin: AdminService, private toast: ToastService) {}
 
   private blankJob() {
     return {
@@ -90,7 +97,7 @@ export class JobsMonitorComponent implements OnInit {
 
   submitAdd(): void {
     if (!this.newJob.jobType || !this.newJob.name.trim() || !this.newJob.cronExpression.trim()) {
-      this.errorMessage = 'Job type, name, and cron expression are required.';
+      this.toast.warning('Job type, name, and cron expression are required.');
       return;
     }
     this.busy = true;
@@ -108,7 +115,7 @@ export class JobsMonitorComponent implements OnInit {
         this.refreshJobs();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to create job';
+        this.toast.error(extractErrorMessage(err, 'Failed to create job'));
         this.busy = false;
       },
     });
@@ -129,7 +136,7 @@ export class JobsMonitorComponent implements OnInit {
         this.refreshJobs();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to seed defaults';
+        this.toast.error(extractErrorMessage(err, 'Failed to seed defaults'));
         this.busy = false;
       },
     });
@@ -161,7 +168,7 @@ export class JobsMonitorComponent implements OnInit {
         }
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load scheduled jobs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load scheduled jobs'));
         this.loadingJobs = false;
       },
     });
@@ -174,13 +181,48 @@ export class JobsMonitorComponent implements OnInit {
 
   refreshRuns(id: string): void {
     this.loadingRuns = true;
-    this.admin.listJobRuns(id, 50, this.tenantFilter).subscribe({
-      next: (rows) => { this.runs = rows; this.loadingRuns = false; },
+    // Fetch a wider buffer than one page so the client-side paginator can
+    // walk backwards through history without re-hitting the API. Backend
+    // sorts by startedAt desc, so `slice(...)` on the buffer yields the
+    // "most recent first" ordering the UI wants.
+    this.admin.listJobRuns(id, 100, this.tenantFilter).subscribe({
+      next: (rows) => {
+        this.runs = rows;
+        this.runsPage = 1;
+        this.loadingRuns = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load runs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load runs'));
         this.loadingRuns = false;
       },
     });
+  }
+
+  // ── Runs pagination ──
+
+  get runsTotalPages(): number {
+    return Math.max(1, Math.ceil(this.runs.length / this.runsPageSize));
+  }
+
+  get visibleRuns(): ScheduledJobRun[] {
+    const start = (this.runsPage - 1) * this.runsPageSize;
+    return this.runs.slice(start, start + this.runsPageSize);
+  }
+
+  get runsRangeStart(): number {
+    return this.runs.length === 0 ? 0 : (this.runsPage - 1) * this.runsPageSize + 1;
+  }
+
+  get runsRangeEnd(): number {
+    return Math.min(this.runsPage * this.runsPageSize, this.runs.length);
+  }
+
+  prevRunsPage(): void {
+    if (this.runsPage > 1) this.runsPage--;
+  }
+
+  nextRunsPage(): void {
+    if (this.runsPage < this.runsTotalPages) this.runsPage++;
   }
 
   toggleEnabled(job: ScheduledJob, event: Event): void {
@@ -195,7 +237,7 @@ export class JobsMonitorComponent implements OnInit {
         this.busyJobId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to toggle job';
+        this.toast.error(extractErrorMessage(err, 'Failed to toggle job'));
         this.busyJobId = null;
       },
     });
@@ -212,7 +254,7 @@ export class JobsMonitorComponent implements OnInit {
         if (this.selected?.id === job.id) this.refreshRuns(job.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to run job';
+        this.toast.error(extractErrorMessage(err, 'Failed to run job'));
         this.busyJobId = null;
       },
     });

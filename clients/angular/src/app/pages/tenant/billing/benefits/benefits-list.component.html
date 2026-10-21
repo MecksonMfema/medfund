@@ -3,17 +3,13 @@
     <h1>Benefits</h1>
     @if (scheme) {
       <p class="page-sub">
-        Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '—' }}). Limits inherit the scheme's currency.
+        Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '-' }}). Limits inherit the scheme's currency.
       </p>
     } @else {
       <p class="page-sub">Loading scheme…</p>
     }
   </div>
   <div class="header-actions">
-    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
-      <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back to schemes
-    </a>
     <a
       *hasPermission="'billing:manage_schemes'"
       class="btn btn-primary"
@@ -22,12 +18,12 @@
       <app-icon name="plus" [size]="14"></app-icon>
       Add benefit
     </a>
+    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to schemes
+    </a>
   </div>
 </header>
-
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
 
 <app-data-table
   [columns]="benefitColumns"

@@ -1,0 +1,154 @@
+package routes
+
+import (
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/medfund/gateway/internal/config"
+)
+
+// Phase 15 §23 rename Phase C cleanup: the Phase 22 GET-only 301 redirect
+// handlers on /api/v1/reports/actuarial/jobs/* have been deleted. Requests
+// to that path (both poll + export) now fall through to the
+// /api/v1/reports/actuarial/* wildcard proxy, which still routes to
+// finance-service's Phase-14-native ActuarialReportController (retained per
+// the Phase 21 deviation "actuarial precedent puts its export at
+// /api/v1/reports/actuarial/jobs/{jobId}/export.xlsx"). Angular's new
+// polling service hits the canonical /api/v1/reports/jobs/* URL directly;
+// the actuarial-specific URL stays as a legacy-but-not-deprecated proxy.
+func TestLegacyActuarialJobsPollUrlIsNoLongerRedirected(t *testing.T) {
+	app := newAppUnderTest()
+
+	req := httptest.NewRequest("GET", "/api/v1/reports/actuarial/jobs/abc-123", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode == fiber.StatusMovedPermanently {
+		t.Fatalf("legacy actuarial jobs URL must not 301 (§23 removed the redirect); "+
+			"got Location=%q", resp.Header.Get("Location"))
+	}
+}
+
+func TestLegacyActuarialJobsExportUrlIsNoLongerRedirected(t *testing.T) {
+	app := newAppUnderTest()
+
+	req := httptest.NewRequest("GET",
+		"/api/v1/reports/actuarial/jobs/abc-123/export.xlsx", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode == fiber.StatusMovedPermanently {
+		t.Fatalf("legacy actuarial jobs export URL must not 301 (§23 removed the redirect); "+
+			"got Location=%q", resp.Header.Get("Location"))
+	}
+}
+
+// Submit endpoints on /reports/actuarial/{ibnr,loss-triangle,…} still hit
+// the wildcard proxy — same behaviour as before §22 introduced the redirect
+// handlers, and after §23 deleted them.
+func TestActuarialSubmitEndpointsAreProxied(t *testing.T) {
+	app := newAppUnderTest()
+
+	req := httptest.NewRequest("POST", "/api/v1/reports/actuarial/ibnr", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode == fiber.StatusMovedPermanently {
+		t.Fatalf("submit endpoint must not 301; got redirect to %q",
+			resp.Header.Get("Location"))
+	}
+	if resp.StatusCode == fiber.StatusNotFound {
+		t.Fatalf("submit endpoint must not 404 (wildcard proxy expected); got %d",
+			resp.StatusCode)
+	}
+}
+
+// Phase 17 §B.2 — the four new routes must be registered against the
+// correct backend service. We assert on registration presence by hitting
+// the path and confirming Fiber routes it (non-404) — the actual proxy
+// upstream is set to a bogus host so the request will fail at connect
+// time, which is fine: we care about the routing decision, not the wire.
+func TestPhase17ScheduledReportRoutesRegistered(t *testing.T) {
+	app := newAppUnderTest()
+
+	// A registered proxy route returns 502/Bad Gateway when the upstream
+	// is unreachable — that proves Fiber matched the route. An unregistered
+	// path returns 404.
+	cases := []struct {
+		method, path string
+	}{
+		{"GET", "/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/download?token=x"},
+		{"POST", "/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/rerun"},
+		{"POST", "/api/v1/reports/scheduled/probe/force-fire"},
+		{"POST", "/api/v1/report-schedule-recipients/unsubscribe/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		{"GET", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules"},
+		{"POST", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules"},
+		{"GET", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules/aaa/recipients/active"},
+		// Phase 17 §C.1 — tenant-admin history + in-app download.
+		{"GET", "/api/v1/reports/scheduled/schedules/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/runs?limit=20"},
+		{"GET", "/api/v1/reports/scheduled/runs/11111111-2222-3333-4444-555555555555/download"},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode == fiber.StatusNotFound {
+			t.Errorf("%s %s: expected registered route (non-404), got %d",
+				tc.method, tc.path, resp.StatusCode)
+		}
+	}
+}
+
+// Phase 25 platform-settings — the new admin surface + the unauthenticated
+// pre-auth branding endpoints must all be registered against tenancy-service.
+// A registered route returns 502 (upstream unreachable at :0) or another
+// non-404; an unregistered path returns 404.
+func TestPlatformSettingsRoutesRegistered(t *testing.T) {
+	app := newAppUnderTest()
+
+	cases := []struct {
+		method, path string
+	}{
+		{"GET", "/api/v1/platform/settings"},
+		{"PUT", "/api/v1/platform/settings"},
+		{"POST", "/api/v1/platform/settings/logo"},
+		{"GET", "/api/v1/platform/feature-flags"},
+		{"PUT", "/api/v1/platform/feature-flags/AI_ADJUDICATION"},
+		{"GET", "/api/v1/public/platform/branding"},
+		{"GET", "/api/v1/public/platform/logo"},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode == fiber.StatusNotFound {
+			t.Errorf("%s %s: expected registered route (non-404), got %d",
+				tc.method, tc.path, resp.StatusCode)
+		}
+	}
+}
+
+func newAppUnderTest() *fiber.App {
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	cfg := &config.Config{
+		FinanceServiceURL: "http://finance:0",
+		TenancyServiceURL: "http://tenancy:0",
+		UserServiceURL:    "http://user:0",
+		ClaimsServiceURL:  "http://claims:0",
+		AiServiceURL:      "http://ai:0",
+		AuditServiceURL:   "http://audit:0",
+		FileServiceURL:    "http://file:0",
+		PaymentServiceURL: "http://pay:0",
+		RulesServiceURL:   "http://rules:0",
+	}
+	Register(app, cfg)
+	return app
+}

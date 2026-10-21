@@ -1,0 +1,47 @@
+// Producer payouts list. Fullbleed layout — page-header + toolbar +
+// data-table stack flush. Same primitives as
+// /tenant/finance/creditors and /tenant/finance/reinsurance/review-queue.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+
+// Flatten the app-select trigger inside the toolbar. Global styles.scss
+// authors this rule under ::ng-deep at the top level which the browser
+// drops; every page needs a local copy where the Angular compiler
+// actually strips ::ng-deep.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+

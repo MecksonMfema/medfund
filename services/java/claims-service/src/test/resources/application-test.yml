@@ -1,0 +1,5 @@
+spring:
+  r2dbc:
+    pool:
+      max-size: 10
+      max-acquire-time: 5s

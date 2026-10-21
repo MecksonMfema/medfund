@@ -5,10 +5,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <nav class="scheme-tabs" role="tablist" aria-label="Filter pre-authorizations by status">
   @for (tab of statusTabs; track tab.value) {
     <button

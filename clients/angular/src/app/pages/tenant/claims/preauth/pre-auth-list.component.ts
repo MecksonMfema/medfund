@@ -7,6 +7,8 @@ import {
   PreAuthorizationRow,
 } from '../../../../core/services/pre-auth.service';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface StatusTab {
   /** Lowercase status value, or null for "All". */
@@ -24,7 +26,6 @@ interface StatusTab {
 export class PreAuthListComponent implements OnInit {
   rows: PreAuthorizationRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -65,7 +66,7 @@ export class PreAuthListComponent implements OnInit {
     },
   ];
 
-  constructor(private service: PreAuthService, private router: Router) {}
+  constructor(private service: PreAuthService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -86,7 +87,7 @@ export class PreAuthListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load pre-authorizations';
+        this.toast.error(extractErrorMessage(err, 'Failed to load pre-authorizations'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

@@ -1,6 +1,8 @@
 """Tests for Claude client wrapper."""
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
+
 import pytest
+
 from app.core.anthropic_client import ClaudeClient
 
 

@@ -1,0 +1,107 @@
+<header class="page-header">
+  <div>
+    <h1>Policy movement</h1>
+    <p class="page-sub">
+      Opening / new business / renewed / lapsed / terminated / closing counts per
+      (policy line, currency) for the reporting window. Native currency; the
+      summary sheet in the XLSX export converts best-effort to the reporting
+      currency.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (rows.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No policy movement</div>
+    <div class="empty-state__description">
+      No policies were opened, renewed, lapsed, or terminated in this window.
+      Widen the period or check that upstream bind/status events are landing.
+    </div>
+  </div>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Policy source</th>
+        <th>Line</th>
+        <th>Currency</th>
+        <th class="num">Opening</th>
+        <th class="num">New business</th>
+        <th class="num">Renewed</th>
+        <th class="num">Lapsed</th>
+        <th class="num">Terminated</th>
+        <th class="num">Closing</th>
+        <th class="num">Premium added</th>
+        <th class="num">Premium removed</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of rows; track r.policySource + '-' + r.currencyCode) {
+        <tr>
+          <td>{{ r.policySource }}</td>
+          <td>{{ r.insuranceLine }}</td>
+          <td>{{ r.currencyCode }}</td>
+          <td class="num">{{ r.openingCount }}</td>
+          <td class="num">{{ r.newBusinessCount }}</td>
+          <td class="num">{{ r.renewedCount }}</td>
+          <td class="num">{{ r.lapsedCount }}</td>
+          <td class="num">{{ r.terminatedCount }}</td>
+          <td class="num">{{ r.closingCount }}</td>
+          <td class="num">{{ r.writtenPremiumAdded }}</td>
+          <td class="num">{{ r.writtenPremiumRemoved }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

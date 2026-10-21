@@ -9,6 +9,8 @@ import {
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-tariff-lookup',
@@ -21,11 +23,10 @@ export class TariffLookupComponent {
   query = '';
   rows: TariffCode[] = [];
   searching = false;
-  errorMessage: string | null = null;
 
   private query$ = new Subject<string>();
 
-  constructor(private config: ClaimsConfigService) {
+  constructor(private config: ClaimsConfigService, private toast: ToastService) {
     this.query$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -36,7 +37,7 @@ export class TariffLookupComponent {
       }),
     ).subscribe({
       next: (rows) => { this.rows = rows; this.searching = false; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Search failed'; this.searching = false; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Search failed')); this.searching = false; },
     });
   }
 

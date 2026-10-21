@@ -70,7 +70,7 @@ public class BadDebtsExcelService {
             r = writeLabelValue(sheet, r, label, bold, "Status filter",
                     "Deactivated or terminated with an outstanding balance");
             r = writeLabelValue(sheet, r, label, bold, "Search",
-                    q != null && !q.isBlank() ? q : "—");
+                    q != null && !q.isBlank() ? q : "-");
             r = writeLabelValue(sheet, r, label, bold, "Exported at",
                     LocalDate.now().toString());
             r = writeLabelValue(sheet, r, label, bold, "Rows",
@@ -111,7 +111,7 @@ public class BadDebtsExcelService {
     // ── Helpers (mirror DebtorsExcelService) ────────────────────────
 
     private static String humanizeSubjectType(String v) {
-        if (v == null) return "—";
+        if (v == null) return "-";
         return switch (v.toUpperCase()) {
             case "MEMBER" -> "Individual";
             case "GROUP"  -> "Group";

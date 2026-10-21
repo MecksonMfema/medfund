@@ -34,11 +34,16 @@
         </button>
       </div>
     }
+    @if (run && canExportWorkbook()) {
+      <div class="header-actions">
+        <button class="btn btn-default" (click)="exportWorkbook()" [disabled]="exporting">
+          <app-icon name="download" [size]="14"></app-icon>
+          @if (exporting) { Exporting… } @else { Export workbook }
+        </button>
+      </div>
+    }
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
   @if (successMessage) {
     <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
   }
@@ -49,7 +54,7 @@
     <!-- ── Run summary strip — money movement + timestamps ─────────── -->
     <!-- Six cards: identity (currency + total), the two carry-forward
          legs, and three timestamps (generated, executed, settled). Each
-         renders "—" when the underlying field is null so the shape is
+         renders "-" when the underlying field is null so the shape is
          predictable even before the item-population flow lands. -->
     <div class="summary-grid">
       <div class="summary-card">
@@ -65,7 +70,7 @@
         <div class="summary-value">
           @if (run.carriedInAmount) {
             {{ run.carriedInAmount | currencyFormat:run.currencyCode }}
-          } @else { — }
+          } @else { - }
         </div>
         <div class="summary-sub">from prior runs</div>
       </div>
@@ -76,7 +81,7 @@
         <div class="summary-value">
           @if (run.carriedOutAmount) {
             {{ run.carriedOutAmount | currencyFormat:run.currencyCode }}
-          } @else { — }
+          } @else { - }
         </div>
         <div class="summary-sub">to next run</div>
       </div>
@@ -94,7 +99,7 @@
         <div class="summary-value summary-value--sm">
           @if (run.executedAt) {
             {{ run.executedAt | date:'medium' }}
-          } @else { — }
+          } @else { - }
         </div>
         <div class="summary-sub">Payment run committed</div>
       </div>
@@ -105,7 +110,7 @@
         <div class="summary-value summary-value--sm">
           @if (run.settlementDate) {
             {{ run.settlementDate | date:'medium' }}
-          } @else { — }
+          } @else { - }
         </div>
         <div class="summary-sub">Last payment cleared</div>
       </div>

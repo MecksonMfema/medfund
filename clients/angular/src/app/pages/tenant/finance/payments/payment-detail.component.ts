@@ -9,6 +9,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-payment-detail',
@@ -21,19 +23,19 @@ export class PaymentDetailComponent implements OnInit {
   payment: Payment | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   constructor(
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No payment id';
+      this.toast.error('No payment id');
       return;
     }
     this.refresh(id);
@@ -44,7 +46,7 @@ export class PaymentDetailComponent implements OnInit {
     this.finance.getPayment(id).subscribe({
       next: (p) => { this.payment = p; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load payment';
+        this.toast.error(extractErrorMessage(err, 'Failed to load payment'));
         this.loading = false;
       },
     });
@@ -61,7 +63,7 @@ export class PaymentDetailComponent implements OnInit {
         this.busy = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to mark paid';
+        this.toast.error(extractErrorMessage(err, 'Failed to mark paid'));
         this.busy = false;
       },
     });
@@ -78,7 +80,7 @@ export class PaymentDetailComponent implements OnInit {
         this.busy = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to cancel';
+        this.toast.error(extractErrorMessage(err, 'Failed to cancel'));
         this.busy = false;
       },
     });

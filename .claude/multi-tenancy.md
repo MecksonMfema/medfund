@@ -126,7 +126,7 @@ func TenantMiddleware() fiber.Handler {
 #### Elixir (Phoenix)
 ```elixir
 # Plug sets the Ecto prefix for the connection
-defmodule MascaWeb.TenantPlug do
+defmodule InsureFlowWeb.TenantPlug do
   def call(conn, _opts) do
     tenant_id = get_req_header(conn, "x-tenant-id") |> List.first()
     Ecto.put_meta(conn, prefix: "tenant_#{tenant_id}")
@@ -211,6 +211,7 @@ This catches bugs where a service accidentally connects to the wrong schema.
 | **Business Rules** | Configure adjudication rules, billing rules, waiting periods, benefit limits via UI |
 | **Scheme Management** | Create/edit schemes, benefits, age groups, pricing |
 | **Currency Settings** | Configure supported currencies, default currency, exchange rate sources |
+| **Bank Accounts** | Configure the tenant's own bank accounts (label + currency + nomination) used for outbound payment-run disbursements and inbound receipt matching |
 | **Notification Templates** | Customize email/SMS templates with tenant branding |
 | **Provider Network** | Manage which providers are in-network for this tenant |
 | **Membership Model** | Configure `GROUP_ONLY`, `INDIVIDUAL_ONLY`, or `BOTH` — controls enrollment flows, billing, and portal access |
@@ -238,7 +239,15 @@ This catches bugs where a service accidentally connects to the wrong schema.
 | **Profile Management** | Banking details, tax clearance, practice information |
 | **Notifications** | Payment confirmations, claim status updates |
 
-**Provider Multi-Tenancy Note**: A provider exists in multiple tenant schemas. The provider's profile is replicated across tenant schemas they're registered with. When a provider logs in, they see a tenant switcher to select which medical aid context they're working in.
+**Provider Multi-Tenancy Note**: A provider is a single row in `public.providers`,
+shared across every tenant it serves. The membership relationship lives in
+`public.provider_tenants` (composite PK `(provider_id, tenant_id)`, carries
+per-tenant `network_tier`, `in_network`, `status`, and future contract fields).
+The line(s) a provider serves live in `public.provider_insurance_lines`
+(composite PK, CHECK-constrained to `InsuranceLine` values). When a provider
+logs in (deferred to a follow-up plan), they authenticate against the
+`medfund-platform` Keycloak realm and see a tenant switcher built from their
+`public.provider_tenants` list.
 
 ### Member Portal (Flutter Mobile + Web)
 

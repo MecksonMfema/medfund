@@ -34,6 +34,9 @@ public class PaymentAdviceRecord {
     @Column("member_id")
     private UUID memberId;
 
+    @Column("producer_id")
+    private UUID producerId;
+
     @Column("payee_type")
     private String payeeType = "PROVIDER";
 

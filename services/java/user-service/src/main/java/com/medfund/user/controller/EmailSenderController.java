@@ -36,7 +36,7 @@ public class EmailSenderController {
     private final EmailSenderService service;
 
     @GetMapping
-    @Operation(summary = "List all email senders (unpaginated — prefer /page)")
+    @Operation(summary = "List all email senders (unpaginated - prefer /page)")
     public Flux<EmailSenderResponse> list() {
         return service.findAll().map(EmailSenderResponse::from);
     }

@@ -1,8 +1,8 @@
 package com.medfund.user.integration;
 
-import com.medfund.shared.testfixtures.AbstractPostgresIntegrationTest;
 import com.medfund.shared.testfixtures.TenantTestContext;
 import com.medfund.shared.testfixtures.WithTenant;
+import com.medfund.user.AbstractUserServiceIT;
 import com.medfund.user.service.GroupNumberService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.flyway.baseline-on-migrate=true",
 })
 @Import(GroupNumberServiceIT.SecurityStub.class)
-class GroupNumberServiceIT extends AbstractPostgresIntegrationTest {
+class GroupNumberServiceIT extends AbstractUserServiceIT {
 
     /**
      * SecurityConfig requires a {@link ReactiveJwtDecoder}, normally

@@ -57,10 +57,20 @@ class FinanceEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void publishPaymentRunExecuted_sendsToCorrectTopic() {
+    void publishPaymentRunExecuted_fatPayload_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(financeEventPublisher.publishPaymentRunExecuted("run-1", "RUN-123", 25))
+        var items = java.util.List.of(
+            new PaymentRunItemPayload("item-1", "pay-1", "prov-1", "", "150.00", "USD"),
+            new PaymentRunItemPayload("item-2", "pay-2", "prov-2", "", "75.50",  "USD"));
+
+        StepVerifier.create(financeEventPublisher.publishPaymentRunExecuted(
+                        "run-1", "RUN-123",
+                        "tenant-abc",
+                        "bank-xyz",
+                        "USD",
+                        2,
+                        items))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -71,26 +81,59 @@ class FinanceEventPublisherTest {
                     // claims-plan ↔ finance-plan event-namespace alignment.
                     assertThat(record.topic()).isEqualTo("medfund.payments.run.executed");
                     assertThat(record.key()).isEqualTo("run-1");
-                    assertThat(record.value()).contains("PAYMENT_RUN_EXECUTED");
+                    // V075 fat payload — the new fields (tenantId,
+                    // sourceBankAccountId, currencyCode, items[]) all appear
+                    // in the serialised JSON.
+                    assertThat(record.value())
+                        .contains("PAYMENT_RUN_EXECUTED")
+                        .contains("\"tenantId\":\"tenant-abc\"")
+                        .contains("\"sourceBankAccountId\":\"bank-xyz\"")
+                        .contains("\"currencyCode\":\"USD\"")
+                        .contains("\"itemId\":\"item-1\"")
+                        .contains("\"itemId\":\"item-2\"")
+                        .contains("\"amount\":\"150.00\"");
                 })
                 .verifyComplete();
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void publishAdjustmentApplied_sendsToCorrectTopic() {
+    void publishNoteApplied_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(financeEventPublisher.publishAdjustmentApplied("adj-1", "ADJ-123", "prov-1"))
+        StepVerifier.create(financeEventPublisher.publishNoteApplied(
+                        "note-1", "DEBIT", "TAX_WITHHELD", "50.00"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
 
         StepVerifier.create(senderRecordCaptor.getValue())
                 .assertNext(record -> {
-                    assertThat(record.topic()).isEqualTo("medfund.finance.adjustment-applied");
-                    assertThat(record.key()).isEqualTo("adj-1");
-                    assertThat(record.value()).contains("ADJUSTMENT_APPLIED");
+                    assertThat(record.topic()).isEqualTo("medfund.finance.note-applied");
+                    assertThat(record.key()).isEqualTo("note-1");
+                    assertThat(record.value()).contains("NOTE_APPLIED");
+                    assertThat(record.value()).contains("DEBIT");
+                    assertThat(record.value()).contains("TAX_WITHHELD");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishNoteReversed_sendsToCorrectTopic() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(financeEventPublisher.publishNoteReversed(
+                        "orig-1", "comp-1", "50.00", "USD"))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.finance.note-reversed");
+                    assertThat(record.key()).isEqualTo("orig-1");
+                    assertThat(record.value()).contains("NOTE_REVERSED");
                 })
                 .verifyComplete();
     }

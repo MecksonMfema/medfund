@@ -14,6 +14,13 @@ import { TenantRolesTabComponent } from './roles/roles-tab.component';
 import { TenantCurrenciesTabComponent } from './currencies/currencies-tab.component';
 import { TenantBillingTabComponent } from './billing/billing-tab.component';
 import { TenantProrationTabComponent } from './proration/proration-tab.component';
+import { TenantBankAccountsTabComponent } from './bank-accounts/bank-accounts-tab.component';
+import { TenantReportsTabComponent } from './reports/reports-tab.component';
+import { AutoLapseConfigComponent } from './auto-lapse/auto-lapse-config.component';
+import { EndorsementConfigComponent } from './endorsement/endorsement-config.component';
+import { ActuarialBasesComponent } from './actuarial-bases/actuarial-bases.component';
+import { Ifrs17ConfigComponent } from './ifrs17-config/ifrs17-config.component';
+import { SidebarSectionsTabComponent } from './sidebar-sections/sidebar-sections-tab.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -40,6 +47,8 @@ interface GeneralForm {
   contactEmail: string;
   timezone: string;
   membershipModel: string;
+  /** V131 — regulator jurisdiction code, gates regulator-templated reports. */
+  jurisdictionCode: string;
 }
 
 const MEMBERSHIP_MODELS = [
@@ -48,12 +57,35 @@ const MEMBERSHIP_MODELS = [
   { value: 'BOTH',            label: 'Both individual and group' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'email-templates' | 'roles';
+/**
+ * Regulator jurisdictions that gate regulator-templated reports. Must stay in
+ * sync with the Java {@code TenantJurisdiction} enum — the tenancy-service
+ * PUT-tenant handler validates the picked value against that enum and returns
+ * 422 on drift.
+ */
+export const JURISDICTIONS = [
+  { value: '',                       label: '- None -' },
+  { value: 'ZW_IPEC_SHORT_TERM',     label: 'Zimbabwe - IPEC short-term insurance' },
+  { value: 'ZW_IPEC_LIFE',           label: 'Zimbabwe - IPEC life insurance' },
+  { value: 'ZA_FSCA_SHORT_TERM',     label: 'South Africa - FSCA short-term insurance' },
+  { value: 'ZA_FSCA_LONG_TERM',      label: 'South Africa - FSCA long-term (life) insurance' },
+];
+
+type TabId = 'general' | 'branding' | 'sidebar-sections' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'ifrs17-config' | 'roles';
+
+type GroupId = 'profile' | 'finance' | 'communications' | 'operations' | 'actuarial';
 
 interface Tab {
   id: TabId;
   label: string;
   icon: string;
+}
+
+interface TabGroup {
+  id: GroupId;
+  label: string;
+  icon: string;
+  tabs: Tab[];
 }
 
 /**
@@ -66,23 +98,81 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, ActuarialBasesComponent, Ifrs17ConfigComponent, SidebarSectionsTabComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
 export class TenantSettingsComponent implements OnInit {
   activeTab: TabId = 'general';
+  activeGroup: GroupId = 'profile';
 
-  tabs: Tab[] = [
-    { id: 'general',         label: 'General',                icon: 'settings' },
-    { id: 'branding',        label: 'Branding',               icon: 'globe' },
-    { id: 'insurance-lines', label: 'Insurance Lines',        icon: 'briefcase' },
-    { id: 'currencies',      label: 'Currencies',             icon: 'dollar-sign' },
-    { id: 'billing',         label: 'Billing',                icon: 'banknote' },
-    { id: 'proration',       label: 'Proration',              icon: 'divide' },
-    { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
-    { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
+  /**
+   * Tabs bucketed into 5 semantic groups so the primary nav stays legible.
+   * The template renders group tabs on the top row and the active group's
+   * sub-tabs on a secondary row underneath. Order matters — first tab in
+   * each group is the default landing tab when the group is picked.
+   */
+  tabGroups: TabGroup[] = [
+    {
+      id: 'profile', label: 'Profile', icon: 'settings',
+      tabs: [
+        { id: 'general',          label: 'General',              icon: 'settings' },
+        { id: 'branding',         label: 'Branding',             icon: 'globe' },
+        { id: 'sidebar-sections', label: 'Sidebar Visibility',   icon: 'layers' },
+        { id: 'insurance-lines',  label: 'Insurance Lines',      icon: 'briefcase' },
+        { id: 'roles',            label: 'Roles & Permissions',  icon: 'shield' },
+      ],
+    },
+    {
+      id: 'finance', label: 'Finance', icon: 'dollar-sign',
+      tabs: [
+        { id: 'currencies',    label: 'Currencies',    icon: 'dollar-sign' },
+        { id: 'billing',       label: 'Billing',       icon: 'banknote' },
+        { id: 'proration',     label: 'Proration',     icon: 'layers' },
+        { id: 'bank-accounts', label: 'Bank Accounts', icon: 'building' },
+      ],
+    },
+    {
+      id: 'communications', label: 'Communications', icon: 'mail',
+      tabs: [
+        { id: 'email-templates', label: 'Email Templates', icon: 'file-text' },
+        { id: 'reports',         label: 'Reports',         icon: 'chart' },
+      ],
+    },
+    {
+      id: 'operations', label: 'Operations', icon: 'activity',
+      tabs: [
+        { id: 'auto-lapse',         label: 'Auto-Lapse',         icon: 'alert-triangle' },
+        { id: 'endorsement-config', label: 'Endorsement Config', icon: 'shield' },
+      ],
+    },
+    {
+      id: 'actuarial', label: 'Actuarial', icon: 'trending-up',
+      tabs: [
+        { id: 'actuarial-bases', label: 'Actuarial Bases', icon: 'trending-up' },
+        { id: 'ifrs17-config',   label: 'IFRS 17 Config',  icon: 'shield' },
+      ],
+    },
   ];
+
+  /** Sub-tabs of the currently selected group — driven by activeGroup. */
+  get activeGroupTabs(): Tab[] {
+    return this.tabGroups.find(g => g.id === this.activeGroup)?.tabs ?? [];
+  }
+
+  /** Switch groups from the primary tab row; auto-lands on the group's first sub-tab. */
+  selectGroup(id: GroupId): void {
+    if (this.activeGroup === id) return;
+    this.activeGroup = id;
+    const first = this.tabGroups.find(g => g.id === id)?.tabs[0];
+    if (first) this.activeTab = first.id;
+  }
+
+  /** Jurisdiction dropdown options for the general tab. */
+  jurisdictions = JURISDICTIONS;
+  get jurisdictionSelectOptions(): SelectOption[] {
+    return this.jurisdictions.map(j => ({ value: j.value, label: j.label }));
+  }
 
   // ── Branding state (lifted verbatim from AdminComponent) ──────────────────
   templates: TenantTemplate[] = TENANT_TEMPLATES;
@@ -92,7 +182,7 @@ export class TenantSettingsComponent implements OnInit {
 
   // ── General state ─────────────────────────────────────────────────────────
   membershipModels = MEMBERSHIP_MODELS;
-  general: GeneralForm = { name: '', domain: '', contactEmail: '', timezone: '', membershipModel: '' };
+  general: GeneralForm = { name: '', domain: '', contactEmail: '', timezone: '', membershipModel: '', jurisdictionCode: '' };
   /** Read-only fields exposed to the form for display. */
   generalReadonly = { slug: '', countryCode: '', status: '' };
   generalLoading = false;
@@ -289,11 +379,12 @@ export class TenantSettingsComponent implements OnInit {
     this.adminService.getTenantById(tenantId).subscribe({
       next: (t: AdminTenant) => {
         this.general = {
-          name:            t.name            ?? '',
-          domain:          t.domain          ?? '',
-          contactEmail:    t.contactEmail    ?? '',
-          timezone:        t.timezone        ?? '',
-          membershipModel: t.membershipModel ?? '',
+          name:             t.name             ?? '',
+          domain:           t.domain           ?? '',
+          contactEmail:     t.contactEmail     ?? '',
+          timezone:         t.timezone         ?? '',
+          membershipModel:  t.membershipModel  ?? '',
+          jurisdictionCode: t.jurisdictionCode ?? '',
         };
         this.generalReadonly = {
           slug:        t.slug        ?? '',
@@ -448,11 +539,12 @@ export class TenantSettingsComponent implements OnInit {
     this.generalError  = null;
 
     this.adminService.updateTenant(tenant.id, {
-      name:            this.general.name.trim(),
-      domain:          this.general.domain.trim() || undefined,
-      contactEmail:    this.general.contactEmail.trim() || undefined,
-      timezone:        this.general.timezone || undefined,
-      membershipModel: this.general.membershipModel || undefined,
+      name:             this.general.name.trim(),
+      domain:           this.general.domain.trim() || undefined,
+      contactEmail:     this.general.contactEmail.trim() || undefined,
+      timezone:         this.general.timezone || undefined,
+      membershipModel:  this.general.membershipModel || undefined,
+      jurisdictionCode: this.general.jurisdictionCode || '',
     }).subscribe({
       next: (updated) => {
         // Refresh the cached TenantService snapshot so the sidebar / dashboard

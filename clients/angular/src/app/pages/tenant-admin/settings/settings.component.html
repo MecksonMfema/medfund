@@ -1,22 +1,39 @@
-<div class="page-header">
-  <div>
-    <h1>Settings</h1>
-    <p class="page-subtitle">Customise how this tenant's portals look and behave</p>
+<!-- Sticky header stack: title, group tabs, pill sub-tabs all pin together as
+     one block so there is never a gap between them for page content to show
+     through, regardless of how tall the title / group tabs actually render. -->
+<div class="page-header-stack">
+  <div class="page-header">
+    <div>
+      <h1>Settings</h1>
+      <p class="page-subtitle">Customise how this tenant's portals look and behave</p>
+    </div>
   </div>
-</div>
 
-<!-- Tab Navigation -->
-<div class="tabs">
-  @for (tab of tabs; track tab.id) {
-    <button
-      class="tab"
-      [class.active]="activeTab === tab.id"
-      (click)="activeTab = tab.id"
-    >
-      <app-icon [name]="tab.icon" [size]="18"></app-icon>
-      {{ tab.label }}
-    </button>
-  }
+  <div class="tab-groups">
+    @for (group of tabGroups; track group.id) {
+      <button
+        class="tab-group"
+        [class.active]="activeGroup === group.id"
+        (click)="selectGroup(group.id)"
+      >
+        <app-icon [name]="group.icon" [size]="18"></app-icon>
+        {{ group.label }}
+      </button>
+    }
+  </div>
+
+  <div class="tabs">
+    @for (tab of activeGroupTabs; track tab.id) {
+      <button
+        class="tab"
+        [class.active]="activeTab === tab.id"
+        (click)="activeTab = tab.id"
+      >
+        <app-icon [name]="tab.icon" [size]="16"></app-icon>
+        {{ tab.label }}
+      </button>
+    }
+  </div>
 </div>
 
 <!-- General -->
@@ -76,7 +93,7 @@
 
           <div class="form-field">
             <label class="form-label">Contact email</label>
-            <p class="color-hint">Primary contact for this tenant — billing, escalations.</p>
+            <p class="color-hint">Primary contact for this tenant: billing, escalations.</p>
             <input type="email" class="form-input" [(ngModel)]="general.contactEmail"
               placeholder="ops@acme.com" />
           </div>
@@ -100,13 +117,24 @@
               [(ngModel)]="general.membershipModel"
               name="membershipModel"
               [options]="membershipModelSelectOptions"
-              placeholder="— Select —"
+              placeholder="(Select)"
             ></app-select>
           </div>
 
           <div class="form-field">
             <label class="form-label">Status <span class="label-hint">(read-only)</span></label>
             <input type="text" class="form-input" [value]="generalReadonly.status" disabled />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Regulator jurisdiction</label>
+            <p class="color-hint">Regulator-templated reports (IPEC quarterly return, VAT return, tax-withheld return) only appear when the tenant's jurisdiction matches.</p>
+            <app-select
+              [(ngModel)]="general.jurisdictionCode"
+              name="jurisdictionCode"
+              [options]="jurisdictionSelectOptions"
+              placeholder="(None)"
+            ></app-select>
           </div>
 
         </div>
@@ -122,7 +150,7 @@
       <div class="section-header">
         <div>
           <h3 class="section-title">Branding &amp; Appearance</h3>
-          <p class="section-sub">Personalise how your portal looks. Changes preview immediately — save to persist.</p>
+          <p class="section-sub">Personalise how your portal looks. Changes preview immediately: save to persist.</p>
         </div>
         <div class="section-actions">
           @if (brandingSaved) {
@@ -233,7 +261,7 @@
       <!-- Logo -->
       <div class="branding-section">
         <h4 class="branding-label">Logo</h4>
-        <p class="color-hint">Shown in the sidebar and dashboard. PNG, JPEG, SVG, or WEBP — up to 256 KB. Leave empty to use the organisation initial.</p>
+        <p class="color-hint">Shown in the sidebar and dashboard. PNG, JPEG, SVG, or WEBP: up to 256 KB. Leave empty to use the organisation initial.</p>
 
         <div class="logo-upload">
           @if (branding.logoUrl) {
@@ -267,6 +295,15 @@
           <div class="general-error" style="margin-top: 8px">{{ logoError }}</div>
         }
       </div>
+    </div>
+  </div>
+}
+
+<!-- Sidebar Visibility -->
+@if (activeTab === 'sidebar-sections') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-sidebar-sections-tab></app-sidebar-sections-tab>
     </div>
   </div>
 }
@@ -331,7 +368,7 @@
 
         <div class="branding-section">
           <h4 class="branding-label">Drug claims</h4>
-          <p class="color-hint">Health insurers usually manage pharmaceutical claims as a separate domain — distinct queues, drug pre-auth, drug inventory. Car, property, funeral and other non-health lines can leave this off and the related sidebar items disappear.</p>
+          <p class="color-hint">Health insurers usually manage pharmaceutical claims as a separate domain: distinct queues, drug pre-auth, drug inventory. Car, property, funeral and other non-health lines can leave this off and the related sidebar items disappear.</p>
           <label class="switch-row">
             <input type="checkbox" [(ngModel)]="drugClaimsEnabled" />
             <span>Manage drug claims separately</span>
@@ -508,6 +545,66 @@
   <div class="settings-section">
     <div class="branding-card">
       <app-tenant-proration-tab></app-tenant-proration-tab>
+    </div>
+  </div>
+}
+
+<!-- Bank Accounts -->
+@if (activeTab === 'bank-accounts') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Bank Accounts</h3>
+          <p class="section-sub">The tenant's own bank accounts. Outbound payment runs are drawn from the nominated account for their currency.</p>
+        </div>
+      </div>
+      <app-tenant-bank-accounts-tab></app-tenant-bank-accounts-tab>
+    </div>
+  </div>
+}
+
+<!-- Reports catalogue -->
+@if (activeTab === 'reports') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-tenant-reports-tab></app-tenant-reports-tab>
+    </div>
+  </div>
+}
+
+<!-- Auto-Lapse configuration -->
+@if (activeTab === 'auto-lapse') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-auto-lapse-config></app-auto-lapse-config>
+    </div>
+  </div>
+}
+
+<!-- Endorsement four-eyes configuration -->
+@if (activeTab === 'endorsement-config') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-endorsement-config></app-endorsement-config>
+    </div>
+  </div>
+}
+
+<!-- Actuarial bases (persistency / mortality / morbidity) -->
+@if (activeTab === 'actuarial-bases') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-actuarial-bases></app-actuarial-bases>
+    </div>
+  </div>
+}
+
+<!-- IFRS 17 configuration (RA methodology / yield curves / expense assumptions) -->
+@if (activeTab === 'ifrs17-config') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-ifrs17-config></app-ifrs17-config>
     </div>
   </div>
 }

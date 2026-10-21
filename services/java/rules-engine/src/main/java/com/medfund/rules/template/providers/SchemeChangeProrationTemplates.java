@@ -32,7 +32,7 @@ public class SchemeChangeProrationTemplates implements TemplateProvider {
             // fresh full limit on scheme change, other categories prorate.
             rule("Fresh dental limit on scheme change",
                  "For claims where the benefit category is DENTAL, use the new " +
-                 "scheme's full annual limit (NONE strategy — no proration). All " +
+                 "scheme's full annual limit (NONE strategy - no proration). All " +
                  "other categories fall through to the tenant default.",
                  RuleCategory.BENEFIT_PRORATION, 80,
                  all(cond("claim.benefitCategory", "EQUALS", "DENTAL")),
@@ -60,7 +60,7 @@ public class SchemeChangeProrationTemplates implements TemplateProvider {
                  all(cond("member.benefitLimit", "GREATER_THAN", 5000),
                      cond("member.daysSinceSchemeChange", "LESS_THAN", 60)),
                  applyProrationStrategy("WAITING_PERIOD_ON_INCREMENT",
-                     "High-value benefit — increment gated 60 days"))
+                     "High-value benefit - increment gated 60 days"))
         );
     }
 }

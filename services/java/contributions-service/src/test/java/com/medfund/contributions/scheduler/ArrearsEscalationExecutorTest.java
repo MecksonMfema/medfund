@@ -7,6 +7,7 @@ import com.medfund.contributions.entity.DunningConfig;
 import com.medfund.contributions.job.ArrearsEscalationExecutor;
 import com.medfund.contributions.repository.DunningConfigRepository;
 import com.medfund.contributions.service.ArrearsNoticePublisher;
+import com.medfund.contributions.service.ArrearsThresholdPublisher;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.shared.scheduler.JobType;
 import io.r2dbc.spi.Readable;
@@ -44,6 +45,7 @@ class ArrearsEscalationExecutorTest {
     @Mock BalanceService balanceService;
     @Mock UserServiceClient userClient;
     @Mock ArrearsNoticePublisher arrearsPublisher;
+    @Mock ArrearsThresholdPublisher thresholdPublisher;
     @Mock DatabaseClient db;
     @Mock com.medfund.contributions.service.BadDebtService badDebtService;
 
@@ -52,7 +54,7 @@ class ArrearsEscalationExecutorTest {
     @BeforeEach
     void setUp() {
         executor = new ArrearsEscalationExecutor(dunningRepo, balanceService,
-                userClient, arrearsPublisher, db, badDebtService);
+                userClient, arrearsPublisher, thresholdPublisher, db, badDebtService);
         stubActiveCurrencies("USD");
         // WRITE_OFF branch now chains flagAndWriteOffAggregate — stub as
         // no-op so existing tests keep passing; the write-off test
@@ -200,6 +202,59 @@ class ArrearsEscalationExecutorTest {
     }
 
     @Test
+    void suspendedMember_autoLapseEnabled_publishesThresholdBreached() {
+        DunningConfig cfg = config(true, false, false, 30, 90, 7, 3, true);
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(cfg));
+        stubAutoLapseEnabled(3, 7);
+        UUID memberId = UUID.randomUUID();
+        BadDebtRow row = row("MEMBER", memberId, "SUSPENDED", 90);
+        stubListAged(row);
+        when(userClient.suspendMember(any(), any(), any())).thenReturn(Mono.empty());
+        when(thresholdPublisher.publishBreached(any(), any(), any(), anyInt(), any(), any()))
+                .thenReturn(Mono.empty());
+        stubReactivatePhase();
+
+        StepVerifier.create(executor.execute(UUID.randomUUID().toString(), "{}")).verifyComplete();
+
+        verify(thresholdPublisher).publishBreached(
+                any(), eq("MEMBER"), eq(memberId.toString()),
+                anyInt(), any(), eq("USD"));
+    }
+
+    @Test
+    void suspendedMember_autoLapseDisabled_noPublish() {
+        DunningConfig cfg = config(true, false, false, 30, 90, 7, 3, true);
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(cfg));
+        // Config lookup returns empty → executor treats as disabled.
+        UUID memberId = UUID.randomUUID();
+        BadDebtRow row = row("MEMBER", memberId, "SUSPENDED", 90);
+        stubListAged(row);
+        when(userClient.suspendMember(any(), any(), any())).thenReturn(Mono.empty());
+        stubReactivatePhase();
+
+        StepVerifier.create(executor.execute(UUID.randomUUID().toString(), "{}")).verifyComplete();
+
+        verify(thresholdPublisher, never()).publishBreached(
+                any(), any(), any(), anyInt(), any(), any());
+    }
+
+    @Test
+    void graceBucket_autoLapseEnabled_noThresholdBreachedPublish() {
+        DunningConfig cfg = config(true, false, false, 30, 90, 7, 3, true);
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(cfg));
+        stubAutoLapseEnabled(3, 7);
+        UUID memberId = UUID.randomUUID();
+        BadDebtRow row = row("MEMBER", memberId, "GRACE", 10);
+        stubListAged(row);
+        stubReactivatePhase();
+
+        StepVerifier.create(executor.execute(UUID.randomUUID().toString(), "{}")).verifyComplete();
+
+        verify(thresholdPublisher, never()).publishBreached(
+                any(), any(), any(), anyInt(), any(), any());
+    }
+
+    @Test
     void reactivate_clearedArrears_flipsMembersAndGroupsBackToActive() {
         // autoSuspend=true so reactivate phase runs. Empty aged listing so
         // the escalate phase is a no-op, keeping the test focused on the
@@ -234,11 +289,20 @@ class ArrearsEscalationExecutorTest {
     private void stubActiveCurrencies(String... currencies) {
         DatabaseClient.GenericExecuteSpec spec = org.mockito.Mockito.mock(
                 DatabaseClient.GenericExecuteSpec.class);
-        org.springframework.r2dbc.core.RowsFetchSpec<String> fetch =
+        org.springframework.r2dbc.core.RowsFetchSpec<String> currencyFetch =
                 org.mockito.Mockito.mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        // Auto-lapse config lookup uses the BiFunction overload of .map()
+        // and .one() — return empty so loadAutoLapseConfig defaults to
+        // disabled unless a per-test stub overrides.
+        org.springframework.r2dbc.core.RowsFetchSpec<Object> configFetch =
+                org.mockito.Mockito.mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+
         lenient().when(db.sql(any(String.class))).thenReturn(spec);
-        lenient().when(spec.map(any(Function.class))).thenAnswer(inv -> fetch);
-        lenient().when(fetch.all()).thenReturn(Flux.just(currencies));
+        lenient().when(spec.bind(any(String.class), any())).thenReturn(spec);
+        lenient().when(spec.map(any(Function.class))).thenAnswer(inv -> currencyFetch);
+        lenient().when(spec.map(any(java.util.function.BiFunction.class))).thenAnswer(inv -> configFetch);
+        lenient().when(currencyFetch.all()).thenReturn(Flux.just(currencies));
+        lenient().when(configFetch.one()).thenReturn(Mono.empty());
     }
 
     private void stubListAged(BadDebtRow row) {
@@ -257,6 +321,41 @@ class ArrearsEscalationExecutorTest {
         lenient().when(balanceService.currentlyAgedSubjectIds()).thenReturn(Mono.just(Set.of()));
         lenient().when(userClient.listMembersSuspendedForReason(any())).thenReturn(Flux.empty());
         lenient().when(userClient.listGroupsSuspendedForReason(any())).thenReturn(Flux.empty());
+    }
+
+    /**
+     * Override the config-fetch stub so loadAutoLapseConfig returns
+     * {@code enabled=true} with the given threshold+grace values.
+     * Reuses the shared spec from {@link #stubActiveCurrencies} — the
+     * BiFunction map-overload only fires for the config query, so we
+     * can safely swap in a non-empty fetch response.
+     */
+    @SuppressWarnings("unchecked")
+    private void stubAutoLapseEnabled(int thresholdMonths, int graceDays) {
+        // Retrieve the existing spec that the currency stub cached.
+        DatabaseClient.GenericExecuteSpec spec =
+                (DatabaseClient.GenericExecuteSpec) db.sql("any");
+        org.springframework.r2dbc.core.RowsFetchSpec<Object> fetch =
+                org.mockito.Mockito.mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        // Return a canned AutoLapseSnapshot record — the record type is
+        // package-private on ArrearsEscalationExecutor so we can't
+        // instantiate it here directly. Instead, drive the mapper: the
+        // BiFunction receives (Row, RowMetadata) — we simulate by
+        // returning a Mono<Object> whose runtime type matches
+        // AutoLapseSnapshot as constructed by the mapper. Simplest
+        // path: capture the mapper and invoke it with a mock row.
+        lenient().when(spec.map(any(java.util.function.BiFunction.class)))
+                .thenAnswer(inv -> {
+                    java.util.function.BiFunction<io.r2dbc.spi.Row,
+                            io.r2dbc.spi.RowMetadata, Object> mapper = inv.getArgument(0);
+                    io.r2dbc.spi.Row row = org.mockito.Mockito.mock(io.r2dbc.spi.Row.class);
+                    when(row.get(eq("enabled"), eq(Boolean.class))).thenReturn(Boolean.TRUE);
+                    when(row.get(eq("arrears_threshold_months"), eq(Integer.class))).thenReturn(thresholdMonths);
+                    when(row.get(eq("grace_window_days"), eq(Integer.class))).thenReturn(graceDays);
+                    Object snapshot = mapper.apply(row, null);
+                    when(fetch.one()).thenReturn(Mono.just(snapshot));
+                    return fetch;
+                });
     }
 
     private static DunningConfig config(boolean autoSuspend, boolean autoWriteOff,

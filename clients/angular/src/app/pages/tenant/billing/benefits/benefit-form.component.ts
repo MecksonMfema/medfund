@@ -16,6 +16,8 @@ import {
 import { TariffCategoriesService, TariffCategory } from '../../../../core/services/tariff-categories.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface BenefitForm {
   name: string;
@@ -49,7 +51,6 @@ export class BenefitFormComponent implements OnInit {
   tariffCategories: TariffCategory[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: BenefitForm = {
     name: '',
@@ -71,13 +72,14 @@ export class BenefitFormComponent implements OnInit {
     private tariffCategoriesService: TariffCategoriesService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     this.schemeId = this.route.snapshot.paramMap.get('schemeId') ?? '';
     this.benefitId = this.route.snapshot.paramMap.get('id');
     if (!this.schemeId) {
-      this.errorMessage = 'No scheme id in route';
+      this.toast.error('No scheme id in route');
       return;
     }
 
@@ -112,7 +114,7 @@ export class BenefitFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load form data';
+        this.toast.error(extractErrorMessage(err, 'Failed to load form data'));
         this.loading = false;
       },
     });
@@ -147,15 +149,15 @@ export class BenefitFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
     if (!this.form.benefitType.trim()) {
-      this.errorMessage = 'Pick a benefit type';
+      this.toast.warning('Pick a benefit type');
       return;
     }
     if (this.form.categoryIds.length === 0) {
-      this.errorMessage = 'Pick at least one tariff category this benefit covers';
+      this.toast.warning('Pick at least one tariff category this benefit covers');
       return;
     }
     const payload: UpsertBenefitPayload = {
@@ -175,7 +177,6 @@ export class BenefitFormComponent implements OnInit {
     };
 
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.benefitId
       ? this.contributions.updateBenefit(this.benefitId, payload)
       : this.contributions.createBenefit(payload);
@@ -186,7 +187,7 @@ export class BenefitFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

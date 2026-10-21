@@ -26,7 +26,7 @@ public class BillingNotRevocableException extends RuntimeException {
     private static String buildMessage(LocalDate requested, LocalDate allowed) {
         return String.format(
                 "Revoke is only allowed for the month immediately following today (%s). "
-                        + "The requested period starts %s — use the corrections flow for "
+                        + "The requested period starts %s - use the corrections flow for "
                         + "anything older than that.",
                 allowed, requested);
     }

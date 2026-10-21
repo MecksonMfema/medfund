@@ -1,0 +1,26 @@
+// Per-page overrides for the clawback register. The shared receipts-report
+// shell scopes .cell-currency to 200px; the two selects on this page read
+// cramped at that width, so bump them (and the source select) so the
+// dropdown trigger + placeholder never truncate.
+
+.toolbar-cell.cell-source {
+  min-width: 280px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 320px;
+}
+
+.toolbar-cell.cell-source app-select,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Center the empty-state inside the report body under the toolbar / KPI
+// strip. The shared .empty-state sets max-width + margin: auto already;
+// this just gives it breathing room above the fold.
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

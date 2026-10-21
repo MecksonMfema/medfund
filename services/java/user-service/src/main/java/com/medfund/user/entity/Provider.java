@@ -53,6 +53,15 @@ public class Provider {
 
     private String status;
 
+    /**
+     * Phase 13 §A per L1. Grouping dimension for
+     * {@code PROVIDER_NETWORK_UTILIZATION}. Vocab: STANDARD, TIER_1,
+     * TIER_2, TIER_3. Defaults to STANDARD on the DB side; the admin
+     * inline dropdown is the only writer today.
+     */
+    @Column("network_tier")
+    private String networkTier;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;

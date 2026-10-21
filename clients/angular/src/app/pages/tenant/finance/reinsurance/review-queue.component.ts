@@ -1,0 +1,173 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import {
+  ReinsuranceService,
+  ResolveReviewTaskPayload,
+  ReviewTaskResolution,
+  ReviewTaskRow,
+  ReviewTaskStatus,
+} from '../../../../core/services/reinsurance.service';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
+
+/**
+ * Phase 8 review queue. Populated primarily by claim-regression detection
+ * in the loss cession consumer; operators pick tasks up, then resolve
+ * with one of RESOLVED_VOID (cascade-voids cession + recovery),
+ * RESOLVED_KEEP (leaves cession alone), or DISMISSED (false positive).
+ */
+interface ReviewRow extends ReviewTaskRow {
+  cessionShort: string;
+  claimShort: string;
+  statusText: string;
+}
+
+@Component({
+  selector: 'app-reinsurance-review-queue',
+  standalone: true,
+  imports: [CommonModule, FormsModule, DataTableComponent, SelectComponent],
+  templateUrl: './review-queue.component.html',
+  styleUrl: './review-queue.component.scss',
+})
+export class ReinsuranceReviewQueueComponent implements OnInit {
+  rows: ReviewRow[] = [];
+  loading = false;
+  statusFilter: '' | ReviewTaskStatus = '';
+
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+
+  resolveTargetId: string | null = null;
+  resolveResolution: ReviewTaskResolution = 'RESOLVED_KEEP';
+  resolveNotes = '';
+  resolveSubmitting = false;
+
+  actionInProgress: Record<string, boolean> = {};
+
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'Open queue (OPEN + IN_PROGRESS)' },
+    { value: 'OPEN', label: 'Open' },
+    { value: 'IN_PROGRESS', label: 'In progress' },
+    { value: 'RESOLVED_VOID', label: 'Resolved: voided' },
+    { value: 'RESOLVED_KEEP', label: 'Resolved: kept' },
+    { value: 'DISMISSED', label: 'Dismissed' },
+  ];
+
+  readonly resolutionOptions: SelectOption[] = [
+    { value: 'RESOLVED_KEEP', label: 'Keep cession: the re-adjudication is acceptable' },
+    { value: 'RESOLVED_VOID', label: 'Void cession + write off recovery' },
+    { value: 'DISMISSED', label: 'Dismiss: false positive' },
+  ];
+
+  readonly columns: TableColumn[] = [
+    { key: 'statusText',   label: 'Status',   sortable: false, type: 'status' },
+    { key: 'taskType',     label: 'Type',     sortable: false },
+    { key: 'cessionShort', label: 'Cession',  sortable: false },
+    { key: 'claimShort',   label: 'Claim',    sortable: false },
+    { key: 'createReason', label: 'Reason',   sortable: false },
+    { key: 'createdAt',    label: 'Created',  sortable: false, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Resolve',
+      icon: 'check-circle',
+      color: 'success',
+      testid: 'resolve-btn',
+      visible: (row: ReviewRow) => this.isOpen(row),
+      handler: (row: ReviewRow) => this.openResolve(row),
+    },
+  ];
+
+  constructor(private svc: ReinsuranceService, private toast: ToastService) {}
+
+  ngOnInit(): void { this.fetchPage(); }
+
+  fetchPage(): void {
+    this.loading = true;
+    this.svc.listReviewTasks(
+      this.statusFilter || undefined,
+      this.page - 1,
+      this.pageSize,
+    ).subscribe({
+      next: pageResp => {
+        this.rows = pageResp.content.map(r => ({
+          ...r,
+          cessionShort: r.cessionId ? `${r.cessionId.substring(0, 8)}…` : '-',
+          claimShort:   r.claimId   ? `${r.claimId.substring(0, 8)}…`   : '-',
+          statusText:   this.statusLabel(r.status),
+        }));
+        this.totalCount = pageResp.total;
+        this.totalPages = pageResp.totalPages;
+        this.loading = false;
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to load review queue'));
+        this.rows = [];
+        this.loading = false;
+      },
+    });
+  }
+
+  onStatusChange(): void { this.page = 1; this.fetchPage(); }
+
+  openResolve(row: ReviewTaskRow): void {
+    this.resolveTargetId = row.id;
+    this.resolveResolution = 'RESOLVED_KEEP';
+    this.resolveNotes = '';
+  }
+
+  cancelResolve(): void {
+    this.resolveTargetId = null;
+    this.resolveNotes = '';
+    this.resolveSubmitting = false;
+  }
+
+  submitResolve(): void {
+    if (!this.resolveTargetId) return;
+    if (this.resolveResolution === 'RESOLVED_VOID' && !this.resolveNotes.trim()) {
+      this.toast.warning('Notes are required when voiding a cession.');
+      return;
+    }
+    this.resolveSubmitting = true;
+    const payload: ResolveReviewTaskPayload = {
+      resolution: this.resolveResolution,
+      notes: this.resolveNotes.trim() || undefined,
+    };
+    this.svc.resolveReviewTask(this.resolveTargetId, payload).subscribe({
+      next: () => {
+        this.resolveSubmitting = false;
+        this.cancelResolve();
+        this.fetchPage();
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Resolve failed.'));
+        this.resolveSubmitting = false;
+      },
+    });
+  }
+
+  isOpen(row: ReviewTaskRow): boolean {
+    return row.status === 'OPEN' || row.status === 'IN_PROGRESS';
+  }
+
+  statusLabel(status: ReviewTaskStatus): string {
+    switch (status) {
+      case 'OPEN':          return 'Open';
+      case 'IN_PROGRESS':   return 'In progress';
+      case 'RESOLVED_VOID': return 'Resolved: voided';
+      case 'RESOLVED_KEEP': return 'Resolved: kept';
+      case 'DISMISSED':     return 'Dismissed';
+      default:              return status;
+    }
+  }
+}

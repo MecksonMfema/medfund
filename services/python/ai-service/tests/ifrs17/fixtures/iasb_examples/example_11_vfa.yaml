@@ -1,0 +1,136 @@
+# IASB IFRS 17 Illustrative Example 11 — VFA measurement golden.
+#
+# Same convention as example_3_paa / example_7_gmm / example_9_csm (see
+# their fixture headers): numbers are the plan's hand-picked regression
+# targets rather than a verbatim transcription of the IASB IE. They pin:
+#   * fair-value-share flow through the LRC on top of the standard journal,
+#   * variable-fee-earned dual role (CSM experience adjustment + release
+#     driver),
+#   * CSM release proportional to variable_fee_earned /
+#     variable_fee_pool_remaining,
+#   * balance-sheet identity: closing_lrc == closing_underlying_fv +
+#     closing_csm when opening obeyed the same identity,
+#   * onerous transition when variable_fee_earned goes negative (a period
+#     of adverse fund performance).
+#
+# Two 3-period walks share the fixture:
+#
+# Steady state (steady_growth):
+#   Zero interest for arithmetic clarity — accretion drops out. Unit-linked
+#   LIFE contract: policyholder holds units in a fund that gains 100
+#   per period (net of the 20 the entity takes as variable fee — so gross
+#   growth per period is 120). CSM opens at 100 with a 100-unit variable
+#   fee pool over the 3-period tail (pool = 100 → 80 → 40 as remaining
+#   coverage collapses). Per-period walk:
+#
+#     P1: after_experience = 100+20 = 120; fraction = 20/100 = 0.20;
+#         released = 24; closing_csm = 96; insurance_revenue = 24.
+#         opening_lrc = 1100 (= 1000 FV + 100 CSM).
+#         closing_lrc = 1100 + 100 + 20 - 24 = 1196.
+#         Verify: 1100 (closing FV) + 96 (closing CSM) = 1196 ✓
+#
+#     P2: after_experience = 96+20 = 116; fraction = 20/80 = 0.25;
+#         released = 29; closing_csm = 87.
+#         closing_lrc = 1196 + 100 + 20 - 29 = 1287.
+#         Verify: 1200 + 87 = 1287 ✓
+#
+#     P3: after_experience = 87+20 = 107; fraction = 20/40 = 0.50;
+#         released = 53.5; closing_csm = 53.5.
+#         closing_lrc = 1287 + 100 + 20 - 53.5 = 1353.5.
+#         Verify: 1300 + 53.5 = 1353.5 ✓
+#
+# Onerous transition (goes_onerous):
+#   Same zero-rate simplification. Period 2's adverse fund performance
+#   yields a NEGATIVE variable fee of -30 (entity's share of a NAV decline).
+#   Against a 20-CSM base, after_experience = 20 - 30 = -10 → CSM goes
+#   negative → :func:`csm.roll_forward` clamps closing to 0, releases
+#   nothing, and mints a 10 loss component. Per IFRS 17.49, the loss
+#   component becomes part of the LRC (recognized_this_period picks up
+#   csm_result.loss_component_recognised). Period 3 rolls forward from
+#   opening_csm=0.
+steady_growth:
+  opening_csm: "100"
+  opening_underlying_fair_value: "1000"
+  opening_lrc: "1100"
+  opening_lic: "0"
+  locked_in_curve:
+    - tenor_months: 1
+      spot_rate: "0"
+    - tenor_months: 60
+      spot_rate: "0"
+  periods:
+    - variable_fee_earned: "20"
+      variable_fee_pool_remaining: "100"
+      closing_underlying_fair_value: "1100"
+      expected_insurance_revenue: "24"
+      expected_closing_csm: "96"
+      expected_lrc_closing: "1196"
+      expected_went_negative: false
+      expected_loss_component: "0"
+    - variable_fee_earned: "20"
+      variable_fee_pool_remaining: "80"
+      closing_underlying_fair_value: "1200"
+      expected_insurance_revenue: "29"
+      expected_closing_csm: "87"
+      expected_lrc_closing: "1287"
+      expected_went_negative: false
+      expected_loss_component: "0"
+    - variable_fee_earned: "20"
+      variable_fee_pool_remaining: "40"
+      closing_underlying_fair_value: "1300"
+      expected_insurance_revenue: "53.5"
+      expected_closing_csm: "53.5"
+      expected_lrc_closing: "1353.5"
+      expected_went_negative: false
+      expected_loss_component: "0"
+
+goes_onerous:
+  opening_csm: "40"
+  opening_underlying_fair_value: "800"
+  opening_lrc: "840"
+  opening_lic: "0"
+  locked_in_curve:
+    - tenor_months: 1
+      spot_rate: "0"
+    - tenor_months: 60
+      spot_rate: "0"
+  periods:
+    # P1: healthy fund gain, CSM growth normal.
+    # CSM: after_exp = 40 + 20 = 60, fraction = 20/100 = 0.2, released = 12,
+    #      closing_csm = 48. LRC (identity) = 900 (fv) + 48 (csm) + 0 (loss) = 948.
+    - variable_fee_earned: "20"
+      variable_fee_pool_remaining: "100"
+      closing_underlying_fair_value: "900"
+      expected_insurance_revenue: "12"
+      expected_closing_csm: "48"
+      expected_lrc_closing: "948"
+      expected_went_negative: false
+      expected_loss_component: "0"
+    # P2: adverse fund performance → negative variable_fee_earned.
+    # CSM: after_exp = 48 + (-58) = -10 → clamps closing_csm = 0, released = 0,
+    #      loss_recognised = 10. LRC (identity) = 850 (fv) + 0 (csm) + 10 (loss) = 860.
+    - variable_fee_earned: "-58"
+      variable_fee_pool_remaining: "80"
+      closing_underlying_fair_value: "850"
+      expected_insurance_revenue: "0"
+      expected_closing_csm: "0"
+      expected_lrc_closing: "860"
+      expected_went_negative: true
+      expected_loss_component: "10"
+    # P3: fund recovers modestly. Opening CSM = 0 (drained). New var_fee 5
+    # accrues, then partial release. Loss component of 10 held on the books
+    # from P2 (VfaChunkInput doesn't carry opening_loss_component yet, so
+    # the walker feeds it as loss_component_recognized to keep the identity;
+    # see the walker docstring). CSM: after_exp = 0 + 5 = 5, fraction = 5/60,
+    # released = 5/12 ≈ 0.4167, closing_csm = 5 - 5/12 = 55/12 ≈ 4.5833.
+    # LRC (identity) = 875 (fv) + 4.5833 (csm) + 10 (loss carried) = 889.5833.
+    - variable_fee_earned: "5"
+      variable_fee_pool_remaining: "60"
+      closing_underlying_fair_value: "875"
+      expected_insurance_revenue: "0.4166666666666666666666666667"
+      expected_closing_csm: "4.583333333333333333333333333"
+      expected_lrc_closing: "889.5833333333333333333333333"
+      expected_went_negative: false
+      expected_loss_component: "0"
+      # Held-over loss carried into P3 opening balance via the walker.
+      opening_loss_carried_from_prior: "10"

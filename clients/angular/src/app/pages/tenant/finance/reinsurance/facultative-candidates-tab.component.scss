@@ -1,0 +1,96 @@
+// Cedable-claims tab. Toolbar + data-table are shared primitives; the
+// cede modal is the only tab-scoped surface. Modal chrome (.modal-backdrop
+// / .modal-card / .modal-actions) is duplicated from the sibling queue tab
+// intentionally — the two tabs are independent standalone components and
+// there is no shared modal wrapper yet.
+
+// Flatten the app-select trigger inside toolbar cells. The equivalent
+// rule in the global styles.scss uses ::ng-deep at the top level, which
+// browsers drop as an invalid pseudo-element and the flattening never
+// takes effect. Pages that need it duplicate the rule locally, where
+// Angular's compiler actually strips ::ng-deep.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); }
+}
+
+.cede-summary {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  row-gap: 0.35rem;
+  column-gap: 0.75rem;
+  font-size: 0.85rem;
+  margin: 0 0 1rem 0;
+  padding: 0.75rem;
+  background: var(--color-surface-alt, #f9fafb);
+  border-radius: var(--radius-sm, 6px);
+
+  dt { color: var(--color-text-muted, #6b7280); }
+  dd { margin: 0; font-weight: 500; }
+}
+
+.cede-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+
+    span { color: var(--color-text-secondary, #4b5563); font-weight: 500; }
+
+    input, textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+

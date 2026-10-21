@@ -345,7 +345,7 @@ export class LedgerComponent implements OnInit {
       return [
         l.date.slice(0, 10),
         asciiSafe(l.description + suffix),
-        asciiSafe(l.reference ?? '—'),
+        asciiSafe(l.reference ?? '-'),
         l.debit  ? `${currency} ${this.money(l.debit)}`  : '',
         l.credit ? `${currency} ${this.money(l.credit)}` : '',
         `${currency} ${this.money(l.runningBalance)}`,

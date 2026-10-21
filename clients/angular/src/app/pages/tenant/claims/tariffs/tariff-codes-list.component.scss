@@ -1,6 +1,6 @@
-// Full-bleed shell — matches pre-auth-list and tariff-schedules-list.
+// Full-bleed shell - matches pre-auth-list and tariff-schedules-list.
 // The tenant layout drops horizontal padding when the route sets
-// `data.fullbleed = true`, so the header + banner + add-form + data-table
+// `data.fullbleed = true`, so the header + add-form + data-table
 // span edge-to-edge under the sidebar.
 
 .page-header {
@@ -27,14 +27,6 @@
 }
 
 .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-.banner {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
 
 // ── Add-code inline form ─────────────────────────────────────────────
 // Lives under the header when `showForm` is on; horizontal gutter

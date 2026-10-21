@@ -5,6 +5,10 @@
   </div>
 </div>
 
+@if (loadError) {
+  <div class="alert alert-error">{{ loadError }}</div>
+}
+
 <!-- Tab Navigation -->
 <div class="tabs">
   @for (tab of tabs; track tab.id) {
@@ -25,22 +29,25 @@
     <div class="card settings-card">
       <h3>Platform Identity</h3>
       <div class="form-group">
-        <label>Platform Name</label>
-        <input class="input" [(ngModel)]="platformName" placeholder="MedFund" />
+        <label for="platform-name">Platform Name</label>
+        <input id="platform-name" class="input" [(ngModel)]="platformName" placeholder="MedFund" />
       </div>
       <div class="form-group">
-        <label>Support Email</label>
-        <input class="input" type="email" [(ngModel)]="supportEmail" placeholder="support@medfund.healthcare" />
+        <label for="support-email">Support Email</label>
+        <input id="support-email" class="input" type="email" [(ngModel)]="supportEmail" placeholder="support@medfund.co.zw" />
       </div>
       <div class="form-group">
         <label>Platform Logo</label>
-        <div class="upload-area">
-          <app-icon name="plus" [size]="24"></app-icon>
-          <span>Click to upload or drag and drop</span>
-          <span class="upload-hint">SVG, PNG, or JPG (max. 2MB)</span>
-        </div>
+        <app-logo-uploader
+          [currentUrl]="logoSrc"
+          [uploading]="uploading"
+          (fileSelected)="onLogoSelected($event)"
+          (rejected)="onLogoRejected($event)"
+        ></app-logo-uploader>
       </div>
-      <button class="btn btn-primary">Save Changes</button>
+      <button class="btn btn-primary" [disabled]="saving || loading" (click)="saveGeneral()">
+        {{ saving ? 'Saving...' : 'Save Changes' }}
+      </button>
     </div>
   </div>
 }
@@ -54,14 +61,14 @@
       <div class="form-group">
         <label>Color Theme</label>
         <div class="theme-options">
-          @for (theme of themes; track theme.name) {
+          @for (theme of themes; track theme.id) {
             <button
               class="theme-swatch"
-              [class.selected]="selectedTheme === theme.name"
-              (click)="selectedTheme = theme.name"
-              [title]="theme.name"
+              [class.selected]="selectedThemeId === theme.id"
+              (click)="selectTheme(theme.id)"
+              [title]="theme.description"
             >
-              <span class="swatch-color" [style.background]="theme.primary"></span>
+              <span class="swatch-color" [style.background]="theme.previewColors[1]"></span>
               <span class="swatch-label">{{ theme.name }}</span>
             </button>
           }
@@ -72,47 +79,34 @@
         <div class="toggle-row">
           <span>Enable dark mode for all users by default</span>
           <label class="toggle">
-            <input type="checkbox" [(ngModel)]="darkMode" />
+            <input type="checkbox" [(ngModel)]="darkMode" (ngModelChange)="onDarkModeToggled()" />
             <span class="toggle-slider"></span>
           </label>
         </div>
       </div>
-      <button class="btn btn-primary">Save Changes</button>
+      <div class="dark-mode-notice">
+        Dark mode covers global UI chrome. Individual pages may still show light-mode colors;
+        report visual bugs and they will be fixed per page.
+      </div>
+      <button class="btn btn-primary" [disabled]="saving || loading" (click)="saveAppearance()">
+        {{ saving ? 'Saving...' : 'Save Changes' }}
+      </button>
     </div>
 
     <div class="card settings-card">
       <h3>Landing Page</h3>
       <p class="card-desc">Configure the public-facing landing page</p>
       <div class="form-group">
-        <label>Hero Title</label>
-        <input class="input" [(ngModel)]="heroTitle" placeholder="Welcome to MedFund" />
+        <label for="hero-title">Hero Title</label>
+        <input id="hero-title" class="input" [(ngModel)]="heroTitle" placeholder="Welcome to MedFund" />
       </div>
       <div class="form-group">
-        <label>Hero Subtitle</label>
-        <textarea class="input textarea" [(ngModel)]="heroSubtitle" placeholder="Modern healthcare claims management" rows="3"></textarea>
+        <label for="hero-subtitle">Hero Subtitle</label>
+        <textarea id="hero-subtitle" class="input textarea" [(ngModel)]="heroSubtitle" placeholder="Modern insurance claims management" rows="3"></textarea>
       </div>
-      <button class="btn btn-primary">Save Changes</button>
-    </div>
-  </div>
-}
-
-<!-- Email Tab -->
-@if (activeTab === 'email') {
-  <div class="settings-section">
-    <div class="card settings-card">
-      <h3>Email Templates</h3>
-      <p class="card-desc">Manage notification email templates</p>
-      <div class="template-list">
-        @for (template of emailTemplates; track template.key) {
-          <div class="template-item">
-            <div>
-              <div class="template-name">{{ template.name }}</div>
-              <div class="template-desc">{{ template.description }}</div>
-            </div>
-            <button class="btn btn-outline btn-sm">Edit</button>
-          </div>
-        }
-      </div>
+      <button class="btn btn-primary" [disabled]="saving || loading" (click)="saveLandingCopy()">
+        {{ saving ? 'Saving...' : 'Save Changes' }}
+      </button>
     </div>
   </div>
 }
@@ -131,10 +125,12 @@
               <div class="feature-desc">{{ flag.description }}</div>
             </div>
             <label class="toggle">
-              <input type="checkbox" [(ngModel)]="flag.enabled" />
+              <input type="checkbox" [checked]="flag.enabled" (change)="toggleFlag(flag)" />
               <span class="toggle-slider"></span>
             </label>
           </div>
+        } @empty {
+          <p class="empty-hint">No feature flags are registered.</p>
         }
       </div>
     </div>

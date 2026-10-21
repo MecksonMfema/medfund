@@ -4,23 +4,36 @@ import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.AdvancePayment;
 import com.medfund.finance.entity.AdvancePaymentApplication;
+import com.medfund.finance.entity.MemberBalance;
+import com.medfund.finance.entity.MemberBalanceSnapshot;
+import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
+import com.medfund.finance.entity.ProviderBalance;
+import com.medfund.finance.entity.ProviderBalanceSnapshot;
 import com.medfund.finance.exception.PaymentNotFoundException;
+import com.medfund.finance.producer.repository.CommissionTransactionRepository;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
+import com.medfund.finance.repository.MemberBalanceRepository;
+import com.medfund.finance.repository.MemberBalanceSnapshotRepository;
 import com.medfund.finance.repository.OutstandingAdvanceBalance;
+import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
+import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.finance.util.Actors;
 
 import java.math.BigDecimal;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.security.PermissionContext;
+import com.medfund.shared.security.Permissions;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +45,10 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -46,6 +63,10 @@ public class PaymentRunService {
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentRepository paymentRepository;
     private final ProviderBalanceRepository providerBalanceRepository;
+    private final MemberBalanceRepository memberBalanceRepository;
+    private final ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository;
+    private final MemberBalanceSnapshotRepository memberBalanceSnapshotRepository;
+    private final PaymentAdviceRecordRepository paymentAdviceRecordRepository;
     private final AdvancePaymentRepository advancePaymentRepository;
     private final AdvancePaymentBalanceRepository advanceBalanceRepository;
     private final AdvancePaymentApplicationRepository advanceApplicationRepository;
@@ -55,13 +76,19 @@ public class PaymentRunService {
     private final PaymentRunDecisionService decisionService;
     private final PaymentRunGenerator paymentRunGenerator;
     private final PaymentAdviceService paymentAdviceService;
+    private final TenantBankAccountRepository bankAccountRepository;
     private final DatabaseClient databaseClient;
+    private final CommissionTransactionRepository commissionTransactionRepository;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
                              com.medfund.finance.repository.PaymentRunQueryRepository queryRepository,
                              PaymentRunItemRepository paymentRunItemRepository,
                              PaymentRepository paymentRepository,
                              ProviderBalanceRepository providerBalanceRepository,
+                             MemberBalanceRepository memberBalanceRepository,
+                             ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository,
+                             MemberBalanceSnapshotRepository memberBalanceSnapshotRepository,
+                             PaymentAdviceRecordRepository paymentAdviceRecordRepository,
                              AdvancePaymentRepository advancePaymentRepository,
                              AdvancePaymentBalanceRepository advanceBalanceRepository,
                              AdvancePaymentApplicationRepository advanceApplicationRepository,
@@ -71,12 +98,18 @@ public class PaymentRunService {
                              PaymentRunDecisionService decisionService,
                              PaymentRunGenerator paymentRunGenerator,
                              PaymentAdviceService paymentAdviceService,
-                             DatabaseClient databaseClient) {
+                             TenantBankAccountRepository bankAccountRepository,
+                             DatabaseClient databaseClient,
+                             CommissionTransactionRepository commissionTransactionRepository) {
         this.paymentRunRepository = paymentRunRepository;
         this.queryRepository = queryRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
         this.providerBalanceRepository = providerBalanceRepository;
+        this.memberBalanceRepository = memberBalanceRepository;
+        this.providerBalanceSnapshotRepository = providerBalanceSnapshotRepository;
+        this.memberBalanceSnapshotRepository = memberBalanceSnapshotRepository;
+        this.paymentAdviceRecordRepository = paymentAdviceRecordRepository;
         this.advancePaymentRepository = advancePaymentRepository;
         this.advanceBalanceRepository = advanceBalanceRepository;
         this.advanceApplicationRepository = advanceApplicationRepository;
@@ -86,7 +119,9 @@ public class PaymentRunService {
         this.decisionService = decisionService;
         this.paymentRunGenerator = paymentRunGenerator;
         this.paymentAdviceService = paymentAdviceService;
+        this.bankAccountRepository = bankAccountRepository;
         this.databaseClient = databaseClient;
+        this.commissionTransactionRepository = commissionTransactionRepository;
     }
 
     /**
@@ -119,26 +154,68 @@ public class PaymentRunService {
 
     @Transactional
     public Mono<PaymentRun> create(CreatePaymentRunRequest request, String actorId, String actorEmail) {
-        return generateRunNumber()
-            .flatMap(runNumber -> {
-                var run = new PaymentRun();
-                run.setRunNumber(runNumber);
-                run.setStatus("draft");
-                run.setCurrencyCode(request.currencyCode());
-                run.setPayeeType(request.payeeType());
-                run.setDescription(request.description());
-                run.setPaymentCount(0);
-                run.setCreatedAt(Instant.now());
-                run.setUpdatedAt(Instant.now());
-                run.setCreatedBy(Actors.parseId(actorId));
+        String payeeType = request.payeeType();
+        LocalDate snappedStart = null;
+        LocalDate snappedEnd = null;
+        if ("PRODUCER".equals(payeeType)) {
+            if (request.periodStart() == null || request.periodEnd() == null) {
+                return Mono.error(new IllegalArgumentException(
+                        "PRODUCER payment runs require periodStart and periodEnd"));
+            }
+            // Snap per feedback_effective_date_snap: start → 1st-of-month, end → last-day-of-month.
+            snappedStart = request.periodStart().withDayOfMonth(1);
+            snappedEnd = request.periodEnd().withDayOfMonth(1).plusMonths(1).minusDays(1);
+            if (snappedEnd.isBefore(snappedStart)) {
+                return Mono.error(new IllegalArgumentException(
+                        "periodEnd must not precede periodStart"));
+            }
+        }
+        final LocalDate finalStart = snappedStart;
+        final LocalDate finalEnd = snappedEnd;
 
-                return paymentRunRepository.save(run);
+        Mono<Void> extraPermissionCheck = "PRODUCER".equals(payeeType)
+                ? Mono.deferContextual(ctx -> PermissionContext.has(ctx, Permissions.COMMISSION_CREATE_PAYOUT_RUN)
+                        ? Mono.empty()
+                        : Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.FORBIDDEN,
+                                "Requires " + Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+                : Mono.empty();
+
+        return extraPermissionCheck.then(Mono.defer(() -> bankAccountRepository.findById(request.sourceBankAccountId())
+            .switchIfEmpty(Mono.error(new IllegalArgumentException(
+                "Bank account not found: " + request.sourceBankAccountId())))
+            .flatMap(bank -> {
+                if (!bank.getCurrencyCode().equalsIgnoreCase(request.currencyCode())) {
+                    return Mono.error(new IllegalArgumentException(
+                        "Bank account currency (" + bank.getCurrencyCode()
+                        + ") does not match run currency (" + request.currencyCode() + ")"));
+                }
+                return generateRunNumber()
+                    .flatMap(runNumber -> {
+                        var run = new PaymentRun();
+                        run.setRunNumber(runNumber);
+                        run.setStatus("draft");
+                        run.setCurrencyCode(request.currencyCode());
+                        run.setPayeeType(request.payeeType());
+                        run.setDescription(request.description());
+                        run.setPaymentCount(0);
+                        run.setSourceBankAccountId(bank.getId());
+                        run.setPeriodStart(finalStart);
+                        run.setPeriodEnd(finalEnd);
+                        run.setCreatedAt(Instant.now());
+                        run.setUpdatedAt(Instant.now());
+                        run.setCreatedBy(Actors.parseId(actorId));
+
+                        return paymentRunRepository.save(run)
+                            .doOnNext(saved -> saved.setSourceBankAccountLabel(bank.getLabel()));
+                    });
             })
-            .flatMap(saved -> paymentRunGenerator.populate(saved)
+            .flatMap(saved -> paymentRunGenerator.populate(saved, finalStart, finalEnd)
                 .flatMap(count -> {
                     saved.setPaymentCount(count);
                     saved.setUpdatedAt(Instant.now());
-                    return paymentRunRepository.save(saved);
+                    return paymentRunRepository.save(saved)
+                        .doOnNext(reloaded -> reloaded.setSourceBankAccountLabel(saved.getSourceBankAccountLabel()));
                 }))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -155,7 +232,7 @@ public class PaymentRunService {
                         saved.getTotalAmount() != null ? saved.getTotalAmount().toPlainString() : "0",
                         saved.getPaymentCount() != null ? saved.getPaymentCount() : 0))
                     .thenReturn(saved);
-            }));
+            }))));
     }
 
     @Transactional
@@ -195,17 +272,34 @@ public class PaymentRunService {
                             return Mono.just(java.util.List.of());
                         })
                         .thenReturn(completed))
+                    .flatMap(completed -> markProducerCommissionsPaid(completed).thenReturn(completed))
+                    .flatMap(completed -> snapshotBalances(completed).thenReturn(completed))
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),
-                                "UPDATE", actorId, actorEmail,
-                                Map.of("status", previousStatus),
-                                Map.of("status", completed.getStatus()))
-                            .then(eventPublisher.publishPaymentRunExecuted(
-                                completed.getId().toString(),
-                                completed.getRunNumber(),
-                                completed.getPaymentCount() != null ? completed.getPaymentCount() : 0))
-                            .thenReturn(completed);
+                        return paymentRunItemRepository.findByPaymentRunId(completed.getId())
+                            .map(item -> new PaymentRunItemPayload(
+                                item.getId() != null ? item.getId().toString() : "",
+                                item.getPaymentId() != null ? item.getPaymentId().toString() : "",
+                                item.getProviderId() != null ? item.getProviderId().toString() : "",
+                                item.getMemberId() != null ? item.getMemberId().toString() : "",
+                                item.getAmount() != null ? item.getAmount().toPlainString() : "0",
+                                item.getCurrencyCode() != null ? item.getCurrencyCode() : ""))
+                            .collectList()
+                            .flatMap(itemPayloads ->
+                                publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),
+                                        "UPDATE", actorId, actorEmail,
+                                        Map.of("status", previousStatus),
+                                        Map.of("status", completed.getStatus()))
+                                    .then(eventPublisher.publishPaymentRunExecuted(
+                                        completed.getId().toString(),
+                                        completed.getRunNumber(),
+                                        tenantId,
+                                        completed.getSourceBankAccountId() != null
+                                            ? completed.getSourceBankAccountId().toString() : "",
+                                        completed.getCurrencyCode(),
+                                        completed.getPaymentCount() != null ? completed.getPaymentCount() : 0,
+                                        itemPayloads))
+                                    .thenReturn(completed));
                     }));
             });
     }
@@ -214,6 +308,7 @@ public class PaymentRunService {
     public Mono<PaymentRun> approve(UUID runId, String actorId, String actorEmail) {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
+            .flatMap(run -> requireApprovePermission(run).thenReturn(run))
             .flatMap(run -> {
                 String previousStatus = run.getStatus();
                 if (!"draft".equals(previousStatus)) {
@@ -236,6 +331,159 @@ public class PaymentRunService {
                             .thenReturn(saved);
                     }));
             });
+    }
+
+    /**
+     * Freeze-frame the balances of every payee present in the run's items
+     * (Phase 6, V080). Runs AFTER advice generation and shares its
+     * transaction — a failure here rolls back the whole execution, including
+     * the status flip to {@code executed} (D6-3: hard-fail atomic).
+     *
+     * <p>Per D6-1 this is a pure freeze-frame: opening and closing balance
+     * are both the live outstanding balance as it stood at
+     * {@code run.executedAt}. {@code net_due} comes from the payee's payment
+     * advice; when advice generation was swallowed (the run can still
+     * execute with errors suppressed) it falls back to the sum of the
+     * payee's item amounts. Rows exist only for payees in the run (D6-2).
+     */
+    private Mono<Void> snapshotBalances(PaymentRun run) {
+        Instant takenAt = run.getExecutedAt();
+        if (takenAt == null) {
+            return Mono.error(new IllegalStateException(
+                    "Payment run " + run.getRunNumber() + " has no executedAt - cannot take balance snapshot"));
+        }
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+            .collectList()
+            .flatMap(items -> Flux.merge(
+                    providerSnapshotRows(run.getId(), takenAt, items),
+                    memberSnapshotRows(run.getId(), takenAt, items))
+                    .then());
+    }
+
+    private Flux<ProviderBalanceSnapshot> providerSnapshotRows(UUID runId, Instant takenAt, List<PaymentRunItem> items) {
+        return Flux.fromIterable(items)
+            .filter(item -> item.getProviderId() != null)
+            .groupBy(item -> item.getProviderId())
+            .flatMap(group -> group.collectList().flatMap(rows -> {
+                UUID providerId = group.key();
+                String currency = rows.get(0).getCurrencyCode();
+                return providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, currency)
+                    .defaultIfEmpty(new ProviderBalance())
+                    .zipWith(netDue(runId, providerId, null, rows))
+                    .flatMap(t -> providerBalanceSnapshotRepository.save(
+                            buildProviderSnapshot(runId, providerId, currency, takenAt,
+                                    t.getT1(), t.getT2())));
+            }));
+    }
+
+    private Flux<MemberBalanceSnapshot> memberSnapshotRows(UUID runId, Instant takenAt, List<PaymentRunItem> items) {
+        return Flux.fromIterable(items)
+            .filter(item -> item.getMemberId() != null)
+            .groupBy(item -> item.getMemberId())
+            .flatMap(group -> group.collectList().flatMap(rows -> {
+                UUID memberId = group.key();
+                String currency = rows.get(0).getCurrencyCode();
+                return memberBalanceRepository.findByMemberIdAndCurrencyCode(memberId, currency)
+                    .defaultIfEmpty(new MemberBalance())
+                    .zipWith(netDue(runId, null, memberId, rows))
+                    .flatMap(t -> memberBalanceSnapshotRepository.save(
+                            buildMemberSnapshot(runId, memberId, currency, takenAt,
+                                    t.getT1(), t.getT2())));
+            }));
+    }
+
+    private ProviderBalanceSnapshot buildProviderSnapshot(UUID runId, UUID providerId, String currency,
+                                                          Instant takenAt, ProviderBalance bal, BigDecimal netDue) {
+        ProviderBalanceSnapshot s = new ProviderBalanceSnapshot();
+        s.setPaymentRunId(runId);
+        s.setProviderId(providerId);
+        s.setCurrencyCode(currency);
+        s.setOpeningBalance(orZero(bal.getOutstandingBalance()));
+        s.setClosingBalance(orZero(bal.getOutstandingBalance()));
+        s.setTotalClaimed(orZero(bal.getTotalClaimed()));
+        s.setTotalApproved(orZero(bal.getTotalApproved()));
+        s.setTotalPaid(orZero(bal.getTotalPaid()));
+        s.setNetDue(netDue);
+        s.setTakenAt(takenAt);
+        return s;
+    }
+
+    private MemberBalanceSnapshot buildMemberSnapshot(UUID runId, UUID memberId, String currency,
+                                                      Instant takenAt, MemberBalance bal, BigDecimal netDue) {
+        MemberBalanceSnapshot s = new MemberBalanceSnapshot();
+        s.setPaymentRunId(runId);
+        s.setMemberId(memberId);
+        s.setCurrencyCode(currency);
+        s.setOpeningBalance(orZero(bal.getOutstandingBalance()));
+        s.setClosingBalance(orZero(bal.getOutstandingBalance()));
+        s.setTotalClaimed(orZero(bal.getTotalClaimed()));
+        s.setTotalApproved(orZero(bal.getTotalApproved()));
+        s.setTotalPaid(orZero(bal.getTotalPaid()));
+        s.setNetDue(netDue);
+        s.setTakenAt(takenAt);
+        return s;
+    }
+
+    /**
+     * Payee's net due for this run: the advice's {@code net_due_amount} when
+     * advice generation succeeded, else the sum of the payee's item amounts
+     * (advice errors are swallowed upstream). {@code netDueAmount} can be
+     * negative when deductions exceed payables — kept as-is.
+     */
+    private Mono<BigDecimal> netDue(UUID runId, UUID providerId, UUID memberId, List<PaymentRunItem> rows) {
+        Mono<PaymentAdviceRecord> advice = providerId != null
+                ? paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(runId, providerId)
+                : paymentAdviceRecordRepository.findByPaymentRunIdAndMemberId(runId, memberId);
+        BigDecimal fallback = rows.stream()
+                .map(row -> orZero(row.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return advice.map(a -> orZero(a.getNetDueAmount()))
+                .defaultIfEmpty(fallback);
+    }
+
+    private static BigDecimal orZero(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /**
+     * PRODUCER-run approve step gate (Phase 11 §A Phase 6): additionally
+     * requires {@code finance.commission:approve_payout_run} on top of the
+     * {@code finance.payments:manage} at the controller level. No-op for
+     * PROVIDER + MEMBER runs.
+     */
+    private Mono<Void> requireApprovePermission(PaymentRun run) {
+        if (!"PRODUCER".equalsIgnoreCase(run.getPayeeType())) return Mono.empty();
+        return Mono.deferContextual(ctx -> PermissionContext.has(ctx,
+                        Permissions.COMMISSION_APPROVE_PAYOUT_RUN)
+                ? Mono.empty()
+                : Mono.error(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.FORBIDDEN,
+                        "Requires " + Permissions.COMMISSION_APPROVE_PAYOUT_RUN)));
+    }
+
+    /**
+     * PRODUCER-run execute step (Phase 11 §A Phase 6): for every distinct
+     * producer id present in the run's items, flip the matching ACCRUED
+     * commission_transaction rows to PAID and stamp {@code paidRunId} +
+     * {@code paidAt}. No-op for PROVIDER + MEMBER runs.
+     */
+    private Mono<Void> markProducerCommissionsPaid(PaymentRun run) {
+        if (!"PRODUCER".equalsIgnoreCase(run.getPayeeType())
+                || run.getPeriodStart() == null || run.getPeriodEnd() == null) {
+            return Mono.empty();
+        }
+        OffsetDateTime from = run.getPeriodStart().atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime to   = run.getPeriodEnd().plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+                .filter(item -> item.getProducerId() != null)
+                .map(PaymentRunItem::getProducerId)
+                .distinct()
+                .flatMap(producerId -> commissionTransactionRepository
+                        .markPaidByProducerAndPeriod(producerId, run.getId(), from, to)
+                        .doOnNext(count -> log.info(
+                                "[commission-payout] run {} producer {} - {} commission rows flipped to PAID",
+                                run.getRunNumber(), producerId, count)))
+                .then();
     }
 
     @Transactional

@@ -22,6 +22,8 @@ CREATE TABLE schemes (
     min_age                SMALLINT,
     max_age                SMALLINT,
     tracks_member_balances BOOLEAN      NOT NULL DEFAULT TRUE,
+    annual_member_cap      NUMERIC(19,4),
+    default_portfolio_id   UUID,
     created_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by             UUID,

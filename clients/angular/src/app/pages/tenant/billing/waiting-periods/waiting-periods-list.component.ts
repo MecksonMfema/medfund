@@ -13,6 +13,8 @@ import {
 } from '../../../../core/services/waiting-period.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-waiting-periods-list',
@@ -26,7 +28,6 @@ export class WaitingPeriodsListComponent implements OnInit {
   selectedSchemeId = '';
   rows: WaitingPeriodRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -72,6 +73,7 @@ export class WaitingPeriodsListComponent implements OnInit {
     private waitingService: WaitingPeriodService,
     private contributions: ContributionsService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -86,7 +88,6 @@ export class WaitingPeriodsListComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.waitingService.listPaged({
       schemeId: this.selectedSchemeId || undefined,
       q: this.searchTerm || undefined,
@@ -102,7 +103,7 @@ export class WaitingPeriodsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load waiting periods';
+        this.toast.error(extractErrorMessage(err, 'Failed to load waiting periods'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -139,7 +140,7 @@ export class WaitingPeriodsListComponent implements OnInit {
     this.waitingService.delete(r.id).subscribe({
       next: () => this.fetchPage(),
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
       },
     });
   }

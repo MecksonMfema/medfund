@@ -14,14 +14,18 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/medfund/shared/httpserver"
 
 	"github.com/medfund/notification-service/internal/advice"
-	"github.com/medfund/notification-service/internal/config"
-	"github.com/medfund/notification-service/internal/events"
+	"github.com/medfund/notification-service/internal/aml"
 	"github.com/medfund/notification-service/internal/arrears"
+	"github.com/medfund/notification-service/internal/config"
+	"github.com/medfund/notification-service/internal/eob"
+	"github.com/medfund/notification-service/internal/events"
 	"github.com/medfund/notification-service/internal/handler"
+	"github.com/medfund/notification-service/internal/ifrs17"
 	"github.com/medfund/notification-service/internal/invoice"
 	"github.com/medfund/notification-service/internal/job"
 	"github.com/medfund/notification-service/internal/lifecycle"
@@ -29,9 +33,12 @@ import (
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/receipt"
 	"github.com/medfund/notification-service/internal/recipient"
+	"github.com/medfund/notification-service/internal/regulatory"
+	"github.com/medfund/notification-service/internal/report"
 	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
 	"github.com/medfund/notification-service/internal/template"
+	"github.com/medfund/shared/flags"
 )
 
 func main() {
@@ -154,7 +161,115 @@ func main() {
 		log.Fatalf("advice dispatcher: %v", err)
 	}
 
+	// EOB pipeline (Phase 4 copayments): reacts to CLAIM_EOB_ISSUED
+	// (claims-service emits one per adjudicated claim that produced a
+	// cost-share breakdown). Same recipient resolver as receipts —
+	// ForMember resolves to the member's own email. HTML-only for MVP;
+	// PDF generation deferred to a follow-up.
+	eobTemplates := template.NewResolver(pool, eob.DefaultSubject, eob.DefaultHTMLBody())
+	eobDispatcher, err := eob.NewDispatcher(resolver, sender, eobTemplates, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("eob dispatcher: %v", err)
+	}
+
+	// IFRS 17 material-event pipeline (Phase 15 §20 / I30). Reads
+	// per-tenant recipients from tenancy-service on every fan-out
+	// and throttles duplicate deliveries via Redis SetNX. Both the
+	// Redis client and the tenancy-service client fail open: the
+	// pipeline just logs that the ifrs17 consumer is disabled and
+	// the rest of the service keeps running.
+	var ifrs17Redis *redis.Client
+	if cfg.RedisURL != "" {
+		if opts, parseErr := redis.ParseURL(cfg.RedisURL); parseErr == nil {
+			client := redis.NewClient(opts)
+			pingCtx, pingCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			if err := client.Ping(pingCtx).Err(); err == nil {
+				ifrs17Redis = client
+				log.Printf("[notification] ifrs17 redis throttle enabled at %s", cfg.RedisURL)
+			} else {
+				log.Printf("[notification] ifrs17 redis ping failed: %v — throttle disabled",
+					err)
+				_ = client.Close()
+			}
+			pingCancel()
+		} else {
+			log.Printf("[notification] ifrs17 redis URL invalid: %v — throttle disabled",
+				parseErr)
+		}
+	}
+	var ifrs17Configs ifrs17.ConfigLookup
+	if cfg.TenancyServiceURL != "" {
+		ifrs17Configs = ifrs17.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	var ifrs17Throttle ifrs17.Throttle
+	if ifrs17Redis != nil {
+		ifrs17Throttle = ifrs17.NewRedisThrottle(ifrs17Redis)
+	}
+	ifrs17Dispatcher := ifrs17.NewDispatcher(
+		ifrs17Configs, sender, ifrs17.NewHTTPWebhookSender(), ifrs17Throttle, cfg.SMTPFrom)
+
+	// Phase 16 §0 REG20 — regulator due-date reminder pipeline. Consumes
+	// medfund.regulatory.due-date-approaching, fans out to
+	// public.tenant_regulatory_recipient via tenancy-service. No throttle
+	// backend: the finance-service scanner's dedupe table already blocks
+	// duplicate publishes within 24h. Deploy-order per F-REG7: this
+	// consumer must be live BEFORE the finance-service scanner cron
+	// starts publishing, otherwise events land against an empty consumer
+	// group and are picked up only when the dispatcher rolls.
+	var regulatoryRecipients regulatory.RecipientLookup
+	if cfg.TenancyServiceURL != "" {
+		regulatoryRecipients = regulatory.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	regulatoryDispatcher := regulatory.NewDispatcher(regulatoryRecipients, sender, cfg.SMTPFrom)
+
+	// Phase 17 §S2 — scheduled operational report delivery. Consumer
+	// runs as long as tenancy-service is reachable + kafka is reachable.
+	// Signed-link path only fires when SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET
+	// is set — otherwise oversized XLSXs would produce broken tokens; in
+	// that case the dispatcher fails the per-recipient send with a clear
+	// error rather than sending an unusable URL. Deploy-order per F-S9:
+	// this consumer must be live before finance-service's probe starts
+	// publishing.
+	var reportTenancy *report.HTTPTenancyClient
+	if cfg.TenancyServiceURL != "" {
+		reportTenancy = report.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	var reportSignedURL *report.SignedURLBuilder
+	if cfg.ScheduledDownloadSecret != "" {
+		reportSignedURL = report.NewSignedURLBuilder(cfg.ScheduledReportDownloadURL,
+			cfg.ScheduledDownloadSecret, 7*24*time.Hour)
+	} else {
+		log.Printf("[notification] SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET empty — oversize XLSX deliveries will fail")
+	}
+	reportUnsubscribeURL := report.NewUnsubscribeURLBuilder(cfg.ScheduledUnsubscribeWebURL)
+	var reportFetcher report.BlobFetcher
+	if fetcher != nil {
+		reportFetcher = fetcher
+	}
+	var reportRecipients report.RecipientLookup
+	var reportTenantMeta report.TenantMetadataLookup
+	if reportTenancy != nil {
+		reportRecipients = reportTenancy
+		reportTenantMeta = reportTenancy
+	}
+	reportDispatcher := report.NewDispatcher(
+		sender, cfg.SMTPFrom,
+		reportRecipients, reportTenantMeta,
+		reportFetcher, cfg.ReportPayloadsBucket,
+		reportSignedURL, reportUnsubscribeURL)
+
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[notification-service] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, cfg.KafkaBrokers, "notification-service")
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
 			dispatcher, publisher, retrySched)
@@ -193,6 +308,45 @@ func main() {
 	} else {
 		log.Printf("[notification] advice consumer disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runEobConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, eobDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] eob consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && ifrs17Configs != nil {
+		go ifrs17.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, ifrs17Dispatcher)
+	} else {
+		log.Printf("[notification] ifrs17 consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, ifrs17Configs != nil)
+	}
+	if cfg.KafkaBrokers != "" && regulatoryRecipients != nil {
+		go regulatory.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, regulatoryDispatcher)
+	} else {
+		log.Printf("[notification] regulatory due-date consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, regulatoryRecipients != nil)
+	}
+	if cfg.KafkaBrokers != "" && reportRecipients != nil {
+		report.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, reportDispatcher)
+	} else {
+		log.Printf("[notification] scheduled report consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, reportRecipients != nil)
+	}
+
+	// Phase 22 REG8 + Phase 24 — AML/STR alert fan-out. Stub consumer:
+	// logs every transition + calls the optional Hook slot (reserved for
+	// the future fraud-detector AI integration; Phase 24 ships nil hook).
+	// Deploy-order per F-REG7: this consumer must be live BEFORE the
+	// finance-service AmlAlertService begins publishing, otherwise
+	// events land against an empty consumer group and are only picked up
+	// when this dispatcher rolls, arriving late.
+	amlDispatcher := aml.NewDispatcher(nil)
+	if cfg.KafkaBrokers != "" {
+		go aml.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, amlDispatcher)
+	} else {
+		log.Printf("[notification] aml suspicious-transaction consumer disabled (kafka=%q)",
+			cfg.KafkaBrokers)
 	}
 
 	go func() {
@@ -644,4 +798,46 @@ func buildAdviceOutcome(e advice.Event, res advice.Result,
 		}
 	}
 	return n
+}
+
+// runEobConsumer reads CLAIM_EOB_ISSUED events and sends the member an
+// explanation-of-benefits email. Same retry contract as receipts: transient
+// failures go through the retry scheduler; terminal failures land in the log.
+// No per-attempt NotificationSent chatter for now (EOB deliveries are not
+// tracked in the notification-sent audit stream yet).
+func runEobConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *eob.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.claims.eob-issued", groupID+"-eob")
+	sub.Run(ctx, func(payload []byte) {
+		var e eob.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed CLAIM_EOB_ISSUED: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		if res.Ok {
+			return
+		}
+		retrySched.RunAsync(ctx, "eob:"+e.ClaimID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				if r.Ok {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] eob retry succeeded for claim %s after %d attempts",
+						e.ClaimNumber, o.Attempts)
+					return
+				}
+				log.Printf("[notification] eob dead-lettered for claim %s after %d attempts: %v",
+					e.ClaimNumber, o.Attempts, o.Err)
+			})
+	})
 }

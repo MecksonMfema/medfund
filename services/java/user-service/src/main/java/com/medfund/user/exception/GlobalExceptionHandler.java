@@ -1,6 +1,7 @@
 package com.medfund.user.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -29,7 +30,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({MemberNotFoundException.class, DependantNotFoundException.class,
                        ProviderNotFoundException.class, GroupNotFoundException.class,
-                       RoleNotFoundException.class, NoSuchElementException.class})
+                       RoleNotFoundException.class, TenantNotFoundException.class,
+                       NoSuchElementException.class})
     public Mono<ProblemDetail> handleNotFound(RuntimeException ex) {
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         problem.setType(URI.create("https://medfund.healthcare/errors/not-found"));
@@ -37,7 +39,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({DuplicateMemberException.class, DuplicateRoleException.class,
-                       IllegalStateException.class})
+                       DuplicateKeyException.class, IllegalStateException.class})
     public Mono<ProblemDetail> handleConflict(RuntimeException ex) {
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setType(URI.create("https://medfund.healthcare/errors/conflict"));

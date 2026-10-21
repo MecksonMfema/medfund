@@ -1,8 +1,12 @@
 import { Router } from '@angular/router';
+import { of } from 'rxjs';
 import { OperationalSidebarComponent } from './operational-sidebar.component';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
+import { TenantReportConfigService } from '../../core/services/tenant-report-config.service';
+import { TenantSidebarConfigService } from '../../core/services/tenant-sidebar-config.service';
 import { PermissionService } from '../../core/security/permission.service';
+import { OPERATIONAL_NAV } from './operational-nav';
 import { KeycloakService } from 'keycloak-angular';
 import { MockKeycloakService } from '../../_test-utils/mock-keycloak.service';
 import { MockTenantService, buildTenant } from '../../_test-utils/mock-tenant.service';
@@ -10,12 +14,31 @@ import { MockPermissionService } from '../../_test-utils/mock-permission.service
 import { MockNavigationService } from '../../_test-utils/mock-navigation.service';
 import { RouterHarness } from '../../_test-utils/router-harness';
 
+class MockTenantReportConfigService {
+  private rows: Array<{ reportKey: string; enabled: boolean }> = [];
+  setDisabled(keys: string[]) {
+    this.rows = keys.map(k => ({ reportKey: k, enabled: false }));
+  }
+  list() { return of(this.rows as never); }
+  empty() { return of([] as never); }
+}
+
+class MockTenantSidebarConfigService {
+  private rows: Array<{ sectionKey: string; enabled: boolean }> = [];
+  setDisabled(keys: string[]) {
+    this.rows = keys.map(k => ({ sectionKey: k, enabled: false }));
+  }
+  list() { return of(this.rows as never); }
+  empty() { return of([] as never); }
+}
+
 function instantiate(opts: {
   initialPerms?: ReadonlyArray<string>,
   superAdmin?: boolean,
   schemeLabelPlural?: string,
   insuranceLines?: string[],
   membershipModel?: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH',
+  disabledSectionKeys?: string[],
 } = {}) {
   const nav = new MockNavigationService();
   const tenant = new MockTenantService(buildTenant({
@@ -27,15 +50,20 @@ function instantiate(opts: {
   const permissions = new MockPermissionService(opts.initialPerms ?? [], { superAdmin: opts.superAdmin });
   const keycloak = new MockKeycloakService({ roles: opts.superAdmin ? ['super_admin'] : ['operator'] });
   const router = new RouterHarness();
+  const reportConfig = new MockTenantReportConfigService();
+  const sidebarConfig = new MockTenantSidebarConfigService();
+  if (opts.disabledSectionKeys?.length) sidebarConfig.setDisabled(opts.disabledSectionKeys);
 
   const comp = new OperationalSidebarComponent(
     nav as unknown as NavigationService,
     tenant as unknown as TenantService,
+    reportConfig as unknown as TenantReportConfigService,
+    sidebarConfig as unknown as TenantSidebarConfigService,
     permissions as unknown as PermissionService,
     keycloak as unknown as KeycloakService,
     router as unknown as Router,
   );
-  return { comp, nav, tenant, permissions, keycloak, router };
+  return { comp, nav, tenant, permissions, keycloak, router, reportConfig, sidebarConfig };
 }
 
 describe('OperationalSidebarComponent', () => {
@@ -209,6 +237,62 @@ describe('OperationalSidebarComponent', () => {
     const items = comp.visibleGroups.flatMap(g => g.items);
     expect(items.some(i => i.label === 'Groups')).toBe(true);
     comp.ngOnDestroy();
+  });
+
+  it('hides an item whose sectionKey has been disabled by the tenant admin', () => {
+    const { comp } = instantiate({
+      initialPerms: ['finance:view', 'finance:create_payment_run'],
+      disabledSectionKeys: ['FINANCE_PAYMENT_RUNS'],
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Payment Runs')).toBe(false);
+    // Sibling Finance items still surface — the filter is per-item.
+    expect(comp.visibleGroups.some(g => g.title === 'Finance')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('collapses the whole group when every item in it has been disabled by section toggles', () => {
+    const membersKeys = OPERATIONAL_NAV
+      .find(g => g.title === 'Members')!
+      .items
+      .map(i => i.sectionKey!)
+      .filter(Boolean);
+
+    const { comp } = instantiate({
+      initialPerms: ['members:view', 'billing:manage_groups'],
+      disabledSectionKeys: membersKeys,
+    });
+    comp.ngOnInit();
+
+    expect(comp.visibleGroups.some(g => g.title === 'Members')).toBe(false);
+    comp.ngOnDestroy();
+  });
+
+  it('leaves items without a sectionKey visible regardless of the disabled set', () => {
+    // The Overview / Dashboard item has no sectionKey by design so admins can
+    // never lock themselves out.
+    const { comp } = instantiate({
+      initialPerms: [],
+      disabledSectionKeys: ['FINANCE_PAYMENT_RUNS', 'BILLING_TRANSACTIONS'],
+    });
+    comp.ngOnInit();
+
+    const overview = comp.visibleGroups.find(g => g.title === 'Overview');
+    expect(overview?.items.some(i => i.label === 'Dashboard')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('every non-Overview nav item declares a sectionKey (guardrail against forgotten toggle wiring)', () => {
+    for (const group of OPERATIONAL_NAV) {
+      if (group.title === 'Overview') continue;
+      for (const item of group.items) {
+        expect(item.sectionKey)
+          .withContext(`item ${group.title} > ${item.label} is missing sectionKey`)
+          .toBeTruthy();
+      }
+    }
   });
 
   it('unsubscribes from all observables on destroy', () => {

@@ -151,15 +151,24 @@ func (r *Resolver) ForMember(ctx context.Context, tenantID, memberID string) (Re
 
 // ForProvider returns the provider's contact email + display name.
 // Used by the payment-advice pipeline when the payee is a PROVIDER.
+//
+// Providers are platform-scoped: one row in public.providers, related to N
+// tenants through public.provider_tenants. There is no per-tenant providers
+// table to read (tenant migration V276 dropped the shadow), so this resolves
+// against the platform registry gated on a membership row for the tenant that
+// raised the advice. The gate is what keeps the read tenant-scoped: without it
+// any tenant could address an advice to a provider it has no contract with.
 func (r *Resolver) ForProvider(ctx context.Context, tenantID, providerID string) (Recipient, error) {
-	schema, err := r.lookupSchema(ctx, tenantID)
-	if err != nil {
-		return Recipient{}, err
-	}
-	q := fmt.Sprintf(`SELECT email, name FROM %s.providers WHERE id = $1`, schema)
+	const q = `
+		SELECT p.email, p.name
+		  FROM public.providers p
+		  JOIN public.provider_tenants pt
+		    ON pt.provider_id = p.id AND pt.tenant_id = $2::uuid
+		 WHERE p.id = $1`
 	var email, name *string
-	if err := r.pool.QueryRow(ctx, q, providerID).Scan(&email, &name); err != nil {
-		return Recipient{}, fmt.Errorf("lookup provider %s: %w", providerID, err)
+	if err := r.pool.QueryRow(ctx, q, providerID, tenantID).Scan(&email, &name); err != nil {
+		return Recipient{}, fmt.Errorf(
+			"lookup provider %s for tenant %s: %w", providerID, tenantID, err)
 	}
 	if email == nil || *email == "" {
 		return Recipient{}, fmt.Errorf("provider %s has no email on file", providerID)

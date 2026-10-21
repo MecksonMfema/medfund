@@ -75,7 +75,7 @@ public class DebtorsExcelService {
             r = writeLabelValue(sheet, r, label, bold, "Subject type",
                     subjectType != null ? humanizeSubjectType(subjectType) : "All (individuals + groups)");
             r = writeLabelValue(sheet, r, label, bold, "Search",
-                    q != null && !q.isBlank() ? q : "—");
+                    q != null && !q.isBlank() ? q : "-");
             r = writeLabelValue(sheet, r, label, bold, "Exported at",
                     LocalDate.now().toString());
             r = writeLabelValue(sheet, r, label, bold, "Rows",
@@ -118,7 +118,7 @@ public class DebtorsExcelService {
     // ── Helpers (same shape as StatementExcelService's) ─────────────────
 
     private static String humanizeSubjectType(String v) {
-        if (v == null) return "—";
+        if (v == null) return "-";
         return switch (v.toUpperCase()) {
             case "MEMBER" -> "Individual";
             case "GROUP"  -> "Group";

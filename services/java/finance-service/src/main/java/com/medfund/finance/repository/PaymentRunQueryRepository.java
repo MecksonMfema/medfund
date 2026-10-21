@@ -1,6 +1,7 @@
 package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentRunFilterParams;
+import com.medfund.finance.dto.PlannedOutflowRow;
 import com.medfund.finance.entity.PaymentRun;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
@@ -9,6 +10,8 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,13 +23,13 @@ import java.util.UUID;
 public class PaymentRunQueryRepository {
 
     private static final Map<String, String> SORT_COLUMNS = Map.of(
-            "runNumber",    "run_number",
-            "status",       "status",
-            "totalAmount",  "total_amount",
-            "currencyCode", "currency_code",
-            "paymentCount", "payment_count",
-            "executedAt",   "executed_at",
-            "createdAt",    "created_at"
+            "runNumber",    "pr.run_number",
+            "status",       "pr.status",
+            "totalAmount",  "pr.total_amount",
+            "currencyCode", "pr.currency_code",
+            "paymentCount", "pr.payment_count",
+            "executedAt",   "pr.executed_at",
+            "createdAt",    "pr.created_at"
     );
 
     private final DatabaseClient db;
@@ -39,11 +42,13 @@ public class PaymentRunQueryRepository {
         boolean hasQ = f.q() != null && !f.q().isBlank();
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
-        String sql = "SELECT id, run_number, status, total_amount, currency_code, "
-                + "       payment_count, description, executed_at, executed_by, "
-                + "       carried_in_amount, carried_out_amount, settlement_date, "
-                + "       created_at, updated_at "
-                + "  FROM payment_runs "
+        String sql = "SELECT pr.id, pr.run_number, pr.status, pr.total_amount, pr.currency_code, "
+                + "       pr.payment_count, pr.description, pr.executed_at, pr.executed_by, "
+                + "       pr.carried_in_amount, pr.carried_out_amount, pr.settlement_date, "
+                + "       pr.source_bank_account_id, tba.label AS source_bank_account_label, "
+                + "       pr.created_at, pr.updated_at "
+                + "  FROM payment_runs pr "
+                + "  LEFT JOIN tenant_bank_accounts tba ON tba.id = pr.source_bank_account_id "
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
@@ -53,11 +58,52 @@ public class PaymentRunQueryRepository {
         return spec.map(this::toEntity).all();
     }
 
+    /**
+     * Item-level planned payouts for the Phase 8 cash-flow forecast. Only
+     * draft/approved runs (never executed/cancelled) with items still in a
+     * payable state — withheld/skipped items are excluded because they no
+     * longer represent cash about to leave the account.
+     *
+     * <p>The window is bound in UTC (a run's {@code created_at} is a
+     * timestamptz); the contributions-service composer buckets rows by ISO
+     * week itself so both sides of the forecast bucket identically.
+     */
+    public Flux<PlannedOutflowRow> plannedOutflows(LocalDate periodStart, LocalDate periodEnd) {
+        Instant start = periodStart.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant end = periodEnd.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        String sql = "SELECT pr.id AS run_id, pr.run_number, pri.currency_code, "
+                + "       pri.amount, pr.status AS run_status, pri.status AS item_status, "
+                + "       pr.created_at "
+                + "  FROM payment_runs pr "
+                + "  JOIN payment_run_items pri ON pri.payment_run_id = pr.id "
+                + " WHERE pr.status IN ('draft', 'approved') "
+                + "   AND pri.status IN ('pending', 'scheduled') "
+                + "   AND pr.created_at >= :start AND pr.created_at < :end "
+                + " ORDER BY pr.created_at ASC, pr.id ASC";
+        return db.sql(sql)
+                .bind("start", start)
+                .bind("end", end)
+                .map(this::toPlannedOutflowRow)
+                .all();
+    }
+
+    private PlannedOutflowRow toPlannedOutflowRow(io.r2dbc.spi.Readable row) {
+        return new PlannedOutflowRow(
+                row.get("run_id", UUID.class),
+                row.get("run_number", String.class),
+                row.get("currency_code", String.class),
+                row.get("amount", BigDecimal.class),
+                row.get("run_status", String.class),
+                row.get("item_status", String.class),
+                row.get("created_at", Instant.class)
+        );
+    }
+
     public Mono<Long> count(PaymentRunFilterParams f) {
         boolean hasQ = f.q() != null && !f.q().isBlank();
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
-        String sql = "SELECT COUNT(*) AS total FROM payment_runs " + whereClause(f, hasQ);
+        String sql = "SELECT COUNT(*) AS total FROM payment_runs pr " + whereClause(f, hasQ);
         var spec = bindFilters(db.sql(sql), f, hasQ, search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
     }
@@ -65,14 +111,14 @@ public class PaymentRunQueryRepository {
     private String whereClause(PaymentRunFilterParams f, boolean hasQ) {
         StringBuilder sb = new StringBuilder(" WHERE 1 = 1 ");
         if (f.status() != null && !f.status().isBlank()) {
-            sb.append(" AND LOWER(status) = LOWER(:status) ");
+            sb.append(" AND LOWER(pr.status) = LOWER(:status) ");
         }
         if (f.currencyCode() != null && !f.currencyCode().isBlank()) {
-            sb.append(" AND UPPER(currency_code) = UPPER(:currencyCode) ");
+            sb.append(" AND UPPER(pr.currency_code) = UPPER(:currencyCode) ");
         }
         if (hasQ) {
-            sb.append(" AND (LOWER(run_number) LIKE :search "
-                   + "     OR LOWER(COALESCE(description, '')) LIKE :search) ");
+            sb.append(" AND (LOWER(pr.run_number) LIKE :search "
+                   + "     OR LOWER(COALESCE(pr.description, '')) LIKE :search) ");
         }
         return sb.toString();
     }
@@ -88,9 +134,9 @@ public class PaymentRunQueryRepository {
     }
 
     private String sortClause(String sortKey, String sortDirection) {
-        String col = SORT_COLUMNS.getOrDefault(sortKey, "created_at");
+        String col = SORT_COLUMNS.getOrDefault(sortKey, "pr.created_at");
         String dir = "asc".equalsIgnoreCase(sortDirection) ? "ASC" : "DESC";
-        return col + " " + dir + " NULLS LAST, id ASC";
+        return col + " " + dir + " NULLS LAST, pr.id ASC";
     }
 
     private PaymentRun toEntity(io.r2dbc.spi.Readable row) {
@@ -107,6 +153,8 @@ public class PaymentRunQueryRepository {
         r.setCarriedInAmount(row.get("carried_in_amount", BigDecimal.class));
         r.setCarriedOutAmount(row.get("carried_out_amount", BigDecimal.class));
         r.setSettlementDate(row.get("settlement_date", Instant.class));
+        r.setSourceBankAccountId(row.get("source_bank_account_id", UUID.class));
+        r.setSourceBankAccountLabel(row.get("source_bank_account_label", String.class));
         r.setCreatedAt(row.get("created_at", Instant.class));
         r.setUpdatedAt(row.get("updated_at", Instant.class));
         return r;

@@ -8,6 +8,8 @@ import { ClaimsService, Claim } from '../../../../core/services/claims.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-member-lookup',
@@ -23,7 +25,6 @@ export class MemberLookupComponent {
   selected: Member | null = null;
   history: Claim[] = [];
   loadingHistory = false;
-  errorMessage: string | null = null;
 
   private query$ = new Subject<string>();
 
@@ -31,6 +32,7 @@ export class MemberLookupComponent {
     private members: MembersService,
     private claims: ClaimsService,
     private router: Router,
+    private toast: ToastService,
   ) {
     this.query$.pipe(
       debounceTime(300),
@@ -42,7 +44,7 @@ export class MemberLookupComponent {
       }),
     ).subscribe({
       next: (rows) => { this.matches = rows; this.searching = false; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Search failed'; this.searching = false; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Search failed')); this.searching = false; },
     });
   }
 
@@ -55,7 +57,7 @@ export class MemberLookupComponent {
     this.loadingHistory = true;
     this.claims.getByMember(m.id).subscribe({
       next: (rows) => { this.history = rows; this.loadingHistory = false; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load claims'; this.loadingHistory = false; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Failed to load claims')); this.loadingHistory = false; },
     });
   }
 

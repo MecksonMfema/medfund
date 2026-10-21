@@ -3,14 +3,23 @@ package com.medfund.finance.service;
 import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.PaymentRun;
+import com.medfund.finance.entity.TenantBankAccount;
+import com.medfund.finance.producer.repository.CommissionTransactionRepository;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
+import com.medfund.finance.repository.MemberBalanceRepository;
+import com.medfund.finance.repository.MemberBalanceSnapshotRepository;
+import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
+import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.security.PermissionContext;
+import com.medfund.shared.security.Permissions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +32,7 @@ import reactor.test.StepVerifier;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,10 +81,40 @@ class PaymentRunServiceTest {
     private PaymentAdviceService paymentAdviceService;
 
     @Mock
+    private TenantBankAccountRepository bankAccountRepository;
+
+    @Mock
     private org.springframework.r2dbc.core.DatabaseClient databaseClient;
+
+    @Mock
+    private MemberBalanceRepository memberBalanceRepository;
+
+    @Mock
+    private ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository;
+
+    @Mock
+    private MemberBalanceSnapshotRepository memberBalanceSnapshotRepository;
+
+    @Mock
+    private PaymentAdviceRecordRepository paymentAdviceRecordRepository;
+
+    @Mock
+    private CommissionTransactionRepository commissionTransactionRepository;
 
     @InjectMocks
     private PaymentRunService paymentRunService;
+
+    private TenantBankAccount stubBankAccount(String currencyCode) {
+        var bank = new TenantBankAccount();
+        bank.setId(UUID.randomUUID());
+        bank.setBankName("Test Bank");
+        bank.setAccountNumber("0100123456");
+        bank.setAccountName("Test Account");
+        bank.setCurrencyCode(currencyCode);
+        bank.setLabel(currencyCode + " Ops");
+        bank.setActive(true);
+        return bank;
+    }
 
     @Test
     void findAll_returnsRuns() {
@@ -92,16 +132,18 @@ class PaymentRunServiceTest {
 
     @Test
     void create_validRequest_createsRun() {
-        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments", "PROVIDER");
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments", "PROVIDER", bank.getId());
         String actorId = UUID.randomUUID().toString();
 
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> {
             PaymentRun saved = inv.getArgument(0);
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(0));
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(0));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -116,30 +158,35 @@ class PaymentRunServiceTest {
                     assertThat(saved.getCurrencyCode()).isEqualTo("USD");
                     assertThat(saved.getDescription()).isEqualTo("Monthly provider payments");
                     assertThat(saved.getPaymentCount()).isEqualTo(0);
+                    assertThat(saved.getSourceBankAccountId()).isEqualTo(bank.getId());
+                    assertThat(saved.getSourceBankAccountLabel()).isEqualTo(bank.getLabel());
                     assertThat(saved.getCreatedBy()).isNotNull();
                     assertThat(saved.getCreatedAt()).isNotNull();
                 })
                 .verifyComplete();
 
+        verify(bankAccountRepository).findById(bank.getId());
         verify(paymentRunRepository).existsByRunNumber(any());
         verify(paymentRunRepository, times(2)).save(any());  // once for header, once for updated count
-        verify(paymentRunGenerator).populate(any());
+        verify(paymentRunGenerator).populate(any(), any(), any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunCreated(any(), any(), any(), any(), anyInt());
     }
 
     @Test
     void create_populateReturnsMultipleItems_countRecordedOnRun() {
-        var request = new CreatePaymentRunRequest("USD", "With populated items", "PROVIDER");
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest("USD", "With populated items", "PROVIDER", bank.getId());
         String actorId = UUID.randomUUID().toString();
 
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> {
             PaymentRun saved = inv.getArgument(0);
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(3));
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(3));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -151,7 +198,43 @@ class PaymentRunServiceTest {
                 .assertNext(saved -> assertThat(saved.getPaymentCount()).isEqualTo(3))
                 .verifyComplete();
 
-        verify(paymentRunGenerator).populate(any());
+        verify(paymentRunGenerator).populate(any(), any(), any());
+    }
+
+    @Test
+    void create_bankAccountNotFound_errors() {
+        var missingBankId = UUID.randomUUID();
+        var request = new CreatePaymentRunRequest("USD", "orphan bank", "PROVIDER", missingBankId);
+        when(bankAccountRepository.findById(missingBankId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Bank account not found"))
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
+    void create_currencyMismatch_errors() {
+        var zwlBank = stubBankAccount("ZWL");
+        var request = new CreatePaymentRunRequest("USD", "wrong currency", "PROVIDER", zwlBank.getId());
+        when(bankAccountRepository.findById(zwlBank.getId())).thenReturn(Mono.just(zwlBank));
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("does not match run currency"))
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
     }
 
     @Test
@@ -165,13 +248,14 @@ class PaymentRunServiceTest {
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        // No items in this run — applyTenantRulesToItems and recomputeRunTotal both
-        // call findByPaymentRunId; an empty Flux exercises the wiring without
-        // dragging rule logic into this test.
+        // No items in this run — applyTenantRulesToItems, recomputeRunTotal,
+        // and the fat-payload item collection all call findByPaymentRunId;
+        // an empty Flux exercises the wiring without dragging rule logic in.
         when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.empty());
         when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+            .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 paymentRunService.execute(run.getId(), actorId, "actor@test.example")
@@ -193,7 +277,7 @@ class PaymentRunServiceTest {
         verify(paymentRunRepository, times(4)).save(any());
         verify(paymentAdviceService).generateAdvicesForRun(run.getId());
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
+        verify(eventPublisher).publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test
@@ -315,7 +399,8 @@ class PaymentRunServiceTest {
         when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+            .thenReturn(Mono.empty());
 
         // Advance balance lookup returns $500 USD outstanding.
         when(advanceBalanceRepository.findOutstandingByProvider(providerId)).thenReturn(
@@ -346,6 +431,19 @@ class PaymentRunServiceTest {
         // advancePaymentRepository.save(...) is only called when the advance is fully
         // drawn down (remaining <= 0). In this scenario 200 remain, so save is not invoked.
 
+        // Phase 6 snapshot step: the run executes with one provider item — no live
+        // balance row, no advice (advice errors are swallowed upstream) — so the
+        // freeze-frame must fall back to zeros + item-sum net_due and still save.
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.empty());
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.empty());
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+
         // snapshotSettlementDate uses the DatabaseClient directly to project
         // BOOL_AND(status='paid') across items; stub the whole fluent chain so
         // the empty result short-circuits without NPE'ing.
@@ -371,6 +469,295 @@ class PaymentRunServiceTest {
         assertThat(appCap.getValue().getAdvancePaymentId()).isEqualTo(advanceId);
         assertThat(appCap.getValue().getPaymentRunItemId()).isEqualTo(item.getId());
         verify(eventPublisher).publishAdvanceApplied(any());
+    }
+
+    @Test
+    void execute_writesProviderSnapshot_frozenFromLiveBalance() {
+        var run = createTestRun();
+        UUID providerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProviderId(providerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("300.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        var balance = new com.medfund.finance.entity.ProviderBalance();
+        balance.setProviderId(providerId);
+        balance.setCurrencyCode("USD");
+        balance.setTotalClaimed(new BigDecimal("1000.00"));
+        balance.setTotalApproved(new BigDecimal("800.00"));
+        balance.setTotalPaid(new BigDecimal("300.00"));
+        balance.setOutstandingBalance(new BigDecimal("500.00"));
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.just(balance));
+        // No advice generated — net_due must fall back to the item sum.
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.empty());
+
+        AtomicReference<com.medfund.finance.entity.ProviderBalanceSnapshot> captured = new AtomicReference<>();
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getProviderId()).isEqualTo(providerId);
+        assertThat(captured.get().getCurrencyCode()).isEqualTo("USD");
+        assertThat(captured.get().getOpeningBalance()).isEqualByComparingTo("500.00");
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("500.00");
+        assertThat(captured.get().getTotalClaimed()).isEqualByComparingTo("1000.00");
+        assertThat(captured.get().getTotalApproved()).isEqualByComparingTo("800.00");
+        assertThat(captured.get().getTotalPaid()).isEqualByComparingTo("300.00");
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("300.00");
+        assertThat(captured.get().getTakenAt()).isEqualTo(run.getExecutedAt());
+    }
+
+    @Test
+    void execute_snapshotNetDue_readsAdviceWhenPresent() {
+        var run = createTestRun();
+        UUID providerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProviderId(providerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("400.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.empty());
+        var advice = new com.medfund.finance.entity.PaymentAdviceRecord();
+        advice.setPaymentRunId(run.getId());
+        advice.setProviderId(providerId);
+        advice.setNetDueAmount(new BigDecimal("250.00"));
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.just(advice));
+
+        AtomicReference<com.medfund.finance.entity.ProviderBalanceSnapshot> captured = new AtomicReference<>();
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("250.00");
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void execute_writesMemberSnapshot_forMemberRun() {
+        var run = createTestRun();
+        UUID memberId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setMemberId(memberId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("150.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        var balance = new com.medfund.finance.entity.MemberBalance();
+        balance.setMemberId(memberId);
+        balance.setCurrencyCode("USD");
+        balance.setOutstandingBalance(new BigDecimal("420.00"));
+        when(memberBalanceRepository.findByMemberIdAndCurrencyCode(memberId, "USD"))
+                .thenReturn(Mono.just(balance));
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndMemberId(run.getId(), memberId))
+                .thenReturn(Mono.empty());
+
+        AtomicReference<com.medfund.finance.entity.MemberBalanceSnapshot> captured = new AtomicReference<>();
+        when(memberBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.MemberBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getMemberId()).isEqualTo(memberId);
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("420.00");
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("150.00");
+        assertThat(captured.get().getTakenAt()).isEqualTo(run.getExecutedAt());
+    }
+
+    /** Shared execute() wiring: pass-through saves, no rules, no advances, empty advice. */
+    private void stubStandardExecute(PaymentRun run, com.medfund.finance.entity.PaymentRunItem... items) {
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.fromArray(items));
+        when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        // lenient: provider items resolve advance balances, member items short-circuit (never call it)
+        lenient().when(advanceBalanceRepository.findOutstandingByProvider(any())).thenReturn(Flux.empty());        when(decisionService.decide(any(), any()))
+                .thenReturn(Mono.just(new com.medfund.rules.fact.PaymentRunFact()));
+        when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+                .thenReturn(Mono.empty());
+
+        var stubSpec = org.mockito.Mockito.mock(org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var stubFetch = org.mockito.Mockito.mock(org.springframework.r2dbc.core.FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(stubSpec);
+        when(stubSpec.bind(anyString(), any())).thenReturn(stubSpec);
+        when(stubSpec.fetch()).thenReturn(stubFetch);
+        when(stubFetch.one()).thenReturn(Mono.empty());
+    }
+
+    // ---- Producer payout (Phase 11 §A Phase 6) ----
+
+    @Test
+    void create_producer_routesToProducerGeneratorAndPersistsPeriod() {
+        var bank = stubBankAccount("USD");
+        var start = java.time.LocalDate.of(2026, 7, 15);   // will snap to 2026-07-01
+        var end   = java.time.LocalDate.of(2026, 9, 20);   // will snap to 2026-09-30
+        var request = new CreatePaymentRunRequest(
+                "USD", "Q3 commissions", "PRODUCER", bank.getId(), start, end);
+        String actorId = UUID.randomUUID().toString();
+
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
+        when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(2));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.create(request, actorId, "actor@test.example")
+                        .contextWrite(ctx -> PermissionContext.put(
+                                ctx.put("TENANT_ID", "test-tenant"),
+                                java.util.Set.of(Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getPayeeType()).isEqualTo("PRODUCER");
+                    assertThat(saved.getPaymentCount()).isEqualTo(2);
+                    assertThat(saved.getPeriodStart()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
+                    assertThat(saved.getPeriodEnd()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
+                })
+                .verifyComplete();
+
+        org.mockito.ArgumentCaptor<java.time.LocalDate> startCap =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDate.class);
+        org.mockito.ArgumentCaptor<java.time.LocalDate> endCap =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDate.class);
+        verify(paymentRunGenerator).populate(any(), startCap.capture(), endCap.capture());
+        assertThat(startCap.getValue()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
+        assertThat(endCap.getValue()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
+    }
+
+    @Test
+    void create_producer_missingPeriod_rejects() {
+        var bankId = UUID.randomUUID();
+        var request = new CreatePaymentRunRequest("USD", "missing period", "PRODUCER", bankId);
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> PermissionContext.put(
+                                ctx.put("TENANT_ID", "test-tenant"),
+                                java.util.Set.of(Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("periodStart"))
+                .verify();
+
+        verify(bankAccountRepository, never()).findById(any(UUID.class));
+    }
+
+    @Test
+    void create_producer_missingPermission_403s() {
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest(
+                "USD", "no perm", "PRODUCER", bank.getId(),
+                java.time.LocalDate.of(2026, 7, 1),
+                java.time.LocalDate.of(2026, 7, 31));
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof org.springframework.web.server.ResponseStatusException
+                    && ((org.springframework.web.server.ResponseStatusException) err)
+                            .getStatusCode() == org.springframework.http.HttpStatus.FORBIDDEN)
+                .verify();
+
+        verify(bankAccountRepository, never()).findById(any(UUID.class));
+    }
+
+    @Test
+    void execute_producer_flipsCommissionsToPaid() {
+        var run = createTestRun();
+        run.setPayeeType("PRODUCER");
+        run.setPeriodStart(java.time.LocalDate.of(2026, 7, 1));
+        run.setPeriodEnd(java.time.LocalDate.of(2026, 9, 30));
+
+        UUID producerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProducerId(producerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("500.00"));
+        item.setCurrencyCode("USD");
+        item.setPayeeType("PRODUCER");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        when(commissionTransactionRepository.markPaidByProducerAndPeriod(
+                any(), any(), any(), any())).thenReturn(Mono.just(3));
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        verify(commissionTransactionRepository).markPaidByProducerAndPeriod(
+                org.mockito.ArgumentMatchers.eq(producerId),
+                org.mockito.ArgumentMatchers.eq(run.getId()),
+                any(), any());
     }
 
     // ---- Helper ----

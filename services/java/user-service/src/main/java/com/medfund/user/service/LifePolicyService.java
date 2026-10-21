@@ -7,6 +7,7 @@ import com.medfund.user.dto.CreateLifePolicyRequest;
 import com.medfund.user.dto.LifePolicyFilterParams;
 import com.medfund.user.dto.LifePolicyRow;
 import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PolicyUnderwritingFields;
 import com.medfund.user.dto.UpdateLifePolicyRequest;
 import com.medfund.user.entity.LifePolicy;
 import com.medfund.user.exception.LifePolicyNotFoundException;
@@ -35,6 +36,7 @@ public class LifePolicyService {
     private final LifePolicyQueryRepository lifePolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final PolicyIssuedPublisher policyIssuedPublisher;
 
     public Flux<LifePolicy> findAll() {
         return lifePolicyRepository.findAllOrderByCreatedAtDesc();
@@ -79,6 +81,7 @@ public class LifePolicyService {
         p.setOccupationHazardClass(request.occupationHazardClass());
         p.setTermMonths(request.termMonths());
         p.setStatus("active");
+        applyUnderwriting(p, request.underwriting());
         p.setCreatedAt(Instant.now());
         p.setUpdatedAt(Instant.now());
         UUID actorUuid = safeParseUuid(actorId);
@@ -89,8 +92,40 @@ public class LifePolicyService {
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     return publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
+                            .then(publishPolicyIssued(tenantId, saved))
                             .thenReturn(saved);
                 }));
+    }
+
+    private static void applyUnderwriting(LifePolicy p, PolicyUnderwritingFields uw) {
+        if (uw == null) return;
+        if (uw.writtenPremium() != null) p.setWrittenPremium(uw.writtenPremium());
+        if (uw.writtenPremiumCurrency() != null) p.setWrittenPremiumCurrency(uw.writtenPremiumCurrency());
+        if (uw.boundAt() != null) p.setBoundAt(uw.boundAt());
+        if (uw.coverageStart() != null) p.setCoverageStart(uw.coverageStart());
+        if (uw.coverageEnd() != null) p.setCoverageEnd(uw.coverageEnd());
+        if (uw.renewedFromPolicyId() != null) p.setRenewedFromPolicyId(uw.renewedFromPolicyId());
+        if (uw.portfolioId() != null) p.setPortfolioId(uw.portfolioId());
+        if (uw.cohortId() != null) p.setCohortId(uw.cohortId());
+    }
+
+    private Mono<Void> publishPolicyIssued(String tenantId, LifePolicy p) {
+        return policyIssuedPublisher.publish(new PolicyIssuedPublisher.PolicyIssuedPayload(
+                tenantId,
+                p.getId(),
+                p.getPolicyNumber(),
+                "LIFE_POLICY",
+                "LIFE",
+                p.getWrittenPremium(),
+                p.getWrittenPremiumCurrency(),
+                p.getCoverageStart(),
+                p.getCoverageEnd(),
+                p.getBoundAt(),
+                p.getInsuredMemberId(),
+                p.getPortfolioId(),
+                p.getCohortId(),
+                p.getRenewedFromPolicyId()
+        ));
     }
 
     @Transactional
@@ -109,15 +144,22 @@ public class LifePolicyService {
                             request.billingOverrideAmount(),
                             request.billingOverrideReason(),
                             request.billingOverrideEffectiveFrom());
+                    applyUnderwriting(existing, request.underwriting());
 
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(safeParseUuid(actorId));
 
+                    boolean premiumChanged = !java.util.Objects.equals(
+                            previous.getWrittenPremium(), existing.getWrittenPremium());
+
                     return lifePolicyRepository.save(existing)
                             .flatMap(saved -> Mono.deferContextual(ctx -> {
                                 String tenantId = TenantContext.get(ctx);
-                                return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                                        .thenReturn(saved);
+                                Mono<Void> chain = publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE");
+                                if (premiumChanged) {
+                                    chain = chain.then(publishPolicyIssued(tenantId, saved));
+                                }
+                                return chain.thenReturn(saved);
                             }));
                 });
     }
@@ -231,6 +273,14 @@ public class LifePolicyService {
         c.setBillingOverrideAmount(src.getBillingOverrideAmount());
         c.setBillingOverrideReason(src.getBillingOverrideReason());
         c.setBillingOverrideEffectiveFrom(src.getBillingOverrideEffectiveFrom());
+        c.setWrittenPremium(src.getWrittenPremium());
+        c.setWrittenPremiumCurrency(src.getWrittenPremiumCurrency());
+        c.setBoundAt(src.getBoundAt());
+        c.setCoverageStart(src.getCoverageStart());
+        c.setCoverageEnd(src.getCoverageEnd());
+        c.setRenewedFromPolicyId(src.getRenewedFromPolicyId());
+        c.setPortfolioId(src.getPortfolioId());
+        c.setCohortId(src.getCohortId());
         return c;
     }
 }

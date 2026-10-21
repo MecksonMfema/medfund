@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EntityPickerComponent } from '../entity-picker/entity-picker.component';
 
@@ -27,10 +27,14 @@ export interface ChangeGroupPayload {
   templateUrl: './change-group-modal.component.html',
   styleUrl: './change-group-modal.component.scss',
 })
-export class ChangeGroupModalComponent {
+export class ChangeGroupModalComponent implements OnChanges {
   @Input() memberName = '';
   @Input() currentGroupName: string | null = null;
   @Input() open = false;
+  /** When the modal is opened by picking a new group in the parent
+   *  form's entity-picker, the parent passes the picked id here so
+   *  the target-group field is pre-populated instead of blank. */
+  @Input() initialTargetGroupId: string | null = null;
 
   @Output() cancel = new EventEmitter<void>();
   @Output() submit = new EventEmitter<ChangeGroupPayload>();
@@ -39,6 +43,15 @@ export class ChangeGroupModalComponent {
   effectiveDate = this.firstOfMonthOffset(1);
   reason = '';
   error: string | null = null;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open'] && this.open) {
+      this.targetGroupId = this.initialTargetGroupId ?? '';
+      this.effectiveDate = this.firstOfMonthOffset(1);
+      this.reason = '';
+      this.error = null;
+    }
+  }
 
   /** Snap mid-month picks to day 1 so the backend's CHECK constraint
    *  never trips on a "day = 1" violation. */

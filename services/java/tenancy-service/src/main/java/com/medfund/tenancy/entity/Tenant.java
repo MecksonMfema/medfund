@@ -67,6 +67,15 @@ public class Tenant {
     @Column("keycloak_realm")
     private String keycloakRealm;
 
+    /**
+     * Regulator jurisdiction (V131). Free-form string persisted from a
+     * fixed enum in the tenant-admin form — see the financial-reporting
+     * suite. NULL = no regulator-templated reports are surfaced for this
+     * tenant.
+     */
+    @Column("jurisdiction_code")
+    private String jurisdictionCode;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;

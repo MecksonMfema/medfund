@@ -17,6 +17,14 @@ spring:
     url: r2dbc:postgresql://localhost:5433/medfund
     username: medfund
     password: medfund
+    pool:
+      enabled: true
+      initial-size: 5
+      max-size: 30
+      max-idle-time: 30m
+      max-acquire-time: 10s
+      max-life-time: 1h
+      validation-query: SELECT 1
   flyway:
     url: jdbc:postgresql://localhost:5433/medfund
     user: medfund
@@ -53,3 +61,15 @@ management:
 
 kafka:
   bootstrap-servers: localhost:9092
+
+keycloak:
+  # Realm the super-admin portal authenticates against. Platform-settings
+  # saves patch this realm's displayName/displayNameHtml so the Keycloak
+  # hosted login screen carries the platform branding.
+  platform-realm: medfund-platform
+
+platform:
+  # Origin the browser uses to reach the platform (the gateway). Keycloak
+  # renders the login page on its own origin, so the logo <img src> it embeds
+  # has to be absolute.
+  public-base-url: http://localhost:3000

@@ -51,7 +51,7 @@ public class EligibilityTemplates implements TemplateProvider {
                  RuleCategory.ELIGIBILITY, 87,
                  all(cond("member.age",         "GREATER_THAN_OR_EQUALS", "65"),
                      cond("claim.payoutMode",   "EQUALS",                 "CASH")),
-                 reject("R51", "Cash claims not permitted for seniors — provider will be paid directly"))
+                 reject("R51", "Cash claims not permitted for seniors - provider will be paid directly"))
         );
     }
 }

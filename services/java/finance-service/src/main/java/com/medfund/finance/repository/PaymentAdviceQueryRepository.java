@@ -2,6 +2,8 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentAdviceFilterParams;
 import com.medfund.finance.dto.PaymentAdviceRowResponse;
+import com.medfund.shared.report.PerCurrencyTotal;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -17,6 +19,10 @@ import java.util.UUID;
  * {@code payment_runs} to surface {@code run_number}, and
  * {@code providers}/{@code members} to surface a human-friendly
  * {@code payeeName} so the Angular list doesn't have to substring UUIDs.
+ *
+ * <p>Providers are platform-scoped, so the provider join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
  */
 @Repository
 public class PaymentAdviceQueryRepository {
@@ -35,6 +41,8 @@ public class PaymentAdviceQueryRepository {
             Map.entry("runNumber",      "pr.run_number")
     );
 
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("pv", "pa.provider_id");
+
     private static final String BASE_SELECT = ""
             + "SELECT pa.id, pa.advice_number, pa.payment_run_id, "
             + "       pr.run_number, "
@@ -49,7 +57,7 @@ public class PaymentAdviceQueryRepository {
             + "       pa.net_due_amount, pa.created_at "
             + "  FROM payment_advices pa "
             + "  LEFT JOIN payment_runs pr ON pr.id = pa.payment_run_id "
-            + "  LEFT JOIN providers    pv ON pv.id = pa.provider_id "
+            + PROVIDER_JOIN
             + "  LEFT JOIN members      mb ON mb.id = pa.member_id ";
 
     private final DatabaseClient db;
@@ -66,10 +74,11 @@ public class PaymentAdviceQueryRepository {
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(PaymentAdviceFilterParams f) {
@@ -80,12 +89,46 @@ public class PaymentAdviceQueryRepository {
         // names counts consistently with what search() returns.
         String sql = "SELECT COUNT(*) AS total FROM payment_advices pa "
                 + "  LEFT JOIN payment_runs pr ON pr.id = pa.payment_run_id "
-                + "  LEFT JOIN providers    pv ON pv.id = pa.provider_id "
+                + PROVIDER_JOIN
                 + "  LEFT JOIN members      mb ON mb.id = pa.member_id "
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
+
+    /**
+     * Filtered-set per-currency totals (G18) — same WHERE clause as the
+     * paged query. Sums {@code pa.net_due_amount} across the filtered slice
+     * so the envelope's {@code perCurrency} map reflects the true
+     * outstanding-to-pay ledger, not the gross approved amount.
+     */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(PaymentAdviceFilterParams f) {
+        boolean hasQ = f.q() != null && !f.q().isBlank();
+        String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
+        String sql = "SELECT pa.currency_code AS currency_code,"
+                + "        COALESCE(SUM(pa.net_due_amount), 0) AS total_amount,"
+                + "        COUNT(*)                             AS row_count"
+                + "   FROM payment_advices pa "
+                + "  LEFT JOIN payment_runs pr ON pr.id = pa.payment_run_id "
+                + PROVIDER_JOIN
+                + "  LEFT JOIN members      mb ON mb.id = pa.member_id "
+                + whereClause(f, hasQ)
+                + " AND pa.currency_code IS NOT NULL"
+                + " GROUP BY pa.currency_code";
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map((row, meta) -> Map.entry(
+                        row.get("currency_code", String.class),
+                        new PerCurrencyTotal(
+                                nz(row.get("total_amount", BigDecimal.class)),
+                                nzLong(row.get("row_count", Long.class)))))
+                .all()
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+    private static long nzLong(Long v) { return v != null ? v : 0L; }
 
     private String whereClause(PaymentAdviceFilterParams f, boolean hasQ) {
         StringBuilder sb = new StringBuilder(" WHERE 1 = 1 ");

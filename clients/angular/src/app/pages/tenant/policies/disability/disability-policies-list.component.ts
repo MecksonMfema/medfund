@@ -12,6 +12,8 @@ import {
   TableAction,
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-disability-policies-list',
@@ -23,7 +25,6 @@ import {
 export class DisabilityPoliciesListComponent implements OnInit {
   rows: DisabilityPolicyRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   page = 1;
   pageSize = 50;
@@ -53,7 +54,7 @@ export class DisabilityPoliciesListComponent implements OnInit {
     },
   ];
 
-  constructor(private policies: PoliciesService, private router: Router) {}
+  constructor(private policies: PoliciesService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -73,7 +74,7 @@ export class DisabilityPoliciesListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load disability policies';
+        this.toast.error(extractErrorMessage(err, 'Failed to load disability policies'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

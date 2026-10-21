@@ -30,7 +30,7 @@ import (
 //go:embed body.html
 var defaultBodyTemplate string
 
-const DefaultSubject = "{{.HeadlineShort}} — {{.CurrencyCode}} {{.Balance}}"
+const DefaultSubject = "{{.HeadlineShort}} - {{.CurrencyCode}} {{.Balance}}"
 
 func DefaultHTMLBody() string { return defaultBodyTemplate }
 
@@ -154,7 +154,7 @@ func copyForKind(kind, nextStep, daysUntilNext string) (string, string, string) 
 	case "REMINDER_PRE_SUSPENSION":
 		return "Payment reminder",
 			fmt.Sprintf("Your account has an overdue balance. Please settle it within %s day(s) to avoid a suspension.", daysUntilNext),
-			"You can pay via any of the tenant's supported channels — bank transfer, mobile money, or card."
+			"You can pay via any of the tenant's supported channels: bank transfer, mobile money, or card."
 	case "REMINDER_PRE_DEACTIVATION":
 		return "Suspended account reminder",
 			fmt.Sprintf("Your account is currently suspended and has %s day(s) remaining before it is deactivated.", daysUntilNext),

@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/properties")
-@Tag(name = "Properties", description = "Property-insurance asset records — property lifecycle, billing-override management")
+@Tag(name = "Properties", description = "Property-insurance asset records - property lifecycle, billing-override management")
 @SecurityRequirement(name = "bearer-jwt")
 public class PropertyController {
 
@@ -36,7 +36,7 @@ public class PropertyController {
     }
 
     @GetMapping
-    @Operation(summary = "List properties (unpaginated — prefer /page)")
+    @Operation(summary = "List properties (unpaginated - prefer /page)")
     public Flux<PropertyResponse> findAll() {
         return propertyService.findAll().map(PropertyResponse::from);
     }

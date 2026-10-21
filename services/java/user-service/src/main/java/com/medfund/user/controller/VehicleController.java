@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/vehicles")
-@Tag(name = "Vehicles", description = "Motor-insurance asset records — vehicle lifecycle, billing-override management")
+@Tag(name = "Vehicles", description = "Motor-insurance asset records - vehicle lifecycle, billing-override management")
 @SecurityRequirement(name = "bearer-jwt")
 public class VehicleController {
 
@@ -36,7 +36,7 @@ public class VehicleController {
     }
 
     @GetMapping
-    @Operation(summary = "List vehicles (unpaginated — prefer /page)")
+    @Operation(summary = "List vehicles (unpaginated - prefer /page)")
     public Flux<VehicleResponse> findAll() {
         return vehicleService.findAll().map(VehicleResponse::from);
     }

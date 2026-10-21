@@ -11,18 +11,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Combined Postgres + Kafka base for slice-level integration tests that need
- * both. Two static containers, reused per JVM via {@code withReuse(true)}.
+ * both. Two static containers, started once per JVM and reused by every test
+ * class that extends this base.
  *
  * <p>Extend this when the test needs to mutate a row and assert the resulting
  * audit event on Kafka in a single class — e.g. SchemeService.create →
@@ -32,21 +33,32 @@ import java.util.UUID;
  * {@link AbstractPostgresIntegrationTest} or {@link AbstractKafkaIntegrationTest}
  * so the unused container is never started.
  */
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
     protected static final PostgreSQLContainer<?> POSTGRES =
         new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("medfund")
             .withUsername("medfund")
             .withPassword("medfund")
-            .withReuse(true);
+            // Postgres 17 defaults to max_connections=100. Under a full IT run
+            // every SpringBootTest class stacks R2DBC pool + Flyway JDBC + Redis
+            // clients + occasional bare JDBC probes against the same static
+            // container; 100 evaporates. Phase 12 §0 raised it to 300, which
+            // survives every test class extending this base + AbstractPostgresIntegrationTest.
+            .withCommand("postgres", "-c", "max_connections=300", "-c", "shared_buffers=64MB");
 
-    @Container
     protected static final KafkaContainer KAFKA =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
-            .withReuse(true);
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+
+    static {
+        // Started once per JVM, NOT per test class. The @Testcontainers/@Container
+        // extension stops containers at the end of each class (via the store's
+        // CloseableResource), which tears down the DB while a cached Spring context
+        // still holds a pool pointing at the old mapped port. A JVM-lifetime static
+        // start keeps the ports stable so the cached context stays valid; Ryuk
+        // cleans up on JVM exit.
+        Startables.deepStart(Stream.of(POSTGRES, KAFKA)).join();
+    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
@@ -73,6 +85,29 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected JsonNode consumeAuditEvent(String topic, String entityTypeFilter, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> entityTypeFilter == null
+                || entityTypeFilter.equals(node.path("entityType").asText()),
+            timeout);
+    }
+
+    /** See {@link AbstractKafkaIntegrationTest#consumeAuditEventContaining}. */
+    protected JsonNode consumeAuditEventContaining(String topic, String detailsContains, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> node.path("details").asText().contains(detailsContains),
+            timeout);
+    }
+
+    /**
+     * Scans a topic from the earliest offset for the first record matching an
+     * arbitrary predicate. Protected because a shared Kafka container serves
+     * every IT in the JVM: a test that asserts on "the first record of type X"
+     * silently picks up another class's record once a second test publishes
+     * the same type. Filter on something that identifies your own event.
+     */
+    protected JsonNode consumeAuditEventMatching(String topic,
+                                               java.util.function.Predicate<JsonNode> matcher,
+                                               Duration timeout) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "audit-assert-" + UUID.randomUUID());
@@ -90,8 +125,7 @@ public abstract class AbstractIntegrationTest {
                 for (ConsumerRecord<String, String> rec : records) {
                     try {
                         JsonNode node = MAPPER.readTree(rec.value());
-                        if (entityTypeFilter == null
-                            || entityTypeFilter.equals(node.path("entityType").asText())) {
+                        if (matcher.test(node)) {
                             return node;
                         }
                     } catch (Exception ignored) {

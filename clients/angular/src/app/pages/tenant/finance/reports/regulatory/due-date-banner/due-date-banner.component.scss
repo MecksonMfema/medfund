@@ -1,0 +1,38 @@
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  border: 1px solid transparent;
+
+  .headline {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .period {
+    color: inherit;
+    opacity: 0.8;
+  }
+}
+
+.banner-info {
+  background: var(--color-info-light);
+  color: #0096b4;
+  border-color: var(--color-info-light);
+}
+
+.banner-amber {
+  background: var(--color-warning-light);
+  color: #c47800;
+  border-color: var(--color-warning-light);
+}
+
+.banner-red {
+  background: var(--color-error-light);
+  color: #c4162d;
+  border-color: var(--color-error-light);
+}

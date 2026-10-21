@@ -1,0 +1,184 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import {
+  BillingReportParams,
+  FinanceService,
+  ReportResponse,
+  SchemeBillingSummaryRow,
+} from '../../../../../core/services/finance.service';
+import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
+import { TenantService } from '../../../../../core/services/tenant.service';
+import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
+
+/**
+ * Per-scheme billing aggregate — one row per (scheme, currency). Rows stay
+ * native-currency (G25). The envelope's {@code perCurrency} + {@code fxRates}
+ * drive the KPI strip (ledger totals per currency) and the warning banner
+ * when an FX rate is missing.
+ */
+@Component({
+  selector: 'app-scheme-billing-report',
+  standalone: true,
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  templateUrl: './scheme-billing-report.component.html',
+  styleUrl: './billing-report.component.scss',
+})
+export class SchemeBillingReportComponent implements OnInit {
+  loading = false;
+  exporting = false;
+
+  rows: SchemeBillingSummaryRow[] = [];
+  envelope: ReportResponse<SchemeBillingSummaryRow[]> | null = null;
+  currencies: TenantCurrencyConfig[] = [];
+
+  // Default the window to a rolling 3-month range so mid-month visits still
+  // surface current-month activity; tenant admin can widen to a quarter or year.
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
+  reportingCurrency = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'schemeName',       label: 'Scheme',      sortable: false },
+    { key: 'insuranceLine',    label: 'Line',        sortable: false, type: 'label' },
+    { key: 'currencyCode',     label: 'Currency',    sortable: false },
+    { key: 'principalCount',   label: 'Principals',  sortable: false },
+    { key: 'dependantCount',   label: 'Dependants',  sortable: false },
+    { key: 'livesCovered',     label: 'Lives',       sortable: false },
+    { key: 'ageBand0_18',      label: '0-18',        sortable: false, type: 'currency' },
+    { key: 'ageBand19_35',     label: '19-35',       sortable: false, type: 'currency' },
+    { key: 'ageBand36_55',     label: '36-55',       sortable: false, type: 'currency' },
+    { key: 'ageBand56Plus',    label: '56+',         sortable: false, type: 'currency' },
+    { key: 'totalBilled',      label: 'Total billed',sortable: false, type: 'currency' },
+    { key: 'totalPaid',        label: 'Total paid',  sortable: false, type: 'currency' },
+  ];
+
+  constructor(
+    private finance: FinanceService,
+    private currencyService: CurrencyService,
+    private tenantService: TenantService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
+
+  onRowClick(row: SchemeBillingSummaryRow): void {
+    if (!row?.schemeId) return;
+    this.router.navigate(['/tenant/finance/reports/scheme', row.schemeId],
+      { queryParams: {
+          periodStart: this.periodStart,
+          periodEnd:   this.periodEnd,
+          ...(this.reportingCurrency ? { reportingCurrency: this.reportingCurrency } : {}),
+        } });
+  }
+
+  ngOnInit(): void {
+    this.loadCurrencies();
+    this.fetch();
+  }
+
+  private loadCurrencies(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+    this.currencyService.listForTenant(tenantId).subscribe({
+      next: cs => {
+        this.currencies = cs.filter(c => c.isActive);
+        const def = this.currencies.find(c => c.isDefault);
+        if (def && !this.reportingCurrency) this.reportingCurrency = def.currencyCode;
+      },
+      error: () => { /* non-fatal — envelope still returns the tenant default */ },
+    });
+  }
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Tenant default' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
+
+  fetch(): void {
+    if (!this.periodStart || !this.periodEnd) {
+      this.toast.warning('Choose a start and end date.');
+      return;
+    }
+    this.loading = true;
+    this.finance.getSchemeBillingReport(this.buildParams()).subscribe({
+      next: env => {
+        this.envelope = env;
+        this.rows = env.data ?? [];
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to load billing report'));
+        this.rows = [];
+        this.envelope = null;
+        this.loading = false;
+      },
+    });
+  }
+
+  exportExcel(): void {
+    if (!this.periodStart || !this.periodEnd) return;
+    this.exporting = true;
+    this.finance.exportSchemeBillingExcel(this.buildParams()).subscribe({
+      next: blob => {
+        downloadBlob(blob, `billing-schemes-${this.periodStart}-to-${this.periodEnd}.xlsx`);
+        this.exporting = false;
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
+        this.exporting = false;
+      },
+    });
+  }
+
+  private surfaceWarnings(env: ReportResponse<SchemeBillingSummaryRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Billing report: per scheme'), 8000);
+  }
+
+  onFilterChange(): void {
+    this.fetch();
+  }
+
+  private buildParams(): BillingReportParams {
+    return {
+      periodStart: this.periodStart,
+      periodEnd:   this.periodEnd,
+      reportingCurrency: this.reportingCurrency || undefined,
+    };
+  }
+
+  get perCurrencyEntries(): { currency: string; totalAmount: string; rowCount: number }[] {
+    if (!this.envelope) return [];
+    return Object.entries(this.envelope.perCurrency ?? {}).map(([currency, total]) => ({
+      currency,
+      totalAmount: String(total.totalAmount),
+      rowCount: total.rowCount,
+    }));
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

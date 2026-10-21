@@ -1,0 +1,71 @@
+<header class="page-header">
+  <div>
+    <h1>Endorsements: review queue</h1>
+    <p class="page-sub">
+      Draft endorsements awaiting approval and approved endorsements
+      awaiting commit. Four-eyes invariant: an approver cannot approve
+      their own draft.
+    </p>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="All (DRAFT + APPROVED)"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  data-testid="endorsement-review-table"
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
+  [loading]="loading"
+  [emptyMessage]="'Queue is clear'"
+  [emptyDescription]="'Draft and approved endorsements land here once operators file them. Approvers move rows through Approve then Commit.'"
+  [emptyIcon]="'check-circle'">
+</app-data-table>
+
+<!-- Void reason modal -->
+@if (voidTargetId) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">
+      <h3>Void endorsement</h3>
+      <p class="modal-sub">
+        Reason will be recorded on the audit trail. COMMITTED endorsements
+        cannot be voided: this is only available for DRAFT / APPROVED.
+      </p>
+      <label>
+        <span>Reason <em>(min 5 chars)</em></span>
+        <textarea rows="4" maxlength="500"
+                  [(ngModel)]="voidReason"
+                  placeholder="e.g. operator withdrew request"
+                  data-testid="void-reason"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn"
+                (click)="cancelVoid()"
+                [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting"
+                data-testid="void-submit">
+          {{ voidSubmitting ? 'Voiding…' : 'Void endorsement' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -9,6 +9,7 @@ import { BalanceService, DebtorRow, PageResponse } from '../../../../core/servic
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type SubjectType = 'MEMBER' | 'GROUP';
 
@@ -42,7 +43,6 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
   loading = false;
   exporting = false;
   searchTerm = '';
-  errorMessage: string | null = null;
 
   // Currency filter — kept as a select rather than tabs because the
   // subject-type dimension already claims the tab strip.
@@ -92,7 +92,7 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
 
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.error('No active tenant context');
       return;
     }
 
@@ -103,7 +103,7 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
         this.selectedCurrency = (def ?? this.currencies[0])?.currencyCode ?? '';
         if (this.selectedCurrency) this.fetchPage();
       },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load currencies'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Failed to load currencies')); },
     });
 
     // Debounced search — server-side query fires 400ms after the last
@@ -160,7 +160,6 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
   fetchPage(): void {
     if (!this.selectedCurrency) return;
     this.loading = true;
-    this.errorMessage = null;
     this.balanceService.listDebtors(
       this.selectedCurrency,
       this.activeTab ?? undefined,
@@ -175,7 +174,7 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
         this.loading    = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load debtors';
+        this.toast.error(extractErrorMessage(err, 'Failed to load debtors'));
         this.rows       = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -225,7 +224,7 @@ export class DebtorsListComponent implements OnInit, OnDestroy {
         this.exporting = false;
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to export debtors');
+        this.toast.error(extractErrorMessage(err, 'Failed to export debtors'));
         this.exporting = false;
       },
     });

@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.AdvancePaymentFilterParams;
 import com.medfund.finance.dto.AdvancePaymentRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -12,6 +13,13 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Dynamic-SQL search powering the advance-payments list.
+ *
+ * <p>Providers are platform-scoped, so the provider join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
+ */
 @Repository
 public class AdvancePaymentQueryRepository {
 
@@ -22,6 +30,8 @@ public class AdvancePaymentQueryRepository {
             "currencyCode", "a.currency_code",
             "recordedAt",   "a.recorded_at"
     );
+
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("pr", "a.provider_id");
 
     private final DatabaseClient db;
 
@@ -41,16 +51,17 @@ public class AdvancePaymentQueryRepository {
                        COALESCE(m.first_name || ' ' || m.last_name, '') AS member_name,
                        m.member_number AS member_number
                   FROM advance_payments a
-                  LEFT JOIN providers pr ON pr.id = a.provider_id
-                  LEFT JOIN members   m  ON m.id  = a.member_id
                 """
+                + PROVIDER_JOIN
+                + " LEFT JOIN members   m  ON m.id  = a.member_id "
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(AdvancePaymentFilterParams f) {
@@ -58,11 +69,12 @@ public class AdvancePaymentQueryRepository {
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
         String sql = "SELECT COUNT(*) AS total FROM advance_payments a "
-                + " LEFT JOIN providers pr ON pr.id = a.provider_id "
+                + PROVIDER_JOIN
                 + " LEFT JOIN members   m  ON m.id  = a.member_id "
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     private String whereClause(AdvancePaymentFilterParams f, boolean hasQ) {

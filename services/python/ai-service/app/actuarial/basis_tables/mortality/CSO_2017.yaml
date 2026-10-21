@@ -1,0 +1,35 @@
+# 2017 CSO — Commissioners Standard Ordinary mortality tables.
+# Source: NAIC Life Actuarial (A) Task Force — 2017 CSO Mortality Table Report,
+# Composite Ultimate (Sex-Distinct, Nonsmoker+Smoker Composite).
+# Mandated for statutory reserving in every US state effective 2020-01-01.
+# Values are qx per 1000; canonical select ages shipped here — Phase 13 loader
+# supports linear interpolation between rows.
+name: CSO_2017
+display_name: CSO 2017 (US NAIC)
+category: mortality
+jurisdiction_hints: [US]
+default_line: LIFE
+source: "NAIC 2017 CSO Composite Ultimate (Sex-Distinct, Composite Smoker Status)"
+qx:
+  0:   {male: 5.1,  female: 4.0}
+  1:   {male: 0.4,  female: 0.3}
+  5:   {male: 0.15, female: 0.11}
+  10:  {male: 0.15, female: 0.12}
+  15:  {male: 0.42, female: 0.20}
+  20:  {male: 0.90, female: 0.35}
+  25:  {male: 1.06, female: 0.44}
+  30:  {male: 1.13, female: 0.56}
+  35:  {male: 1.40, female: 0.78}
+  40:  {male: 1.80, female: 1.15}
+  45:  {male: 2.66, female: 1.75}
+  50:  {male: 4.03, female: 2.62}
+  55:  {male: 6.34, female: 3.98}
+  60:  {male: 9.72, female: 6.12}
+  65:  {male: 14.31, female: 9.32}
+  70:  {male: 22.05, female: 14.55}
+  75:  {male: 35.87, female: 23.85}
+  80:  {male: 60.19, female: 40.90}
+  85:  {male: 100.65, female: 71.63}
+  90:  {male: 165.28, female: 122.90}
+  95:  {male: 253.66, female: 199.85}
+  100: {male: 362.55, female: 302.85}

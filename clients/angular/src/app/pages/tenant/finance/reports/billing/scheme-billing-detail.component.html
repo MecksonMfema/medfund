@@ -1,0 +1,85 @@
+<header class="page-header">
+  <div>
+    <h1>{{ detail?.schemeName || 'Scheme billing detail' }}</h1>
+    <p class="page-sub">
+      Committed contributions rolled up across the window plus a monthly
+      breakdown. Rows stay in the ledger's native currency; per-currency
+      totals in the summary card feed the report envelope.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-default" (click)="back()">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to per-scheme billing
+    </button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="report-loading" aria-busy="true" aria-live="polite">
+    <div class="report-loading__rows">
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+    </div>
+    <span class="visually-hidden">Loading scheme billing detail…</span>
+  </div>
+} @else if (!detail || ((detail.perCurrencySummary?.length ?? 0) === 0 && (detail.monthlyBreakdown?.length ?? 0) === 0)) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No committed contributions</div>
+    <div class="empty-state__description">
+      This scheme has no invoiced contributions in the selected window.
+      Widen the period or switch the reporting currency to see any
+      activity.
+    </div>
+  </div>
+} @else {
+  <section class="detail-section">
+    <h2>Per-currency summary</h2>
+    <app-data-table
+      [data]="detail.perCurrencySummary || []"
+      [columns]="summaryColumns"
+      [searchable]="false"
+      [showToolbar]="false"
+      emptyMessage="No committed contributions for this window."
+    ></app-data-table>
+  </section>
+
+  <section class="detail-section">
+    <h2>Monthly breakdown</h2>
+    <app-data-table
+      [data]="detail.monthlyBreakdown || []"
+      [columns]="monthlyColumns"
+      [searchable]="false"
+      [showToolbar]="false"
+      emptyMessage="No monthly buckets for this window."
+    ></app-data-table>
+  </section>
+}

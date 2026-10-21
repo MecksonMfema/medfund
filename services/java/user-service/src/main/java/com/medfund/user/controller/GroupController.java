@@ -130,7 +130,7 @@ public class GroupController {
             case "terminate" -> groupService.terminate(id, effectiveDate, reason, actorId, actorEmail);
             case "deactivate" -> groupService.deactivate(id, effectiveDate, reason, actorId, actorEmail);
             default -> Mono.error(new IllegalArgumentException(
-                "Unknown action '" + action + "' — expected activate / suspend / terminate / deactivate / reactivate"));
+                "Unknown action '" + action + "' - expected activate / suspend / terminate / deactivate / reactivate"));
         };
         return op.map(GroupResponse::from);
     }

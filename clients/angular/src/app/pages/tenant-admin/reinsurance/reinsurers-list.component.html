@@ -1,0 +1,63 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Reinsurers</h1>
+      <p class="sub">External counterparties placed on one or more treaties.</p>
+    </div>
+    <button class="btn btn-primary" (click)="startCreate()">
+      <app-icon name="plus"></app-icon>
+      New reinsurer
+    </button>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <div class="filters">
+    <label>
+      Status:
+      <select [(ngModel)]="filterActive" (change)="onFilterChange()">
+        <option value="">All</option>
+        <option value="true">Active only</option>
+        <option value="false">Inactive only</option>
+      </select>
+    </label>
+  </div>
+
+  <div *ngIf="showForm" class="form-panel">
+    <h3>{{ draft.id ? 'Edit' : 'New' }} reinsurer</h3>
+    <div class="form-grid">
+      <label>Name *<input type="text" [(ngModel)]="draft.name" required maxlength="200" /></label>
+      <label>Contact email<input type="email" [(ngModel)]="draft.contactEmail" maxlength="255" /></label>
+      <label>Jurisdiction<input type="text" [(ngModel)]="draft.jurisdictionCode" maxlength="20" /></label>
+      <label>Home currency<input type="text" [(ngModel)]="draft.homeCurrency" maxlength="3" minlength="3" /></label>
+      <label>Credit rating<input type="text" [(ngModel)]="draft.creditRating" maxlength="20" /></label>
+      <label class="col-2">Contact address<textarea [(ngModel)]="draft.contactAddress" rows="2"></textarea></label>
+      <label *ngIf="draft.id">
+        <input type="checkbox" [(ngModel)]="draft.active" /> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+      <button class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+    </div>
+  </div>
+
+  <app-data-table
+    [columns]="columns"
+    [data]="rows"
+    [actions]="actions"
+    [showActions]="true"
+    [serverSide]="true"
+    [loading]="loading"
+    [pageSize]="pageSize"
+    [totalCount]="totalCount"
+    [totalPages]="totalPages"
+    [serverPage]="page"
+    emptyMessage="No reinsurers yet"
+    emptyDescription="Click New reinsurer above to add your first counterparty."
+    (pageChange)="onPageChange($event)">
+  </app-data-table>
+</div>

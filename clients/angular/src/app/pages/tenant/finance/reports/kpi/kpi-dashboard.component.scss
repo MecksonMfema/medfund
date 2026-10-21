@@ -1,0 +1,98 @@
+// Executive KPIs dashboard — fullbleed layout matching the sibling
+// finance pages (creditors, review-queue, corrections). Page-header +
+// toolbar stack flush; tiles live in a padded grid below.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-sub {
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 65ch;
+  font-size: 0.9rem;
+}
+
+// Flatten app-select trigger inside the toolbar. Global styles.scss
+// authors this rule with ::ng-deep at the top level which browsers drop;
+// every page needs a local copy where Angular's compiler actually
+// strips ::ng-deep.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+// Flatten the entity-picker input for the scheme / producer cells so
+// they read like search cells inside the toolbar rather than standalone
+// bordered form controls.
+.toolbar-cell.cell-picker {
+  flex: 1 1 240px;
+  min-width: 220px;
+  max-width: 320px;
+
+  ::ng-deep .search-wrapper input {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    font-size: var(--font-size-sm);
+  }
+  ::ng-deep .search-wrapper input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+.banner-info {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  margin: 24px;
+}
+
+.banner-info a { color: var(--color-primary); text-decoration: underline; }
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-base);
+  padding: var(--spacing-lg) 24px;
+}
+
+.kpi-tile-skeleton {
+  min-height: 200px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--color-border-light) 25%, var(--color-border) 37%, var(--color-border-light) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0    50%; }
+}

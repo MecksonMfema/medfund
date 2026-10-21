@@ -17,6 +17,11 @@
   overflow-y: auto;
   padding: var(--spacing-xl);
   background: var(--color-bg);
+
+  // Routes declaring `data: { fullbleed: true }` drop the outer page
+  // gutter so list pages (data-table + fullbleed page-header) span
+  // edge-to-edge. Same contract as TenantLayoutComponent's is-fullbleed.
+  &.is-fullbleed { padding: 0; }
 }
 
 @media (max-width: 1024px) {

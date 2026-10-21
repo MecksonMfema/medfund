@@ -1,0 +1,189 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import {
+  ClaimsReportService,
+  ClaimsSummaryParams,
+  ClaimsSummaryRow,
+} from '../../../../../core/services/claims-report.service';
+import { ReportResponse } from '../../../../../core/services/report-envelope';
+import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
+import { TenantService } from '../../../../../core/services/tenant.service';
+import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
+import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
+
+/**
+ * Per-provider claims aggregate — one row per (provider, currency) with the
+ * claimed / approved / paid funnel (G42). Period clock is adjudicated_at
+ * (G41); rows stay native-currency (G25). Clicking a row drills into the
+ * provider's monthly buckets + claim ledger.
+ */
+@Component({
+  selector: 'app-provider-claims-report',
+  standalone: true,
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  templateUrl: './provider-claims-report.component.html',
+  styleUrl: './claims-report.component.scss',
+})
+export class ProviderClaimsReportComponent implements OnInit {
+  loading = false;
+  exporting = false;
+
+  rows: ClaimsSummaryRow[] = [];
+  envelope: ReportResponse<ClaimsSummaryRow[]> | null = null;
+  currencies: TenantCurrencyConfig[] = [];
+
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
+  reportingCurrency = '';
+  insuranceLine = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'dimensionName',   label: 'Provider',      sortable: false },
+    { key: 'currencyCode',    label: 'Currency',      sortable: false },
+    { key: 'claimCount',      label: 'Claims',        sortable: false },
+    { key: 'totalClaimed',    label: 'Claimed',       sortable: false, type: 'currency' },
+    { key: 'totalApproved',   label: 'Approved',      sortable: false, type: 'currency' },
+    { key: 'totalPaid',       label: 'Paid',          sortable: false, type: 'currency' },
+  ];
+
+  constructor(
+    private claimsReport: ClaimsReportService,
+    private currencyService: CurrencyService,
+    private tenantService: TenantService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadCurrencies();
+    this.fetch();
+  }
+
+  private loadCurrencies(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) return;
+    this.currencyService.listForTenant(tenantId).subscribe({
+      next: cs => {
+        this.currencies = cs.filter(c => c.isActive);
+        const def = this.currencies.find(c => c.isDefault);
+        if (def && !this.reportingCurrency) this.reportingCurrency = def.currencyCode;
+      },
+      error: () => { /* non-fatal */ },
+    });
+  }
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Tenant default' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
+
+  get lineOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All lines' },
+      ...INSURANCE_LINES.map(l => ({ value: l.value, label: l.label })),
+    ];
+  }
+
+  fetch(): void {
+    if (!this.periodStart || !this.periodEnd) {
+      this.toast.warning('Choose a start and end date.');
+      return;
+    }
+    this.loading = true;
+    this.claimsReport.getClaimsPerProvider(this.buildParams()).subscribe({
+      next: env => {
+        this.envelope = env;
+        this.rows = env.data ?? [];
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to load claims report'));
+        this.rows = [];
+        this.envelope = null;
+        this.loading = false;
+      },
+    });
+  }
+
+  exportExcel(): void {
+    if (!this.periodStart || !this.periodEnd) return;
+    this.exporting = true;
+    this.claimsReport.exportClaimsPerProviderExcel(this.buildParams()).subscribe({
+      next: blob => {
+        downloadBlob(blob, `claims-providers-${this.periodStart}-to-${this.periodEnd}.xlsx`);
+        this.exporting = false;
+      },
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
+        this.exporting = false;
+      },
+    });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ClaimsSummaryRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claims report: per provider'), 8000);
+  }
+
+  onRowClick(row: ClaimsSummaryRow): void {
+    this.router.navigate(['/tenant/finance/reports/claims-provider', row.dimensionId],
+      { queryParams: this.periodParams() });
+  }
+
+  onFilterChange(): void {
+    this.fetch();
+  }
+
+  private buildParams(): ClaimsSummaryParams {
+    return {
+      periodStart: this.periodStart,
+      periodEnd:   this.periodEnd,
+      reportingCurrency: this.reportingCurrency || undefined,
+      insuranceLine:     this.insuranceLine || undefined,
+    };
+  }
+
+  private periodParams(): Record<string, string> {
+    const p: Record<string, string> = {
+      periodStart: this.periodStart,
+      periodEnd:   this.periodEnd,
+    };
+    if (this.reportingCurrency) p['reportingCurrency'] = this.reportingCurrency;
+    return p;
+  }
+
+  get perCurrencyEntries(): { currency: string; totalAmount: string; rowCount: number }[] {
+    if (!this.envelope) return [];
+    return Object.entries(this.envelope.perCurrency ?? {}).map(([currency, total]) => ({
+      currency,
+      totalAmount: String(total.totalAmount),
+      rowCount: total.rowCount,
+    }));
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

@@ -1,6 +1,5 @@
 """Google Gemini client wrapper with graceful fallback."""
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class GeminiClient:
         messages: list[dict],
         max_tokens: int = 1024,
         model: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Send a completion request to Gemini. Returns None if client unavailable."""
         if not self._available:
             return None
@@ -68,7 +67,7 @@ class GeminiClient:
         system_prompt: str,
         messages: list[dict],
         max_tokens: int = 1024,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Send a completion request expecting JSON response. Parses and returns dict."""
         import json
 

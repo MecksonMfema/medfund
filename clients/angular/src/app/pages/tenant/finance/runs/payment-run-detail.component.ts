@@ -22,6 +22,7 @@ import {
 } from '../../../../shared/components/data-table/data-table.component';
 import { PermissionService } from '../../../../core/security/permission.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Detail page for a single payment run — the folded landing spot for
@@ -50,7 +51,7 @@ export class PaymentRunDetailComponent implements OnInit {
   run: PaymentRun | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
+  exporting = false;
   successMessage: string | null = null;
 
   // ── Payments table state (scoped to this run) ────────────────────
@@ -118,10 +119,31 @@ export class PaymentRunDetailComponent implements OnInit {
     return this.permissions.has('finance:generate_payment_advice');
   }
 
+  /** D7-5 / D7-6: export available to any user with the subledger permission. */
+  canExportWorkbook(): boolean {
+    return this.permissions.has('finance:view_subledger');
+  }
+
+  /** D7-6/D7-7: header-only "Export workbook" — any status, errors → banner. */
+  exportWorkbook(): void {
+    if (!this.run) return;
+    this.exporting = true;
+    this.finance.exportPaymentRunWorkbook(this.run.id).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, `payment-run-${this.run?.runNumber || this.run?.id}.xlsx`);
+        this.exporting = false;
+      },
+      error: (err) => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
+        this.exporting = false;
+      },
+    });
+  }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No payment run id provided';
+      this.toast.error('No payment run id provided');
       return;
     }
     this.refresh(id);
@@ -137,7 +159,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.fetchAdvices();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load payment run';
+        this.toast.error(extractErrorMessage(err, 'Failed to load payment run'));
         this.loading = false;
       },
     });
@@ -169,7 +191,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.fetchAdvices();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to regenerate advices';
+        this.toast.error(extractErrorMessage(err, 'Failed to regenerate advices'));
         this.regenerating = false;
       },
     });
@@ -247,7 +269,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.refresh(run.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || `Failed to ${label}`;
+        this.toast.error(extractErrorMessage(err, `Failed to ${label}`));
         this.busy = false;
       },
     });
@@ -272,8 +294,17 @@ export class PaymentRunDetailComponent implements OnInit {
         if (this.run) this.refresh(this.run.id);
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || `Failed to revoke ${row.paymentNumber}`);
+        this.toast.error(extractErrorMessage(err, `Failed to revoke ${row.paymentNumber}`));
       },
     });
   }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

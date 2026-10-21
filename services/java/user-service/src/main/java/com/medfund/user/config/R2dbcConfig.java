@@ -7,6 +7,8 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @Configuration
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.user.repository",
+        // Endorsement sub-package (Phase 12 §C) sits outside .repository.
+        "com.medfund.user.endorsement.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — required wherever JobEventPublisher loads.
         "com.medfund.shared.notification",

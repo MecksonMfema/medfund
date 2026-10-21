@@ -93,7 +93,7 @@ public class CtcCommittedConsumer {
                 /* paymentMethod */   "CTC",
                 /* reference */       "CTC:" + ctcId,
                 /* reason */          memberPayableId != null
-                                        ? "Claims-to-Contributions offset — payable " + memberPayableId
+                                        ? "Claims-to-Contributions offset - payable " + memberPayableId
                                         : "Claims-to-Contributions offset"
             );
             Mono<Void> work = transactionService.recordFromCtcOffset(

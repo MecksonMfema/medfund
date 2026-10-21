@@ -11,9 +11,14 @@ import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.contributions.service.DebtorsExcelService;
+import com.medfund.contributions.service.AgedBalancesExcelService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
+import com.medfund.shared.security.SecurityEventPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +42,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -54,9 +61,12 @@ public class BalanceController {
     private final BadDebtService badDebtService;
     private final DebtorsExcelService debtorsExcelService;
     private final BadDebtsExcelService badDebtsExcelService;
+    private final AgedBalancesExcelService agedBalancesExcelService;
+    private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping("/members/{memberId}")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.MEMBER_BALANCE)
     @Operation(summary = "Get a member's running balance for a currency",
             description = "Returns zeros if no balance row exists yet (member has not been billed in this currency).")
     @ApiResponse(responseCode = "200", description = "Balance returned")
@@ -68,6 +78,7 @@ public class BalanceController {
 
     @GetMapping("/groups/{groupId}")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.GROUP_BALANCE)
     @Operation(summary = "Get a group's running balance for a currency")
     public Mono<GroupBalanceResponse> getGroupBalance(
             @PathVariable UUID groupId,
@@ -77,6 +88,7 @@ public class BalanceController {
 
     @GetMapping("/debtors")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.DEBTORS_LIST)
     @Operation(summary = "List members and groups with outstanding balances (debtors)",
             description = "Server-side paginated. Only currently-billable subjects "
                     + "(status IN active/suspended) appear. Filters: currency (required), "
@@ -94,6 +106,7 @@ public class BalanceController {
 
     @GetMapping("/debtors/export/excel")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.DEBTORS_LIST)
     @Operation(summary = "Download the debtors list as XLSX",
             description = "Same filter shape as the JSON /debtors endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, search term, export date, "
@@ -101,9 +114,21 @@ public class BalanceController {
     public Mono<ResponseEntity<byte[]>> exportDebtorsExcel(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
         String filename = "debtors-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (subjectType != null && !subjectType.isBlank()) details.put("subjectType", subjectType);
+        if (q != null && !q.isBlank()) details.put("q", q);
         return debtorsExcelService.generate(currency, subjectType, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.DEBTORS_LIST.name(),
+                                details))
+                        .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -113,10 +138,11 @@ public class BalanceController {
 
     @GetMapping("/bad-debts")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.BAD_DEBTS)
     @Operation(summary = "List deactivated / terminated subjects with an outstanding balance",
             description = "Server-side paginated. Only subjects that are no longer billable "
                     + "(status IN deactivated/terminated) AND whose running balance is > 0 are returned "
-                    + "— i.e. money we're owed by someone we can no longer bill. Filters mirror /debtors: "
+                    + "- i.e. money we're owed by someone we can no longer bill. Filters mirror /debtors: "
                     + "currency (required), subjectType (MEMBER = ungrouped individuals only; GROUP = groups "
                     + "only; omit for both), q (substring match on name/email/code).")
     public Mono<PageResponse<DebtorRow>> listBadDebts(
@@ -131,6 +157,7 @@ public class BalanceController {
 
     @GetMapping("/bad-debts/export/excel")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.BAD_DEBTS)
     @Operation(summary = "Download the bad-debts list as XLSX",
             description = "Same filter shape as the JSON /bad-debts endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, status filter description, search "
@@ -139,9 +166,21 @@ public class BalanceController {
     public Mono<ResponseEntity<byte[]>> exportBadDebtsExcel(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
         String filename = "bad-debts-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (subjectType != null && !subjectType.isBlank()) details.put("subjectType", subjectType);
+        if (q != null && !q.isBlank()) details.put("q", q);
         return badDebtsExcelService.generate(currency, subjectType, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.BAD_DEBTS.name(),
+                                details))
+                        .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -151,10 +190,11 @@ public class BalanceController {
 
     @GetMapping("/aged-balances")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_BALANCES)
     @Operation(summary = "List aged balances (still-billable subjects)",
             description = "Returns balances older than minAgeDays (defaults to dunning_config.suspension_days). " +
                     "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF). " +
-                    "This is the collections-lifecycle view — for subjects that already fell off the billing " +
+                    "This is the collections-lifecycle view - for subjects that already fell off the billing " +
                     "roster with money still owing, see /bad-debts.")
     public Mono<PageResponse<BadDebtRow>> listAged(
             @RequestParam String currency,
@@ -163,6 +203,38 @@ public class BalanceController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return balanceService.listAged(currency, minAgeDays, q, Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+    }
+
+    @GetMapping("/aged-balances/export/excel")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_BALANCES)
+    @Operation(summary = "Download the aged-balances list as XLSX",
+            description = "Same filter shape as the JSON /aged-balances endpoint; returns an .xlsx workbook "
+                    + "with a header block (currency, min-age filter, search term, export date, row count) and "
+                    + "a table of every matching row up to a 10,000-row ceiling.")
+    public Mono<ResponseEntity<byte[]>> exportAgedExcel(
+            @RequestParam String currency,
+            @RequestParam(required = false) Integer minAgeDays,
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
+        String filename = "aged-balances-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (minAgeDays != null) details.put("minAgeDays", minAgeDays);
+        if (q != null && !q.isBlank()) details.put("q", q);
+        return agedBalancesExcelService.generate(currency, minAgeDays, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.AGED_BALANCES.name(),
+                                details))
+                        .thenReturn(bytes))
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
     }
 
     @PostMapping("/bad-debts/flag")

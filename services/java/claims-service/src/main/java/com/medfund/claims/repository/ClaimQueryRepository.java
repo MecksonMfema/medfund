@@ -2,6 +2,7 @@ package com.medfund.claims.repository;
 
 import com.medfund.claims.dto.ClaimFilterParams;
 import com.medfund.claims.dto.ClaimRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -17,11 +18,17 @@ import java.util.UUID;
  * Dynamic-SQL search powering the claims list (server-side sort +
  * pagination + join). Mirrors {@code TariffCodeQueryRepository}.
  *
- * <p>Joins {@code members} and {@code providers} into every row so the
- * client renders member + provider names inline without a second call.
+ * <p>Joins {@code members} and {@code public.providers} into every row so
+ * the client renders member + provider names inline without a second call.
  * Providers are optional on some insurance lines (member-reimbursed
  * flows), so the join is {@code LEFT} — provider_name comes back null
  * when there's no provider.
+ *
+ * <p>Providers are platform-scoped, so the join carries the
+ * {@code public.provider_tenants} membership guard (CLAUDE.md Critical
+ * Rule 2): a provider the current tenant is not contracted with renders
+ * the same way as no provider at all, blank, rather than leaking a name
+ * from another tenant's network.
  *
  * <p>Sort safety: {@code sortKey} from the HTTP request is translated
  * to a column name through {@link #SORT_COLUMNS}. Anything not in the
@@ -45,6 +52,12 @@ public class ClaimQueryRepository {
             "approvedAmount", "c.approved_amount"
     );
 
+    /** LEFT JOIN onto the platform provider table, membership-guarded. */
+    private static final String PROVIDER_LEFT_JOIN =
+              " LEFT JOIN public.providers p ON p.id = c.provider_id "
+            + "   AND EXISTS (SELECT 1 FROM public.provider_tenants pt "
+            + "                WHERE pt.provider_id = p.id AND pt.tenant_id = :tenantId) ";
+
     private final DatabaseClient db;
 
     public ClaimQueryRepository(DatabaseClient db) {
@@ -58,10 +71,11 @@ public class ClaimQueryRepository {
         String sql = selectClause() + baseFrom() + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(ClaimFilterParams f) {
@@ -70,10 +84,11 @@ public class ClaimQueryRepository {
 
         String sql = "SELECT COUNT(*) AS total FROM claims c "
                 + " LEFT JOIN members m   ON m.id = c.member_id "
-                + " LEFT JOIN providers p ON p.id = c.provider_id "
+                + PROVIDER_LEFT_JOIN
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     private String selectClause() {
@@ -92,7 +107,7 @@ public class ClaimQueryRepository {
     private String baseFrom() {
         return " FROM claims c "
              + " LEFT JOIN members   m ON m.id = c.member_id "
-             + " LEFT JOIN providers p ON p.id = c.provider_id ";
+             + PROVIDER_LEFT_JOIN;
     }
 
     private String whereClause(ClaimFilterParams f, boolean hasQ) {

@@ -221,7 +221,7 @@ describe('SubmitClaimComponent', () => {
 
       component.submit();
       expect(claims.submit).not.toHaveBeenCalled();
-      expect(component.formError).toContain('require a service provider');
+      expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/require a service provider/));
     });
 
     it('HEALTH with provider + payeeType MEMBER submits as reimbursement', () => {
@@ -244,7 +244,7 @@ describe('SubmitClaimComponent', () => {
       const payload = claims.submit.calls.mostRecent().args[0] as SubmitClaimPayload;
       expect(payload.providerId).toBe('p-42');
       expect(payload.payeeType).toBe('MEMBER');
-      expect(component.formError).toBeNull();
+      expect(toast.warning).not.toHaveBeenCalled();
     });
 
     it('LIFE claim submits with providerId=undefined and payeeType=MEMBER', () => {
@@ -553,7 +553,7 @@ describe('SubmitClaimComponent', () => {
 
       component.submit();
 
-      expect(component.formError).toContain('vehicle registration');
+      expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/vehicle registration/));
       expect(claims.submit).not.toHaveBeenCalled();
     });
 

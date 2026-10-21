@@ -1,0 +1,93 @@
+<div class="reports-tab">
+  <header class="section-header">
+    <div>
+      <h3 class="section-title">Reports catalogue</h3>
+      <p class="section-sub">
+        Every report the platform ships. Turn off any report your organisation doesn't use: disabled reports vanish
+        from the operational hub and sidebar, and their APIs return 403.
+      </p>
+    </div>
+    <div class="section-actions">
+      @if (saved) {
+        <span class="saved-badge">
+          <app-icon name="check-circle" [size]="16"></app-icon> Saved
+        </span>
+      }
+      <button
+        class="btn btn-primary"
+        (click)="save()"
+        [disabled]="saving || loading || !dirty()"
+      >
+        {{ saving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading) {
+    <div class="reports-grid">
+      @for (_ of [0, 1, 2, 3, 4]; track $index) {
+        <div class="reports-family-card">
+          <app-skeleton variant="line" width="180px" height="18px"></app-skeleton>
+          <div style="height: 8px"></div>
+          @for (_ of [0, 1, 2, 3]; track $index) {
+            <app-skeleton variant="line" width="100%" height="32px"></app-skeleton>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="reports-grid">
+      @for (group of groups; track group.family) {
+        <div class="reports-family-card">
+          <div class="reports-family-header">
+            <h4 class="reports-family-name">{{ group.familyLabel }}</h4>
+            <div class="reports-family-actions">
+              <button class="btn btn-default btn-sm" (click)="toggleFamily(group, true)">Enable all</button>
+              <button class="btn btn-default btn-sm" (click)="toggleFamily(group, false)">Disable all</button>
+            </div>
+          </div>
+
+          <ul class="reports-list">
+            @for (row of group.rows; track row.reportKey) {
+              <li class="reports-list-item">
+                <label class="switch-row">
+                  <input
+                    type="checkbox"
+                    [checked]="isEnabled(row)"
+                    (change)="toggle(row)"
+                  />
+                  <span class="report-label">
+                    <span class="report-name">{{ row.label }}</span>
+                    @if (row.cadenced) {
+                      <span class="badge badge-cadenced" title="Suitable for scheduled email delivery">
+                        Cadenced
+                      </span>
+                    }
+                  </span>
+                  <span class="report-key">{{ row.reportKey }}</span>
+                </label>
+                @if (row.cadenced) {
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="link manage-schedule"
+                      (click)="manageSchedule(row)"
+                      [title]="'Manage scheduled email delivery for ' + row.label"
+                    >
+                      Manage schedule
+                      @if (row.activeScheduleCount && row.activeScheduleCount > 0) {
+                        <span class="badge badge-count">{{ row.activeScheduleCount }}</span>
+                      }
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+
+  <app-high-cost-claimant-config></app-high-cost-claimant-config>
+</div>

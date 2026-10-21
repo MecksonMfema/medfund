@@ -33,7 +33,7 @@ public class TenantProrationConfigController {
     @GetMapping
     @Operation(summary = "Fetch the tenant's current proration config",
             description = "Returns the platform default (defaultStrategy=NONE, all overrides null) " +
-                          "when no explicit row exists — safe for a fresh tenant.")
+                          "when no explicit row exists - safe for a fresh tenant.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Config (or platform default) returned")
     })

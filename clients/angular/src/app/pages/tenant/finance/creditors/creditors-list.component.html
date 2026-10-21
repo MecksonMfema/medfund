@@ -29,10 +29,6 @@
   }
 </nav>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell cell-search">
     <app-icon name="search" [size]="16"></app-icon>
@@ -66,6 +62,7 @@
   [actions]="actions"
   [showActions]="true"
   [searchable]="false"
+  [showToolbar]="false"
   [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"

@@ -13,4 +13,8 @@ dependencies {
 
     // Shared Testcontainers fixtures
     testImplementation(testFixtures(project(":shared")))
+    // okhttp MockWebServer stands in for the Keycloak Admin REST API in
+    // KeycloakRealmSyncIT. Same version as finance-service, which uses it for
+    // the claims/contributions peer stubs.
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

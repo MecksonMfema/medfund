@@ -41,7 +41,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/rules")
 @RequiredArgsConstructor
-@Tag(name = "Tenant Rules", description = "Per-tenant Drools rules — list, edit, dry-run.")
+@Tag(name = "Tenant Rules", description = "Per-tenant Drools rules - list, edit, dry-run.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TenantRuleController {
 
@@ -82,7 +82,7 @@ public class TenantRuleController {
 
     @PutMapping("/{id:[0-9a-fA-F-]+}")
     @Operation(summary = "Update a rule",
-               description = "Partial update — null fields are left untouched. Bumps version.")
+               description = "Partial update - null fields are left untouched. Bumps version.")
     public Mono<TenantRuleResponse> update(
             @RequestHeader("X-Tenant-ID") UUID tenantId,
             @PathVariable UUID id,

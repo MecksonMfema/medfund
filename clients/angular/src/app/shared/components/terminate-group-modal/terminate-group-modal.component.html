@@ -5,7 +5,7 @@
       <h3 class="modal-title">Terminate group</h3>
       <p class="modal-message">
         Terminate <strong>{{ groupName || 'this group' }}</strong>.
-        Members are cascaded on the same run — any in <em>active</em> or
+        Members are cascaded on the same run: any in <em>active</em> or
         <em>suspended</em> land at <em>terminated</em>. Contributions and
         claims already recorded for this group stay intact.
       </p>
@@ -17,7 +17,7 @@
                (blur)="onEffectiveDateChange()"
                data-testid="terminate-group-effective-date" />
         <div class="hint">
-          Snaps to the last day of the chosen month — the group stays
+          Snaps to the last day of the chosen month: the group stays
           billable through that whole cycle.
         </div>
       </div>

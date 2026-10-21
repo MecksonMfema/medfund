@@ -56,5 +56,106 @@ public enum RuleCategory {
     /** Provider payment runs — schedule, advance payments, holdbacks, CTC payments. */
     PROVIDER_PAYMENT,
     /** Reconciliation matching rules between claims, payments, and bank records. */
-    RECONCILIATION
+    RECONCILIATION,
+
+    // ── Reinsurance ──────────────────────────────────────────────────────────
+    /**
+     * Cession rules — decide when and how much of a claim (or contribution) to
+     * cede to a reinsurance treaty. Rules in this category are agenda-gated:
+     * they only fire when the reinsurance consumer explicitly focuses the
+     * REINSURANCE group, never during the stage-7 tenant-rule sweep.
+     */
+    REINSURANCE,
+
+    // ── Commission ───────────────────────────────────────────────────────────
+    /**
+     * Producer commission calculation. Agenda-gated — the commission consumer
+     * in finance-service focuses this group per {@code medfund.contributions.paid}
+     * event, so commission rules never fire during the stage-7 tenant sweep.
+     * The base rate is looked up in {@code commission_rate_card}; rules in
+     * this category encode conditional kickers (tier bonuses, promo periods,
+     * sliding-scale overrides, waivers) on top of that base.
+     */
+    COMMISSION,
+
+    // ── Premium earning ──────────────────────────────────────────────────────
+    /**
+     * Policy-bind earning-method selection. Agenda-gated — the premium
+     * consumer in contributions-service focuses this group per
+     * {@code medfund.user.policy-issued} event and per nightly period-close
+     * pass, so earning rules never fire during the stage-7 tenant sweep.
+     * The default earning method is {@code DAILY_LINEAR}; rules in this
+     * category route a policy to a specific method
+     * ({@code MONTHLY_24THS}, {@code LINEAR_WITH_LOADING:<pct>}) based on
+     * the {@code PremiumFact} shape (line, product code, coverage window).
+     */
+    PREMIUM_EARNING,
+
+    // ── Actuarial ────────────────────────────────────────────────────────────
+    /**
+     * Loss-development-factor selection for IBNR / loss-triangle reports.
+     * Agenda-gated — finance-service's {@code TriangleShapingService} focuses
+     * this group before building the shaped triangle so actuarial rules
+     * never fire during the stage-7 tenant sweep. The default LDF method
+     * is {@code volume}; rules in this category route a triangle to a
+     * specific method ({@code simple}, {@code 5yr}) based on the
+     * {@code TriangleFact} shape (line, currency, period).
+     */
+    ACTUARIAL,
+
+    // ── IFRS 17 ──────────────────────────────────────────────────────────────
+    /**
+     * IFRS 17 measurement-model selection (PAA / GMM / VFA) per portfolio +
+     * cohort year. Agenda-gated — finance-service's {@code Ifrs17ShapingService}
+     * focuses this group per portfolio at report-submit time so IFRS 17 rules
+     * never fire during the stage-7 tenant sweep. Rules in this category
+     * mutate {@code IfrsPortfolioFact} — measurementModel, coverageUnitPattern,
+     * variableFeePattern, financeExpensePresentation — via
+     * {@code SELECT_IFRS17_MODEL} actions. Each tenant is seeded with 8
+     * industry-default rules on provisioning (see the
+     * {@code seed_ifrs17_model_default_rules} migration).
+     */
+    IFRS17_MODEL,
+
+    // ── Regulatory parameter override ────────────────────────────────────────
+    /**
+     * Tenant escape hatch for numeric parameters in regulator reports (IPEC
+     * solvency, CMS solvency + cost-ratio, NAIC Schedule P + F provision
+     * percentages, and every future regulator that reads YAML defaults from
+     * {@code shared/src/main/resources/regulatory-defaults/}). Agenda-gated —
+     * finance-service's {@code RegulatoryParameterResolver} focuses this group
+     * per parameter lookup so overrides never fire during the stage-7 tenant
+     * sweep. Rules in this category mutate {@code RegulatoryParameterFact}'s
+     * {@code parameterValue} slot via {@code SET_REGULATORY_PARAMETER} actions.
+     * When no matching rule fires the resolver falls back to the bundled YAML
+     * default; both missing → fail-loud
+     * {@code RegulatoryParameterMissingException}. See Phase 16 §Phase-15 REG15.
+     */
+    REGULATORY_PARAMETER,
+
+    // ── PMB classification (Phase 17 §B REG7) ────────────────────────────────
+    /**
+     * CMS Prescribed Minimum Benefit classification. Fires at claim
+     * adjudication time (from {@code PmbClassificationExecutor} in
+     * claims-service, after the standard rule sweep) and at backfill time
+     * (from {@code PmbBackfillJob}). Agenda-gated — the classifier explicitly
+     * focuses {@code PMB_CLASSIFICATION} so these rules never fire during the
+     * stage-7 tenant-rule sweep alongside eligibility / co-pay / tariff
+     * evaluations. Rules mutate {@code PmbClassificationFact} via
+     * {@code SET_PMB_CLASSIFICATION} actions carrying the matched CMS PMB
+     * condition code. When no rule matches the classifier records
+     * {@code is_pmb = FALSE} on the claim row.
+     */
+    PMB_CLASSIFICATION,
+
+    // ── Fraud triage (Phase 19 §A Phase 5) ───────────────────────────────────
+    /**
+     * Fraud triage — decides whether an AI-emitted {@code fraud_flag} auto-opens
+     * an {@code siu_case} for investigation. Facts: {@code FraudFlagFact}. Action:
+     * {@code emitCaseCreation}. Tenants configure policy ("auto-open above
+     * risk_score = 0.85", "watchlist providers", "member repeat-offender
+     * pattern"); default (no rules) auto-opens HIGH-risk. Fires on the
+     * "FRAUD_RULES" agenda group.
+     */
+    FRAUD_TRIAGE
 }

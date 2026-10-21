@@ -1,0 +1,107 @@
+<header class="page-header">
+  <div>
+    <h1>Persistency cohort</h1>
+    <p class="page-sub">
+      For each cohort month + insurance line + checkpoint (months since cohort
+      start), the retention rate as a percentage. HEALTH is strict per L16:
+      active + contribution row present at the checkpoint month.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+    <app-report-back-button></app-report-back-button>
+  </div>
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Checkpoints (months, csv)</span>
+    <input
+      type="text"
+      [(ngModel)]="checkpoints"
+      (change)="onFilterChange()"
+      name="checkpoints"
+      placeholder="6,12,24"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [ngModel]="insuranceLine"
+      (selectionChange)="insuranceLine = $event; onFilterChange()"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (rows.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No persistency cohorts</div>
+    <div class="empty-state__description">
+      No cohorts landed in this window. Widen the period or double-check the
+      checkpoint list: the default 6/12/24 covers the first two years post-bind.
+    </div>
+  </div>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Cohort month</th>
+        <th>Line</th>
+        <th class="num">Checkpoint (months)</th>
+        <th class="num">Cohort size</th>
+        <th class="num">Still active</th>
+        <th class="num">Retention %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of rows; track r.cohortMonth + '-' + r.insuranceLine + '-' + r.checkpointMonths) {
+        <tr>
+          <td>{{ r.cohortMonth }}</td>
+          <td>{{ r.insuranceLine }}</td>
+          <td class="num">{{ r.checkpointMonths }}</td>
+          <td class="num">{{ r.cohortSize }}</td>
+          <td class="num">{{ r.stillActive }}</td>
+          <td class="num">{{ r.retentionRate }}%</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

@@ -79,7 +79,7 @@ public class GroupService {
         boolean emailMissing = request.email() == null || request.email().isBlank();
         if (liaisonMissing && emailMissing) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "A group needs either a liaison (kind + user) or a contact email — both are missing"));
+                "A group needs either a liaison (kind + user) or a contact email - both are missing"));
         }
         return validateLiaison(request.liaisonKind(), request.liaisonUserId())
             .then(grantLiaisonRole(request.liaisonKind(), request.liaisonUserId()))
@@ -142,7 +142,7 @@ public class GroupService {
                 boolean hasEmail = existing.getEmail() != null && !existing.getEmail().isBlank();
                 if (!hasLiaison && !hasEmail) {
                     return Mono.<Group>error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "A group needs either a liaison (kind + user) or a contact email — this update would leave both empty"));
+                        "A group needs either a liaison (kind + user) or a contact email - this update would leave both empty"));
                 }
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));

@@ -57,6 +57,19 @@ public class Member {
     private LocalDate terminationDate;
 
     /**
+     * Member death recording (V140 — actuarial Phase 14 §D). Feeds MORTALITY_STUDY
+     * and stops exposure accrual at the death date. Recording death additionally
+     * routes through the Phase-13 MemberStatusTransitionService with
+     * reason_code='member_death' to transition status to 'deceased'.
+     */
+    @Column("death_date")
+    private LocalDate deathDate;
+
+    /** Optional ICD-10 chapter code (e.g., "I00-I99") or free-text label. */
+    @Column("cause_of_death")
+    private String causeOfDeath;
+
+    /**
      * Future-dated status trio (V042). When {@link #scheduledStatus} and
      * {@link #scheduledStatusEffectiveFrom} are both non-null, the
      * SCHEDULED_STATUS_ROLL daily job flips {@link #status} to
@@ -184,6 +197,12 @@ public class Member {
 
     public LocalDate getTerminationDate() { return terminationDate; }
     public void setTerminationDate(LocalDate terminationDate) { this.terminationDate = terminationDate; }
+
+    public LocalDate getDeathDate() { return deathDate; }
+    public void setDeathDate(LocalDate deathDate) { this.deathDate = deathDate; }
+
+    public String getCauseOfDeath() { return causeOfDeath; }
+    public void setCauseOfDeath(String causeOfDeath) { this.causeOfDeath = causeOfDeath; }
 
     public String getScheduledStatus() { return scheduledStatus; }
     public void setScheduledStatus(String scheduledStatus) { this.scheduledStatus = scheduledStatus; }

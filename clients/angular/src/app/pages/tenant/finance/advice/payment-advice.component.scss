@@ -21,14 +21,6 @@
   max-width: 70ch;
 }
 
-.banner {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
-
 // DataTable's toolbar layout is [search][spacer][filters], which pushes
 // projected filters to the far right. Push the spacer past our cells via
 // flex order so filters sit flush against the search — same trick used

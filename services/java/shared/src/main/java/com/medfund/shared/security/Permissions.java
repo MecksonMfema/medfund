@@ -46,6 +46,24 @@ public final class Permissions {
     public static final String CLAIMS_ASSIGN                     = "claims:assign";
     public static final String CLAIMS_VIEW_CTC_PAYMENTS          = "claims:view_ctc_payments";
     public static final String CLAIMS_COMMIT_CTC_PAYMENT         = "claims:commit_ctc_payment";
+    public static final String CLAIMS_REQUEST_QUOTE              = "claims:request_quote";
+    /** Set or update the case reserve on a claim (Phase 14 §A actuarial IBNR incurred-triangle input).
+     *  Decoupled from {@link #CLAIMS_ADJUDICATE} so tenants can grant reserve-setting to a supervisor role only. */
+    public static final String CLAIMS_SET_RESERVE                = "claims:set_reserve";
+
+    // ── Claims: SIU (Special Investigations Unit) ────────────────────────────
+    // Phase 19 §A + §B (Phase 7) — full 8-permission SIU (Special
+    // Investigations Unit) surface per parent-plan FR7.
+    public static final String CLAIMS_SIU_VIEW                   = "claims:siu:view";
+    public static final String CLAIMS_SIU_CREATE                 = "claims:siu:create";
+    public static final String CLAIMS_SIU_INVESTIGATE            = "claims:siu:investigate";
+    public static final String CLAIMS_SIU_ADMIN                  = "claims:siu:admin";
+    // §B Phase 7 additions — assign/reassign, four-eyes approve, reopen,
+    // and external referral (law enforcement / regulator / HR).
+    public static final String CLAIMS_SIU_ASSIGN                 = "claims:siu:assign";
+    public static final String CLAIMS_SIU_APPROVE                = "claims:siu:approve";
+    public static final String CLAIMS_SIU_REOPEN                 = "claims:siu:reopen";
+    public static final String CLAIMS_SIU_REFER                  = "claims:siu:refer";
 
     // ── Billing ──────────────────────────────────────────────────────────────
     public static final String BILLING_VIEW                      = "billing:view";
@@ -79,15 +97,52 @@ public final class Permissions {
     public static final String FINANCE_VIEW_MEMBER_PAYABLES      = "finance:view_member_payables";
     public static final String FINANCE_CONFIGURE_AUTO_CTC        = "finance:configure_auto_ctc";
     public static final String FINANCE_MANAGE_RECEIPTS           = "finance:manage_receipts";
-    public static final String FINANCE_MANAGE_BANKS              = "finance:manage_banks";
+    /**
+     * @deprecated V074 splits notes management into
+     *   {@link #FINANCE_NOTES_READ}, {@link #FINANCE_NOTES_WRITE}, and
+     *   {@link #FINANCE_NOTES_APPROVE}. The flat legacy key is retained
+     *   for the compat window: role assignments that still hold it
+     *   auto-expand into all three via {@link DefaultPermissionResolver}
+     *   so tenant admins don't lose access on cutover day. Remove after
+     *   all tenants have been migrated to the granular permissions.
+     */
+    @Deprecated
     public static final String FINANCE_POST_ADJUSTMENTS          = "finance:post_adjustments";
+    public static final String FINANCE_NOTES_READ                = "finance.notes:read";
+    public static final String FINANCE_NOTES_WRITE               = "finance.notes:write";
+    public static final String FINANCE_NOTES_APPROVE             = "finance.notes:approve";
     public static final String FINANCE_VIEW_DEBTORS              = "finance:view_debtors";
     public static final String FINANCE_VIEW_SUBLEDGER            = "finance:view_subledger";
     public static final String FINANCE_MANAGE_BILLING_RECONCILE  = "finance:manage_billing_reconcile";
     public static final String FINANCE_VIEW_PAYMENT_ADVICE       = "finance:view_payment_advice";
     public static final String FINANCE_GENERATE_PAYMENT_ADVICE   = "finance:generate_payment_advice";
     public static final String FINANCE_MANAGE_COPAYMENTS         = "finance:manage_copayments";
+    public static final String FINANCE_VIEW_MEMBER_LIABILITIES   = "finance:view_member_liabilities";
     public static final String FINANCE_VIEW_WITHHELD_TAX         = "finance:view_withheld_tax";
+    public static final String FINANCE_EXPORT_REGULATORY         = "finance:export_regulatory";
+
+    // ── Reinsurance sub-namespace (Phase 10) ─────────────────────────────────
+    public static final String REINSURANCE_VIEW                     = "finance.reinsurance:view";
+    public static final String REINSURANCE_MANAGE_TREATY            = "finance.reinsurance:manage_treaty";
+    public static final String REINSURANCE_CEDE_FACULTATIVE         = "finance.reinsurance:cede_facultative";
+    public static final String REINSURANCE_APPROVE_FACULTATIVE      = "finance.reinsurance:approve_facultative";
+    public static final String REINSURANCE_RECORD_RECOVERY_RECEIVED = "finance.reinsurance:record_recovery_received";
+    public static final String REINSURANCE_WRITEOFF_RECOVERY        = "finance.reinsurance:writeoff_recovery";
+    public static final String REINSURANCE_RESOLVE_REVIEW           = "finance.reinsurance:resolve_review";
+
+    // ── Producer sub-namespace (Phase 11) ────────────────────────────────────
+    public static final String PRODUCER_VIEW                        = "finance.producer:view";
+    public static final String PRODUCER_MANAGE                      = "finance.producer:manage";
+    public static final String PRODUCER_TERMINATE                   = "finance.producer:terminate";
+    public static final String PRODUCER_BACKFILL_REVIEW             = "finance.producer:backfill_review";
+
+    // ── Commission sub-namespace (Phase 11) ──────────────────────────────────
+    public static final String COMMISSION_VIEW                      = "finance.commission:view";
+    public static final String COMMISSION_MANAGE_RATE_CARD          = "finance.commission:manage_rate_card";
+    public static final String COMMISSION_DRAFT_ADJUSTMENT          = "finance.commission:draft_adjustment";
+    public static final String COMMISSION_APPROVE_ADJUSTMENT        = "finance.commission:approve_adjustment";
+    public static final String COMMISSION_CREATE_PAYOUT_RUN         = "finance.commission:create_payout_run";
+    public static final String COMMISSION_APPROVE_PAYOUT_RUN        = "finance.commission:approve_payout_run";
 
     // ── Members ──────────────────────────────────────────────────────────────
     public static final String MEMBERS_VIEW                      = "members:view";
@@ -97,6 +152,8 @@ public final class Permissions {
     public static final String MEMBERS_VIEW_DEPENDANTS           = "members:view_dependants";
     public static final String MEMBERS_MANAGE_WAIVERS            = "members:manage_waivers";
     public static final String MEMBERS_VIEW_HISTORY              = "members:view_history";
+    /** Record a member's death — Phase 5 of the actuarial module (feeds MORTALITY_STUDY exposure). */
+    public static final String MEMBERS_RECORD_DEATH              = "members:record_death";
 
     // ── Providers ────────────────────────────────────────────────────────────
     public static final String PROVIDERS_VIEW                    = "providers:view";
@@ -110,11 +167,87 @@ public final class Permissions {
     public static final String ADMIN_VIEW_AUDIT                  = "admin:view_audit";
     public static final String ADMIN_MANAGE_SETTINGS             = "admin:manage_settings";
     public static final String ADMIN_MANAGE_RULES                = "admin:manage_rules";
+    public static final String ADMIN_BANK_ACCOUNTS_MANAGE        = "admin.bank_accounts:manage";
+
+    // ── AI models registry (Tranche 1 Phase 5) ──────────────────────────────
+    /** Read the currently-active fraud/pricing model version per line + eval metrics. */
+    public static final String AI_MODELS_VIEW                    = "ai:models:view";
+    /** Flip the MinIO manifest to promote a candidate fraud/pricing model version. */
+    public static final String AI_MODELS_PROMOTE                 = "ai:models:promote";
+
+    // ── Tenant settings sub-namespace (Phase 11) ─────────────────────────────
+    public static final String TENANT_SETTINGS_MANAGE_AUTO_LAPSE = "tenant.settings:manage_auto_lapse";
+    /** Enable/disable the endorsement four-eyes gate and configure its threshold (Phase 12 §C). */
+    public static final String TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG = "tenant.settings:manage_endorsement_config";
+    /** Manage the per-tenant persistency / mortality / morbidity basis tables consumed by the actuarial studies (Phase 14 §2). */
+    public static final String TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES    = "tenant.settings:manage_actuarial_bases";
+    /** Manage the per-tenant IFRS 17 admin surfaces — RA methodology, yield curves and expense assumptions (Phase 15 §2). */
+    public static final String TENANT_SETTINGS_MANAGE_IFRS17_CONFIG      = "tenant.settings:manage_ifrs17_config";
+    /** Upload / delete tenant-side overrides of the bundled regulator XLSX templates (Phase 16 §0 REG3). */
+    public static final String TENANT_SETTINGS_MANAGE_REGULATORY_TEMPLATES = "tenant.settings:manage_regulatory_templates";
+    /** Manage the tenant's regulator due-date reminder recipient list (Phase 16 §0 REG20). */
+    public static final String TENANT_SETTINGS_MANAGE_REGULATORY_NOTIFICATIONS = "tenant.settings:manage_regulatory_notifications";
+    /** Manage the per-tenant NAIC company identity (state of domicile / company code / group code / FEIN) — US only (Phase 16 §A / Phase 14 REG16). */
+    public static final String TENANT_SETTINGS_MANAGE_NAIC_CONFIG              = "tenant.settings:manage_naic_config";
+    /** Manage per-tenant statutory tax rates (VAT + Withholding) consumed by the VAT Return + TaxWithheldReturn shapers (Phase 16 §C / Phase 19 REG9). */
+    public static final String TENANT_SETTINGS_MANAGE_TAX_CONFIG               = "tenant.settings:manage_tax_config";
+    /** Manage scheduled report delivery configurations + recipients + run history (Phase 17 §A.1). */
+    public static final String TENANT_SETTINGS_MANAGE_REPORT_SCHEDULES         = "tenant.settings:manage_report_schedules";
+    /** Umbrella tenant-admin capability; gates privileged actions like the test-only scheduled report probe force-fire (Phase 17 §A.2). */
+    public static final String TENANT_SETTINGS_TENANT_ADMIN                    = "tenant.settings:tenant_admin";
+
+    // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
+    public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
+    public static final String UNDERWRITING_COHORT_MANAGE        = "underwriting.cohort:manage";
+    /** Tenant-admin overrides on auto-derived IFRS 17 LRC / LIC opening balances (Phase 15 §7). */
+    public static final String UNDERWRITING_OPENING_BALANCE_MANAGE = "underwriting.opening_balance:manage";
+    /** VFA unit-linked fund catalog + NAV history + variable fee schedule + policy unit ledger (Phase 15 §8). */
+    public static final String UNDERWRITING_FUND_MANAGE            = "underwriting.fund:manage";
+    /** Trigger a targeted earning-schedule backfill / replay for a policy. */
+    public static final String PREMIUM_EARNING_MANAGE_BACKFILL   = "premium.earning:manage_backfill";
+    /** Dev-only read access to raw earning_schedule rows for a policy. */
+    public static final String PREMIUM_EARNING_VIEW_DEBUG        = "premium.earning:view_debug";
+
+    // ── Policy endorsements (Phase 12 §C) ───────────────────────────────────
+    /** Drafter action: create a DRAFT endorsement and read the queue. */
+    public static final String POLICY_DRAFT_ENDORSEMENT          = "policy:draft_endorsement";
+    /** Supervisor action: approve/commit/void/mark-computed on endorsements. Four-eyes counterpart to DRAFT. */
+    public static final String POLICY_APPROVE_ENDORSEMENT        = "policy:approve_endorsement";
+
+    // ── Policy status actions (Phase 13 §A) ─────────────────────────────────
+    /** Operator action: lapse / terminate / suspend / reinstate an annual-bind policy. */
+    public static final String POLICY_STATUS_MANAGE              = "policy:status_manage";
+
+    // ── Compliance / AML (Phase 22 REG8) ────────────────────────────────────
+    /** Raise a new AML/STR alert against a transaction. Front-line staff hold this. */
+    public static final String COMPLIANCE_AML_RAISE              = "compliance:aml_raise";
+    /** Review + triage AML alerts (RAISED → REVIEWED); also grants read access to the queue. */
+    public static final String COMPLIANCE_AML_REVIEW             = "compliance:aml_review";
+    /** File a REVIEWED AML alert with the regulator (REVIEWED → FILED). Compliance lead role. */
+    public static final String COMPLIANCE_AML_FILE               = "compliance:aml_file";
+    /** Close a RAISED|REVIEWED AML alert as not-reportable. */
+    public static final String COMPLIANCE_AML_CLOSE              = "compliance:aml_close";
+    /** Manage per-tenant AML reporting thresholds (Phase 25 REG8). */
+    public static final String COMPLIANCE_AML_CONFIGURE_THRESHOLDS = "compliance:aml_configure_thresholds";
 
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
     public static final String PLATFORM_VIEW_JOBS                = "platform:view_jobs";
     public static final String PLATFORM_MANAGE_JOBS              = "platform:manage_jobs";
+
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  owner-service scheduled-render endpoints (Phase 17 §A.3). Never grant to a human role. */
+    public static final String SCHEDULED_REPORT_RENDER           = "scheduled_report:render";
+
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  contributions-service cross-service aggregate feeds used by the Phase 18 executive KPI
+     *  composer. Never grant to a human role. */
+    public static final String CONTRIBUTIONS_READ_AGGREGATE      = "contributions:read_aggregate";
+
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  claims-service cross-service aggregate feeds used by the Phase 18 executive KPI composer.
+     *  Never grant to a human role. */
+    public static final String CLAIMS_READ_AGGREGATE             = "claims:read_aggregate";
 
     /** Every key the platform recognises. Validation gate for tenant-admin role edits. */
     public static final Set<String> ALL = Set.of(
@@ -124,6 +257,10 @@ public final class Permissions {
             CLAIMS_MANAGE_MODIFIERS, CLAIMS_MANAGE_REJECTION_REASONS,
             CLAIMS_MANAGE_VERIFICATION_CODES, CLAIMS_ASSIGN,
             CLAIMS_VIEW_CTC_PAYMENTS, CLAIMS_COMMIT_CTC_PAYMENT,
+            CLAIMS_REQUEST_QUOTE,
+            CLAIMS_SET_RESERVE,
+            CLAIMS_SIU_VIEW, CLAIMS_SIU_CREATE, CLAIMS_SIU_INVESTIGATE, CLAIMS_SIU_ADMIN,
+            CLAIMS_SIU_ASSIGN, CLAIMS_SIU_APPROVE, CLAIMS_SIU_REOPEN, CLAIMS_SIU_REFER,
 
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,
@@ -137,19 +274,52 @@ public final class Permissions {
             FINANCE_APPROVE_ADVANCE_PAYMENT, FINANCE_REVERSE_ADVANCE_PAYMENT,
             FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_REVERSE_CTC_PAYMENT, FINANCE_VIEW_MEMBER_PAYABLES,
             FINANCE_CONFIGURE_AUTO_CTC,
-            FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
-            FINANCE_POST_ADJUSTMENTS, FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
+            FINANCE_MANAGE_RECEIPTS,
+            FINANCE_POST_ADJUSTMENTS,
+            FINANCE_NOTES_READ, FINANCE_NOTES_WRITE, FINANCE_NOTES_APPROVE,
+            FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
             FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE, FINANCE_GENERATE_PAYMENT_ADVICE,
-            FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_WITHHELD_TAX,
+            FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_MEMBER_LIABILITIES,
+            FINANCE_VIEW_WITHHELD_TAX,
+            REINSURANCE_VIEW, REINSURANCE_MANAGE_TREATY,
+            REINSURANCE_CEDE_FACULTATIVE, REINSURANCE_APPROVE_FACULTATIVE,
+            REINSURANCE_RECORD_RECOVERY_RECEIVED, REINSURANCE_WRITEOFF_RECOVERY,
+            REINSURANCE_RESOLVE_REVIEW,
+            PRODUCER_VIEW, PRODUCER_MANAGE, PRODUCER_TERMINATE, PRODUCER_BACKFILL_REVIEW,
+            COMMISSION_VIEW, COMMISSION_MANAGE_RATE_CARD,
+            COMMISSION_DRAFT_ADJUSTMENT, COMMISSION_APPROVE_ADJUSTMENT,
+            COMMISSION_CREATE_PAYOUT_RUN, COMMISSION_APPROVE_PAYOUT_RUN,
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,
             MEMBERS_VIEW_DEPENDANTS, MEMBERS_MANAGE_WAIVERS, MEMBERS_VIEW_HISTORY,
+            MEMBERS_RECORD_DEATH,
 
             PROVIDERS_VIEW, PROVIDERS_CREATE, PROVIDERS_UPDATE, PROVIDERS_MANAGE_CONTRACTS,
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
-            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES,
+            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
+            AI_MODELS_VIEW, AI_MODELS_PROMOTE,
+            TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
+            TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES, TENANT_SETTINGS_MANAGE_IFRS17_CONFIG,
+            TENANT_SETTINGS_MANAGE_REGULATORY_TEMPLATES,
+            TENANT_SETTINGS_MANAGE_REGULATORY_NOTIFICATIONS,
+            TENANT_SETTINGS_MANAGE_NAIC_CONFIG,
+            TENANT_SETTINGS_MANAGE_TAX_CONFIG,
+            TENANT_SETTINGS_MANAGE_REPORT_SCHEDULES,
+            TENANT_SETTINGS_TENANT_ADMIN,
 
-            PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
+            UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
+            UNDERWRITING_OPENING_BALANCE_MANAGE,
+            PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,
+            POLICY_DRAFT_ENDORSEMENT, POLICY_APPROVE_ENDORSEMENT,
+            POLICY_STATUS_MANAGE,
+
+            COMPLIANCE_AML_RAISE, COMPLIANCE_AML_REVIEW, COMPLIANCE_AML_FILE, COMPLIANCE_AML_CLOSE,
+            COMPLIANCE_AML_CONFIGURE_THRESHOLDS,
+
+            PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS,
+
+            SCHEDULED_REPORT_RENDER,
+            CONTRIBUTIONS_READ_AGGREGATE, CLAIMS_READ_AGGREGATE
     );
 }

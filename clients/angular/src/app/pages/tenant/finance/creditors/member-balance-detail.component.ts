@@ -4,11 +4,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
-  Adjustment,
   CtcPaymentRow,
   FinanceService,
   MemberBalance,
   MemberPayable,
+  Note,
   Payment,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
@@ -16,8 +16,9 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
-type Tab = 'payables' | 'ctcs' | 'payments' | 'adjustments';
+type Tab = 'payables' | 'ctcs' | 'payments' | 'notes';
 
 /**
  * Member-side counterpart to {@link ProviderBalanceDetailComponent}. Member
@@ -39,9 +40,8 @@ export class MemberBalanceDetailComponent implements OnInit {
   payables: MemberPayable[] = [];
   ctcs: CtcPaymentRow[] = [];
   payments: Payment[] = [];
-  adjustments: Adjustment[] = [];
+  notes: Note[] = [];
   loading = false;
-  errorMessage: string | null = null;
   revokingId: string | null = null;
   activeTab: Tab = 'payables';
 
@@ -57,7 +57,7 @@ export class MemberBalanceDetailComponent implements OnInit {
   ngOnInit(): void {
     this.memberId = this.route.snapshot.paramMap.get('id');
     if (!this.memberId) {
-      this.errorMessage = 'No member id';
+      this.toast.error('No member id');
       return;
     }
     this.refresh();
@@ -71,18 +71,18 @@ export class MemberBalanceDetailComponent implements OnInit {
       payables:   this.finance.listOpenPayablesForMember(this.memberId).pipe(catchError(() => of([] as MemberPayable[]))),
       ctcs:       this.finance.listCtcPaymentsPaged({ memberId: this.memberId, size: 200 }).pipe(catchError(() => of({ content: [] as CtcPaymentRow[], total: 0, page: 0, size: 0, totalPages: 0 }))),
       payments:   this.finance.getPaymentsByMember(this.memberId).pipe(catchError(() => of([] as Payment[]))),
-      adjustments: this.finance.getAdjustmentsByMember(this.memberId).pipe(catchError(() => of([] as Adjustment[]))),
+      notes: this.finance.getNotesByMember(this.memberId).pipe(catchError(() => of([] as Note[]))),
     }).subscribe({
-      next: ({ balances, payables, ctcs, payments, adjustments }) => {
-        this.balances    = balances;
-        this.payables    = payables;
-        this.ctcs        = ctcs.content;
-        this.payments    = payments;
-        this.adjustments = adjustments;
-        this.loading     = false;
+      next: ({ balances, payables, ctcs, payments, notes }) => {
+        this.balances = balances;
+        this.payables = payables;
+        this.ctcs     = ctcs.content;
+        this.payments = payments;
+        this.notes    = notes;
+        this.loading  = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load member';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member'));
         this.loading = false;
       },
     });
@@ -94,11 +94,15 @@ export class MemberBalanceDetailComponent implements OnInit {
     this.router.navigate(['/tenant/finance/creditors']);
   }
 
+  balanceHistory(): void {
+    if (this.memberId) this.router.navigate(['/tenant/finance/reports/balance-history/member', this.memberId]);
+  }
+
   get displayName(): string {
     const withName = this.balances.find(b => b.memberName);
     if (withName?.memberName) return withName.memberName;
     const withCode = this.balances.find(b => b.memberCode);
-    return withCode?.memberCode ?? (this.memberId ?? '—');
+    return withCode?.memberCode ?? (this.memberId ?? '-');
   }
 
   /**
@@ -120,7 +124,7 @@ export class MemberBalanceDetailComponent implements OnInit {
       },
       error: (err) => {
         this.revokingId = null;
-        this.toast.error(err?.error?.detail || `Failed to revoke ${payment.paymentNumber}`);
+        this.toast.error(extractErrorMessage(err, `Failed to revoke ${payment.paymentNumber}`));
       },
     });
   }

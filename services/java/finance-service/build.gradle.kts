@@ -16,6 +16,9 @@ dependencies {
     // Landed with CtcPaymentServiceIT — Phase 3 extends the same harness for
     // the CTC offset round-trip test.
     testImplementation(testFixtures(project(":shared")))
+    // okhttp MockWebServer for stubbing the claims/contributions peer HTTP
+    // surfaces in CrossServiceReportControllerIT (Phase 5A fanout tests).
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Flyway 10 split Postgres support out of flyway-core. See
     // contributions-service/build.gradle.kts for the same guard.
     testRuntimeOnly("org.flywaydb:flyway-database-postgresql")

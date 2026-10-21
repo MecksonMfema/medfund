@@ -9,6 +9,7 @@ import {
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { MembersService, Member } from '../../../../core/services/members.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * Component-level spec for ChargePreviewComponent. Drives the class
@@ -21,6 +22,7 @@ describe('ChargePreviewComponent', () => {
   let members: jasmine.SpyObj<MembersService>;
   let currency: jasmine.SpyObj<CurrencyService>;
   let tenant: TenantService & { tenant$: BehaviorSubject<any> };
+  let toast: jasmine.SpyObj<ToastService>;
   let component: ChargePreviewComponent;
 
   const usdCfg: TenantCurrencyConfig = {
@@ -54,7 +56,9 @@ describe('ChargePreviewComponent', () => {
       getTenantId: () => 't1',
     } as unknown as TenantService & { tenant$: BehaviorSubject<any> };
 
-    component = new ChargePreviewComponent(contributions, members, currency, tenant);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning']);
+
+    component = new ChargePreviewComponent(contributions, members, currency, tenant, toast);
   });
 
   afterEach(() => component.ngOnDestroy());
@@ -284,7 +288,7 @@ describe('ChargePreviewComponent', () => {
 
       component.fetch();
 
-      expect(component.errorMessage).toBe('nope');
+      expect(toast.error).toHaveBeenCalledWith('nope');
       expect(component.preview).toBeNull();
       expect(component.loading).toBeFalse();
     });

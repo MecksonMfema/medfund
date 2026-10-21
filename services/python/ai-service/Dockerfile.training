@@ -1,0 +1,21 @@
+# Training-only image for the Phase 6 weekly retraining CronJob. Reuses the
+# runtime dependencies so the trainer sees the exact scikit-learn version the
+# runtime will load the joblib against — a divergence there is the classic
+# way to ship an artifact that only works in prod.
+FROM python:3.12-slim AS build
+WORKDIR /app
+RUN pip install uv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=build /app/.venv /app/.venv
+COPY app/ app/
+COPY scripts/ scripts/
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+# The CronJob wraps this with args (--line <LINE> --output-version <SEMVER>);
+# ENTRYPOINT stays flexible so the same image also runs evaluate_model +
+# promote_model + notify_slack.
+ENTRYPOINT ["python", "-m"]

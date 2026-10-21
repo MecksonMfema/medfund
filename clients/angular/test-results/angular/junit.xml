@@ -1,0 +1,663 @@
+<?xml version="1.0"?>
+<testsuite name="Chrome Headless 148.0.0.0 (Linux 0.0.0)" package="" timestamp="2026-08-24T08:48:16" id="0" hostname="methuseli-mfema-ASUS-V16-V3607VH-V3607VH" tests="592" errors="0" failures="1" time="0.897">
+  <properties>
+    <property name="browser.fullName" value="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.0.0 Safari/537.36"/>
+  </properties>
+  <testcase name="TenantAutoLapseConfigService PUT /tenants/{id}/auto-lapse-config sends the update payload" time="0.02" classname="TenantAutoLapseConfigService"/>
+  <testcase name="TenantAutoLapseConfigService GET /tenants/{id}/auto-lapse-config returns the config" time="0.003" classname="TenantAutoLapseConfigService"/>
+  <testcase name="TenantAutoLapseConfigService PUT accepts a disabled payload with null threshold and grace" time="0.002" classname="TenantAutoLapseConfigService"/>
+  <testcase name="ChangeGroupModalComponent omits reason when the operator left it blank" time="0.1" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent flips isBackdated() based on effective date" time="0.007" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent emits cancel when Cancel button-equivalent is invoked" time="0.006" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent rejects submit when no target group is picked" time="0.011" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent emits the payload members.service expects when submitted" time="0.006" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent snaps mid-month effective_date to day 1 on blur" time="0.006" classname="ChangeGroupModalComponent"/>
+  <testcase name="ChangeGroupModalComponent reset() clears every field so a re-open shows a clean form" time="0.005" classname="ChangeGroupModalComponent"/>
+  <testcase name="OperationalSidebarComponent captures tenant branding on tenant emission" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent shows Groups for a GROUP_ONLY tenant" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent shows Groups when membershipModel is missing (back-compat default = BOTH)" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent rebuilds nav when the tenant snapshot changes" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent hides groups whose every item is permission-filtered out" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent toggleSidebar delegates to the NavigationService" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent reads collapsed state from the NavigationService stream" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent reveals a group when the user gains one of its item permissions" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent hides Age Groups when the tenant has only asset-centric insurance lines" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent shows Age Groups when the tenant has at least one person-centric line" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent declares Members with exactMatch so the parent stops highlighting on child routes" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent shows every nav group for a super admin" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent hides Groups for an INDIVIDUAL_ONLY tenant" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent unsubscribes from all observables on destroy" time="0" classname="OperationalSidebarComponent"/>
+  <testcase name="OperationalSidebarComponent substitutes the tenant Scheme plural label when present" time="0.001" classname="OperationalSidebarComponent"/>
+  <testcase name="BenefitFormComponent (V063 categories multi-select) edit_prepopulatesCategoryIdsFromResponse" time="0.002" classname="BenefitFormComponent (V063 categories multi-select)"/>
+  <testcase name="BenefitFormComponent (V063 categories multi-select) toggleCategory_addsAndRemoves" time="0.001" classname="BenefitFormComponent (V063 categories multi-select)"/>
+  <testcase name="BenefitFormComponent (V063 categories multi-select) submit_valid_callsCreateWithCategoryIdsInPayload" time="0.001" classname="BenefitFormComponent (V063 categories multi-select)"/>
+  <testcase name="BenefitFormComponent (V063 categories multi-select) submit_emptyCategoryIds_setsErrorAndSkipsService" time="0.001" classname="BenefitFormComponent (V063 categories multi-select)"/>
+  <testcase name="rootRedirectGuard triggers Keycloak login when unauthenticated" time="0.002" classname="rootRedirectGuard"/>
+  <testcase name="rootRedirectGuard routes tenant-only users to the tenant operational dashboard" time="0.002" classname="rootRedirectGuard"/>
+  <testcase name="rootRedirectGuard routes super_admin to the platform dashboard" time="0.002" classname="rootRedirectGuard"/>
+  <testcase name="rootRedirectGuard routes role-less users to /unauthorized" time="0.001" classname="rootRedirectGuard"/>
+  <testcase name="rootRedirectGuard redirects to /unauthorized when getUserRoles throws" time="0.002" classname="rootRedirectGuard"/>
+  <testcase name="insurance-lines parsers parseProviderRegLabel returns empty string when key is missing" time="0" classname="insurance-lines parsers parseProviderRegLabel"/>
+  <testcase name="insurance-lines parsers parseProviderRegLabel returns providerRegLabel when present" time="0.001" classname="insurance-lines parsers parseProviderRegLabel"/>
+  <testcase name="insurance-lines parsers parseProviderRegLabel returns empty string for null / empty / malformed inputs" time="0" classname="insurance-lines parsers parseProviderRegLabel"/>
+  <testcase name="insurance-lines parsers parseInsuranceLines returns [] for malformed JSON without throwing" time="0.001" classname="insurance-lines parsers parseInsuranceLines"/>
+  <testcase name="insurance-lines parsers parseInsuranceLines returns [] when insuranceLines is missing or not an array" time="0" classname="insurance-lines parsers parseInsuranceLines"/>
+  <testcase name="insurance-lines parsers parseInsuranceLines returns the configured lines preserving order" time="0" classname="insurance-lines parsers parseInsuranceLines"/>
+  <testcase name="insurance-lines parsers parseInsuranceLines returns [] for null, undefined, and empty settings" time="0" classname="insurance-lines parsers parseInsuranceLines"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine PROPERTY carries address + incident; no medical fields" time="0" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine HEALTH exposes the full itemised-claim field set" time="0" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine VEHICLE has incident + registration fields, no tariff or diagnosis" time="0.001" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine FUNERAL requires death certificate + relationship" time="0" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine unknown / null / undefined lines fall back to HEALTH" time="0.001" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers claimFieldsForLine every configured insurance line has a field set" time="0" classname="insurance-lines parsers claimFieldsForLine"/>
+  <testcase name="insurance-lines parsers schemeTypesForLines falls back to HEALTH when lines is empty" time="0" classname="insurance-lines parsers schemeTypesForLines"/>
+  <testcase name="insurance-lines parsers schemeTypesForLines silently drops unknown lines without throwing" time="0" classname="insurance-lines parsers schemeTypesForLines"/>
+  <testcase name="insurance-lines parsers schemeTypesForLines returns only the requested line for a single-line tenant" time="0.001" classname="insurance-lines parsers schemeTypesForLines"/>
+  <testcase name="insurance-lines parsers schemeTypesForLines preserves line order across the union" time="0" classname="insurance-lines parsers schemeTypesForLines"/>
+  <testcase name="insurance-lines parsers schemeTypesForLines every catalogue line resolves to at least one option" time="0" classname="insurance-lines parsers schemeTypesForLines"/>
+  <testcase name="insurance-lines parsers insuranceLineLabel returns the raw value for an unknown line — fail-open, never blank" time="0.001" classname="insurance-lines parsers insuranceLineLabel"/>
+  <testcase name="insurance-lines parsers insuranceLineLabel returns the catalogue label for a known line" time="0" classname="insurance-lines parsers insuranceLineLabel"/>
+  <testcase name="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType returns the correct line for sample known codes" time="0" classname="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType"/>
+  <testcase name="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType maps every code in SCHEME_TYPES_BY_LINE to its declaring line" time="0.001" classname="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType"/>
+  <testcase name="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType falls back to HEALTH for unknown / blank / null inputs" time="0" classname="insurance-lines parsers LINE_FOR_SCHEME_TYPE / lineForSchemeType"/>
+  <testcase name="insurance-lines parsers providerModeForLine lines that can be provider-paid OR member-reimbursed are OPTIONAL" time="0.002" classname="insurance-lines parsers providerModeForLine">
+    <failure type="">HEALTH allows either a provider OR a member reimbursement: Expected 'REQUIRED' to be 'OPTIONAL'.
+    at &lt;Jasmine&gt;
+    at UserContext.apply (src/app/core/models/insurance-lines.spec.ts:344:12)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+    at ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+</failure>
+    <failure type="">GROUP allows either a provider OR a member reimbursement: Expected 'REQUIRED' to be 'OPTIONAL'.
+    at &lt;Jasmine&gt;
+    at UserContext.apply (src/app/core/models/insurance-lines.spec.ts:344:12)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+    at ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+</failure>
+    <failure type="">TRAVEL allows either a provider OR a member reimbursement: Expected 'REQUIRED' to be 'OPTIONAL'.
+    at &lt;Jasmine&gt;
+    at UserContext.apply (src/app/core/models/insurance-lines.spec.ts:344:12)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+    at ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+</failure>
+    <failure type="">VEHICLE allows either a provider OR a member reimbursement: Expected 'REQUIRED' to be 'OPTIONAL'.
+    at &lt;Jasmine&gt;
+    at UserContext.apply (src/app/core/models/insurance-lines.spec.ts:344:12)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+    at ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+</failure>
+    <failure type="">PROPERTY allows either a provider OR a member reimbursement: Expected 'REQUIRED' to be 'OPTIONAL'.
+    at &lt;Jasmine&gt;
+    at UserContext.apply (src/app/core/models/insurance-lines.spec.ts:344:12)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+    at ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+</failure>
+  </testcase>
+  <testcase name="insurance-lines parsers providerModeForLine LIFE and DISABILITY are always paid to the member (FORBIDDEN)" time="0" classname="insurance-lines parsers providerModeForLine"/>
+  <testcase name="insurance-lines parsers providerModeForLine unknown / null / undefined lines default to OPTIONAL" time="0.001" classname="insurance-lines parsers providerModeForLine"/>
+  <testcase name="insurance-lines parsers providerModeForLine every configured line has an explicit policy" time="0" classname="insurance-lines parsers providerModeForLine"/>
+  <testcase name="insurance-lines parsers isPersonCentricLine PERSON_CENTRIC_LINES covers every non-asset catalogue entry" time="0.001" classname="insurance-lines parsers isPersonCentricLine"/>
+  <testcase name="insurance-lines parsers isPersonCentricLine returns true for person-centric lines" time="0" classname="insurance-lines parsers isPersonCentricLine"/>
+  <testcase name="insurance-lines parsers isPersonCentricLine returns false for asset-centric lines" time="0" classname="insurance-lines parsers isPersonCentricLine"/>
+  <testcase name="insurance-lines parsers isPersonCentricLine returns false for unknown / null / undefined inputs" time="0" classname="insurance-lines parsers isPersonCentricLine"/>
+  <testcase name="insurance-lines parsers usesLineItems LINE_ITEM_LINES stays in sync with usesLineItems()" time="0" classname="insurance-lines parsers usesLineItems"/>
+  <testcase name="insurance-lines parsers usesLineItems false for asset / event / benefit lines" time="0" classname="insurance-lines parsers usesLineItems"/>
+  <testcase name="insurance-lines parsers usesLineItems false for missing / unknown line" time="0" classname="insurance-lines parsers usesLineItems"/>
+  <testcase name="insurance-lines parsers usesLineItems true only for lines with an itemised body (HEALTH / GROUP / TRAVEL)" time="0" classname="insurance-lines parsers usesLineItems"/>
+  <testcase name="insurance-lines parsers hasClaimField is a thin convenience over the set" time="0" classname="insurance-lines parsers hasClaimField"/>
+  <testcase name="insurance-lines parsers parseDrugClaimsEnabled defaults to true for null, empty, and {} settings" time="0" classname="insurance-lines parsers parseDrugClaimsEnabled"/>
+  <testcase name="insurance-lines parsers parseDrugClaimsEnabled coerces truthy values" time="0.001" classname="insurance-lines parsers parseDrugClaimsEnabled"/>
+  <testcase name="insurance-lines parsers parseDrugClaimsEnabled honours an explicit false" time="0" classname="insurance-lines parsers parseDrugClaimsEnabled"/>
+  <testcase name="insurance-lines parsers parseDrugClaimsEnabled honours an explicit true" time="0" classname="insurance-lines parsers parseDrugClaimsEnabled"/>
+  <testcase name="insurance-lines parsers parseDrugClaimsEnabled defaults to true for malformed JSON" time="0" classname="insurance-lines parsers parseDrugClaimsEnabled"/>
+  <testcase name="insurance-lines parsers deriveProviderRegLabel returns the generic label when no line matches the catalogue" time="0.001" classname="insurance-lines parsers deriveProviderRegLabel"/>
+  <testcase name="insurance-lines parsers deriveProviderRegLabel skips unknown lines until it finds a match" time="0" classname="insurance-lines parsers deriveProviderRegLabel"/>
+  <testcase name="insurance-lines parsers deriveProviderRegLabel returns the generic label when no lines are configured" time="0" classname="insurance-lines parsers deriveProviderRegLabel"/>
+  <testcase name="insurance-lines parsers deriveProviderRegLabel returns the first matching line's registrationLabel" time="0" classname="insurance-lines parsers deriveProviderRegLabel"/>
+  <testcase name="insurance-lines parsers parseSchemeTerminology reads the configured terminology" time="0.001" classname="insurance-lines parsers parseSchemeTerminology"/>
+  <testcase name="insurance-lines parsers parseSchemeTerminology returns the default Scheme / Schemes for null / empty / malformed inputs" time="0" classname="insurance-lines parsers parseSchemeTerminology"/>
+  <testcase name="insurance-lines parsers parseSchemeTerminology falls back to the default when one half is missing" time="0" classname="insurance-lines parsers parseSchemeTerminology"/>
+  <testcase name="permissionGuard allows immediately when the user already holds a required permission" time="0.002" classname="permissionGuard"/>
+  <testcase name="permissionGuard bypasses for super admins even with an empty permission set" time="0.002" classname="permissionGuard"/>
+  <testcase name="permissionGuard waits for the permission set to populate then allows" time="0.002" classname="permissionGuard"/>
+  <testcase name="permissionGuard falls through to /unauthorized when permissions never arrive (2s timeout)" time="0.003" classname="permissionGuard"/>
+  <testcase name="permissionGuard triggers Keycloak login when unauthenticated" time="0.001" classname="permissionGuard"/>
+  <testcase name="DeactivateDependantModalComponent emits payload with the snapped date on submit" time="0.011" classname="DeactivateDependantModalComponent"/>
+  <testcase name="DeactivateDependantModalComponent defaults effectiveDate to end of the current month" time="0.003" classname="DeactivateDependantModalComponent"/>
+  <testcase name="DeactivateDependantModalComponent snaps mid-month picks to end-of-month on blur" time="0.003" classname="DeactivateDependantModalComponent"/>
+  <testcase name="TenantEndorsementConfigService PUT /tenants/{id}/endorsement-config sends the enabled payload verbatim" time="0.002" classname="TenantEndorsementConfigService"/>
+  <testcase name="TenantEndorsementConfigService PUT accepts a disabled payload with nulled threshold + currency" time="0.001" classname="TenantEndorsementConfigService"/>
+  <testcase name="TenantEndorsementConfigService GET /tenants/{id}/endorsement-config returns the config" time="0.001" classname="TenantEndorsementConfigService"/>
+  <testcase name="CommissionReportService GET /reports/commission/clawback-register/export/excel returns a blob" time="0.002" classname="CommissionReportService"/>
+  <testcase name="CommissionReportService GET /reports/commission/clawback-register omits source when blank" time="0.001" classname="CommissionReportService"/>
+  <testcase name="CommissionReportService GET /reports/commission/clawback-register forwards source filter" time="0.001" classname="CommissionReportService"/>
+  <testcase name="CommissionReportService GET /reports/commission/statement/export/excel returns a blob" time="0.002" classname="CommissionReportService"/>
+  <testcase name="CommissionReportService GET /reports/commission/statement with period + producer + reporting currency" time="0.002" classname="CommissionReportService"/>
+  <testcase name="CommissionReportService GET /reports/commission/statement omits optional producer + currency when unset" time="0.001" classname="CommissionReportService"/>
+  <testcase name="roleGuard allows when the user holds any of the required roles" time="0.002" classname="roleGuard"/>
+  <testcase name="roleGuard triggers Keycloak login when unauthenticated" time="0.001" classname="roleGuard"/>
+  <testcase name="roleGuard redirects to /unauthorized when no required role is held" time="0.001" classname="roleGuard"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() returns three actions when status is active" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() returns reinstate + lapse + terminate for suspended" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() returns empty for terminated (no actions on a closed policy)" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() returns empty for unknown status without throwing" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() returns reinstate + terminate for lapsed" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService actionsFor() is case-insensitive on the status" time="0.001" classname="PolicyLifecycleActionRegistryService actionsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() FUNERAL does not have MORTALITY" time="0.001" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() VEHICLE has TOTAL_LOSS + STORAGE_SUSPEND but not INSURED_EVENT" time="0.001" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() LIFE has MORTALITY in its vocab" time="0" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() TRAVEL has TRIP_CANCELLED but not MORTALITY" time="0.001" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() every source includes ADMIN_CORRECTION as an escape hatch" time="0.001" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService reasonsFor() PROPERTY has TOTAL_LOSS but not STORAGE_SUSPEND" time="0.001" classname="PolicyLifecycleActionRegistryService reasonsFor()"/>
+  <testcase name="PolicyLifecycleActionRegistryService endpointFor() builds the correct REST path per source + action" time="0.001" classname="PolicyLifecycleActionRegistryService"/>
+  <testcase name="CommissionAdjustmentService GET /commission/adjustments/{id} on detail lookup" time="0.001" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService GET /commission/adjustments — default (no status filter) with page + size" time="0.002" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService PUT /commission/adjustments/{id}/commit on commit" time="0.001" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService POST /commission/adjustments/{id}/void with the reason body" time="0.001" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService POST /commission/adjustments with the create payload" time="0.001" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService PUT /commission/adjustments/{id}/approve on approve" time="0.001" classname="CommissionAdjustmentService"/>
+  <testcase name="CommissionAdjustmentService GET /commission/adjustments?status=DRAFT when status is narrowed" time="0.002" classname="CommissionAdjustmentService"/>
+  <testcase name="GroupFormComponent create mode (no route id) surfaces error detail without navigating away" time="0.001" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) accepts submit with only an email (no liaison)" time="0" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) rejects submit when neither liaison nor email is present" time="0.001" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) accepts submit with only a liaison (no email)" time="0" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) navigates back to /tenant/billing/groups on success" time="0" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) omits registrationNumber from the create payload" time="0.001" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) rejects submit when name is blank" time="0" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent create mode (no route id) does not call findById + leaves registrationNumber null" time="0" classname="GroupFormComponent create mode (no route id)"/>
+  <testcase name="GroupFormComponent edit mode (route id present) omits registrationNumber from the update payload" time="0" classname="GroupFormComponent edit mode (route id present)"/>
+  <testcase name="GroupFormComponent edit mode (route id present) populates the form from the loaded group without registrationNumber" time="0" classname="GroupFormComponent edit mode (route id present)"/>
+  <testcase name="GroupFormComponent edit mode (route id present) surfaces load-time errors from findById" time="0.001" classname="GroupFormComponent edit mode (route id present)"/>
+  <testcase name="GroupFormComponent edit mode (route id present) allows submit without a liaison + email in edit mode (backend guards)" time="0" classname="GroupFormComponent edit mode (route id present)"/>
+  <testcase name="GroupFormComponent edit mode (route id present) calls findById and surfaces registrationNumber read-only" time="0" classname="GroupFormComponent edit mode (route id present)"/>
+  <testcase name="GroupFormComponent onLiaisonSelected clears everything when the picker emits null" time="0.001" classname="GroupFormComponent onLiaisonSelected"/>
+  <testcase name="GroupFormComponent onLiaisonSelected applies the selection to form + prefill state" time="0" classname="GroupFormComponent onLiaisonSelected"/>
+  <testcase name="TariffCategoriesService (V063 catalogue) deactivate_deletesWithId" time="0.002" classname="TariffCategoriesService (V063 catalogue)"/>
+  <testcase name="TariffCategoriesService (V063 catalogue) update_putsWithId" time="0.001" classname="TariffCategoriesService (V063 catalogue)"/>
+  <testcase name="TariffCategoriesService (V063 catalogue) create_postsPayload" time="0.001" classname="TariffCategoriesService (V063 catalogue)"/>
+  <testcase name="TariffCategoriesService (V063 catalogue) list_getsFromCorrectEndpointWithActiveOnlyQueryParam" time="0.001" classname="TariffCategoriesService (V063 catalogue)"/>
+  <testcase name="BadDebtsListComponent page-reset invariants onCurrencyChange resets page to 1" time="0.001" classname="BadDebtsListComponent page-reset invariants"/>
+  <testcase name="BadDebtsListComponent page-reset invariants selectTab resets page to 1 and reflects the new filter in the request" time="0" classname="BadDebtsListComponent page-reset invariants"/>
+  <testcase name="BadDebtsListComponent page-reset invariants onPageChange updates page without resetting activeTab or searchTerm" time="0.001" classname="BadDebtsListComponent page-reset invariants"/>
+  <testcase name="BadDebtsListComponent page-reset invariants selectTab does nothing when the same tab is clicked twice" time="0" classname="BadDebtsListComponent page-reset invariants"/>
+  <testcase name="BadDebtsListComponent search debounce deduplicates identical consecutive searches" time="0.002" classname="BadDebtsListComponent search debounce"/>
+  <testcase name="BadDebtsListComponent search debounce waits 400ms before triggering a fetch and resets page to 1" time="0.001" classname="BadDebtsListComponent search debounce"/>
+  <testcase name="BadDebtsListComponent exportExcel does nothing when no currency is selected" time="0.001" classname="BadDebtsListComponent exportExcel"/>
+  <testcase name="BadDebtsListComponent exportExcel surfaces a toast on export failure and clears the exporting flag" time="0" classname="BadDebtsListComponent exportExcel"/>
+  <testcase name="BadDebtsListComponent exportExcel produces a filename of shape bad-debts-&lt;currency>-&lt;tab-slug>-&lt;YYYY-MM-DD>.xlsx" time="0.001" classname="BadDebtsListComponent exportExcel"/>
+  <testcase name="BadDebtsListComponent exportExcel omits the tab-slug when activeTab is null (All tab)" time="0.001" classname="BadDebtsListComponent exportExcel"/>
+  <testcase name="BadDebtsListComponent exportExcel guards against double-click by refusing while exporting=true" time="0" classname="BadDebtsListComponent exportExcel"/>
+  <testcase name="BadDebtsListComponent rebuildTabs (via tenant$ subscription) BOTH model renders three tabs and defaults activeTab to null (All)" time="0.001" classname="BadDebtsListComponent rebuildTabs (via tenant$ subscription)"/>
+  <testcase name="BadDebtsListComponent rebuildTabs (via tenant$ subscription) GROUP_ONLY hides tabs and pins subject-type filter to GROUP" time="0" classname="BadDebtsListComponent rebuildTabs (via tenant$ subscription)"/>
+  <testcase name="BadDebtsListComponent rebuildTabs (via tenant$ subscription) falls back to BOTH when membershipModel is undefined" time="0" classname="BadDebtsListComponent rebuildTabs (via tenant$ subscription)"/>
+  <testcase name="BadDebtsListComponent rebuildTabs (via tenant$ subscription) INDIVIDUAL_ONLY hides tabs and pins subject-type filter to MEMBER" time="0" classname="BadDebtsListComponent rebuildTabs (via tenant$ subscription)"/>
+  <testcase name="ChargePreviewComponent auto-refresh (30s interval) skips the tick when a fetch is already in flight" time="0.001" classname="ChargePreviewComponent auto-refresh (30s interval)"/>
+  <testcase name="ChargePreviewComponent auto-refresh (30s interval) refetches on tick when a target is picked and not loading" time="0.001" classname="ChargePreviewComponent auto-refresh (30s interval)"/>
+  <testcase name="ChargePreviewComponent auto-refresh (30s interval) skips ticks entirely when no target is picked" time="0" classname="ChargePreviewComponent auto-refresh (30s interval)"/>
+  <testcase name="ChargePreviewComponent tab configuration from membershipModel INDIVIDUAL_ONLY hides tabs and pins to MEMBER" time="0" classname="ChargePreviewComponent tab configuration from membershipModel"/>
+  <testcase name="ChargePreviewComponent tab configuration from membershipModel GROUP_ONLY hides tabs and pins to GROUP" time="0" classname="ChargePreviewComponent tab configuration from membershipModel"/>
+  <testcase name="ChargePreviewComponent tab configuration from membershipModel BOTH model shows the tab strip and defaults to GROUP" time="0" classname="ChargePreviewComponent tab configuration from membershipModel"/>
+  <testcase name="ChargePreviewComponent fetch error path surfaces error detail and clears loading + preview" time="0" classname="ChargePreviewComponent fetch error path"/>
+  <testcase name="ChargePreviewComponent ngOnDestroy tears down every subscription unsubscribes the tenant$, debounce, and interval subs" time="0" classname="ChargePreviewComponent ngOnDestroy tears down every subscription"/>
+  <testcase name="ChargePreviewComponent ngOnDestroy tears down every subscription interval stops firing after ngOnDestroy" time="0.001" classname="ChargePreviewComponent ngOnDestroy tears down every subscription"/>
+  <testcase name="ChargePreviewComponent pickTarget triggers fetch passes undefined currency when &quot;All currencies&quot; is selected (empty string)" time="0" classname="ChargePreviewComponent pickTarget triggers fetch"/>
+  <testcase name="ChargePreviewComponent pickTarget triggers fetch calls chargePreview with the picked target + active tab + currency" time="0.001" classname="ChargePreviewComponent pickTarget triggers fetch"/>
+  <testcase name="ChargePreviewComponent onCurrencyChange does nothing when no target is picked" time="0.001" classname="ChargePreviewComponent onCurrencyChange"/>
+  <testcase name="ChargePreviewComponent onCurrencyChange refetches when a target is picked" time="0" classname="ChargePreviewComponent onCurrencyChange"/>
+  <testcase name="ChargePreviewComponent selectTab switching from GROUP to MEMBER clears target + preview" time="0.001" classname="ChargePreviewComponent selectTab"/>
+  <testcase name="ChargePreviewComponent selectTab no-op when the same tab is clicked twice" time="0" classname="ChargePreviewComponent selectTab"/>
+  <testcase name="ChargePreviewComponent search routing by activeTab GROUP tab hits searchGroups and shapes the option" time="0.001" classname="ChargePreviewComponent search routing by activeTab"/>
+  <testcase name="ChargePreviewComponent search routing by activeTab MEMBER tab hits searchByName and drops grouped members" time="0.001" classname="ChargePreviewComponent search routing by activeTab"/>
+  <testcase name="ChargePreviewComponent isHouseholdStart same memberId as the previous row → same household" time="0.001" classname="ChargePreviewComponent isHouseholdStart"/>
+  <testcase name="ChargePreviewComponent isHouseholdStart memberId transition → new household" time="0" classname="ChargePreviewComponent isHouseholdStart"/>
+  <testcase name="ChargePreviewComponent isHouseholdStart no preview → treats index 0 as a boundary" time="0" classname="ChargePreviewComponent isHouseholdStart"/>
+  <testcase name="ChargePreviewComponent isHouseholdStart index 0 always starts a household" time="0" classname="ChargePreviewComponent isHouseholdStart"/>
+  <testcase name="ChargePreviewComponent asOfLabel renders a HH:MM:SS-shaped time string from an ISO instant" time="0.01" classname="ChargePreviewComponent asOfLabel"/>
+  <testcase name="SwapDependantModalComponent selected() returns the picked dependant object" time="0.016" classname="SwapDependantModalComponent"/>
+  <testcase name="SwapDependantModalComponent rejects submit when no dependant is picked" time="0.006" classname="SwapDependantModalComponent"/>
+  <testcase name="SwapDependantModalComponent emits the payload members.service.requestSwap expects" time="0.005" classname="SwapDependantModalComponent"/>
+  <testcase name="SwapDependantModalComponent eligible() excludes deactivated / removed / swapped rows" time="0.005" classname="SwapDependantModalComponent"/>
+  <testcase name="SwapDependantModalComponent snaps mid-month effective_date to day 1 on blur" time="0.001" classname="SwapDependantModalComponent"/>
+  <testcase name="ClaimsComponent server-side pagination hydrates totalCount + totalPages from the envelope" time="0.001" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination selectType(&quot;medical&quot;) re-issues with claimType=medical" time="0" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination onSortChange forwards key + direction, resets to page 1" time="0" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination onSearchChange resets to page 1 and forwards q" time="0.001" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination onPageChange forwards the zero-indexed page number" time="0" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination ngOnInit fires a paginated request with default sort" time="0.001" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination no-op when already on the same tab" time="0" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent server-side pagination selectType(null) omits claimType — All-tab returns everything" time="0" classname="ClaimsComponent server-side pagination"/>
+  <testcase name="ClaimsComponent actions exposes a single View action, unconditional at row level" time="0" classname="ClaimsComponent actions"/>
+  <testcase name="ClaimsComponent actions View action navigates to the claim detail route" time="0" classname="ClaimsComponent actions"/>
+  <testcase name="ClaimsComponent rebuildTabs — tab visibility non-HEALTH tenant hides the drug tab" time="0" classname="ClaimsComponent rebuildTabs — tab visibility"/>
+  <testcase name="ClaimsComponent rebuildTabs — tab visibility claims:view_drug only + HEALTH → drug-only lockdown" time="0" classname="ClaimsComponent rebuildTabs — tab visibility"/>
+  <testcase name="ClaimsComponent rebuildTabs — tab visibility claims:view + HEALTH tenant → [All, Medical, Drug]" time="0.001" classname="ClaimsComponent rebuildTabs — tab visibility"/>
+  <testcase name="RULE_CATEGORIES catalogue includes the Phase 12 PREMIUM_EARNING category" time="0" classname="RULE_CATEGORIES catalogue"/>
+  <testcase name="RULE_CATEGORIES catalogue includes the Phase 11 COMMISSION category" time="0" classname="RULE_CATEGORIES catalogue"/>
+  <testcase name="RULE_CATEGORIES catalogue has no duplicate category ids" time="0" classname="RULE_CATEGORIES catalogue"/>
+  <testcase name="RULE_CATEGORIES catalogue includes the Phase 10 REINSURANCE category" time="0" classname="RULE_CATEGORIES catalogue"/>
+  <testcase name="AppComponent should create the app" time="0.004" classname="AppComponent"/>
+  <testcase name="MembersService (V048 group change + swap) POSTs /members/{id}/group-changes with the full payload" time="0.001" classname="MembersService (V048 group change + swap)"/>
+  <testcase name="MembersService (V048 group change + swap) POSTs /members/{id}/group-changes/{id}/reject with a reason body" time="0.001" classname="MembersService (V048 group change + swap)"/>
+  <testcase name="MembersService (V048 group change + swap) GETs the list endpoints for group-changes and swaps" time="0.001" classname="MembersService (V048 group change + swap)"/>
+  <testcase name="MembersService (V048 group change + swap) POSTs /members/{id}/group-changes/{id}/approve with an empty body" time="0.001" classname="MembersService (V048 group change + swap)"/>
+  <testcase name="MembersService (V048 group change + swap) POSTs /members/{id}/swaps with the swap payload" time="0.001" classname="MembersService (V048 group change + swap)"/>
+  <testcase name="ProducerService GET /producers/{id}/ancestry returns array" time="0.002" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers/backfill/progress returns idle shape" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /producers/{id}/terminate with effectiveDate" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers/search with q and limit" time="0.002" classname="ProducerService"/>
+  <testcase name="ProducerService POST /producers/backfill/run with an empty body" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers/{id}/assignments/count returns number" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService DELETE /commission/rate-cards/{id} deactivates" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /commission/rate-cards with payload" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /commission/rate-cards paginated" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /members/{id}/producer-assignment with assign payload" time="0.002" classname="ProducerService"/>
+  <testcase name="ProducerService GET /members/{id}/producer-assignment returns current" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers with page + size + active filter" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /producers with the create payload" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers/backfill/candidates/pending-count" time="0.007" classname="ProducerService"/>
+  <testcase name="ProducerService GET /producers/backfill/candidates with page + size" time="0.002" classname="ProducerService"/>
+  <testcase name="ProducerService PUT /producers/backfill/candidates/{id}/reject" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /producers/{id}/reassign-bulk allows null changeReason" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService POST /producers/{id}/reassign-bulk with newProducerId + memberIds + effectiveFrom" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService PUT /producers/backfill/candidates/{id}/accept" time="0" classname="ProducerService"/>
+  <testcase name="ProducerService DELETE /members/{id}/producer-assignment closes current" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService PUT /producers/{id} on update" time="0.001" classname="ProducerService"/>
+  <testcase name="ProducerService GET /members/{id}/producer-assignment/history returns array" time="0.001" classname="ProducerService"/>
+  <testcase name="PermissionService refetches only when the tenant id changes (distinctUntilChanged)" time="0.002" classname="PermissionService"/>
+  <testcase name="PermissionService fetches /me/permissions once when a tenant becomes active" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService treats /me/permissions failure as no-permissions instead of crashing" time="0.002" classname="PermissionService"/>
+  <testcase name="PermissionService starts with an empty permission set and no fetch when no tenant is active" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService has() returns true for super admin regardless of fetched permissions" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService hasAny() short-circuits true for super admin even on empty input" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService hasAny() returns true when any one permission is held" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService clears permissions when the tenant is cleared (platform-only user)" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService emits the latest set to late subscribers via BehaviorSubject replay" time="0.001" classname="PermissionService"/>
+  <testcase name="PermissionService refresh() re-fetches and pushes the new set without changing the tenant" time="0.001" classname="PermissionService"/>
+  <testcase name="NewBusinessRegisterReportService GET /reports/premium/new-business omits optional line + currency when unset" time="0.001" classname="NewBusinessRegisterReportService"/>
+  <testcase name="NewBusinessRegisterReportService GET /reports/premium/new-business/export/excel forwards insuranceLine filter" time="0.002" classname="NewBusinessRegisterReportService"/>
+  <testcase name="NewBusinessRegisterReportService GET /reports/premium/new-business forwards period + line + reporting currency" time="0.001" classname="NewBusinessRegisterReportService"/>
+  <testcase name="NewBusinessRegisterReportService GET /reports/premium/new-business/export/excel returns a blob" time="0.001" classname="NewBusinessRegisterReportService"/>
+  <testcase name="TariffCodesListComponent ngOnInit fires a paginated codes request scoped to the current schedule" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent a categories outage does not blank the codes table" time="0.001" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent onSortChange forwards the key + direction and resets to page 1" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent does not fetch categories until the add form is opened" time="0.001" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent onPageChange re-issues the paginated request for the new page" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent renders totalCount + totalPages from the server envelope" time="0.001" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent onSearchChange resets to page 1 and forwards the query string" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent submitDraft with a blank categoryId sets an error and skips the service" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="TariffCodesListComponent submitDraft with a valid categoryId calls createCode and reloads page 1" time="0" classname="TariffCodesListComponent"/>
+  <testcase name="HeaderComponent flags super admin from Keycloak realm roles" time="0.001" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent navigation helpers close the user menu and route correctly" time="0.001" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent prefers a route snapshot title over the URL-derived one" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent toggleSidebar delegates to NavigationService" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent falls back to &quot;Dashboard&quot; for an empty / root URL" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent updates pageTitle in response to NavigationEnd events" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent derives the page title from the URL slug, with hyphens turned into spaces" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent unsubscribes from router events on destroy" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent hasTenantContext is true only when a tenant is set" time="0" classname="HeaderComponent"/>
+  <testcase name="HeaderComponent does not flag super admin when role is missing" time="0.001" classname="HeaderComponent"/>
+  <testcase name="CtcAutoComponent loads config, currencies, and recent auto-drafts on init" time="0.001" classname="CtcAutoComponent"/>
+  <testcase name="CtcAutoComponent save uppercases currency and sends null cap when the field is empty" time="0" classname="CtcAutoComponent"/>
+  <testcase name="CtcAutoComponent save forwards a non-null cap when the field is populated" time="0.001" classname="CtcAutoComponent"/>
+  <testcase name="CtcAutoComponent save is blocked when the user lacks finance:configure_auto_ctc" time="0" classname="CtcAutoComponent"/>
+  <testcase name="CtcAutoComponent hydrates the form from an existing config on load" time="0" classname="CtcAutoComponent"/>
+  <testcase name="ProducerPayoutService GET /payment-runs with status + currency filters" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService POST /payment-runs/{id}/approve with empty body" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService POST /payment-runs/{id}/execute with empty body" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService GET /payment-runs/{id}" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService GET /payment-runs/{id}/items" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService POST /payment-runs body hardcodes payeeType=PRODUCER and forwards period" time="0.001" classname="ProducerPayoutService"/>
+  <testcase name="ProducerPayoutService GET /payment-runs?payeeType=PRODUCER when no filters supplied" time="0" classname="ProducerPayoutService"/>
+  <testcase name="BILLING_ROUTES preserves the /group-charge → /charge-preview redirect" time="0" classname="BILLING_ROUTES"/>
+  <testcase name="BILLING_ROUTES exposes /charge-preview as the current entry point" time="0" classname="BILLING_ROUTES"/>
+  <testcase name="BILLING_ROUTES does NOT expose a standalone /group-liaisons/add route" time="0" classname="BILLING_ROUTES"/>
+  <testcase name="BILLING_ROUTES preserves the legacy /statements → /ledger redirect" time="0" classname="BILLING_ROUTES"/>
+  <testcase name="PremiumRegisterReportService GET /reports/premium/register/export/excel forwards insuranceLine filter" time="0.002" classname="PremiumRegisterReportService"/>
+  <testcase name="PremiumRegisterReportService GET /reports/premium/register/export/excel returns a blob" time="0.002" classname="PremiumRegisterReportService"/>
+  <testcase name="PremiumRegisterReportService GET /reports/premium/register omits optional line + currency when unset" time="0.001" classname="PremiumRegisterReportService"/>
+  <testcase name="PremiumRegisterReportService GET /reports/premium/register forwards period + line + reporting currency" time="0.001" classname="PremiumRegisterReportService"/>
+  <testcase name="BalanceService (bad-debts endpoints) listAged (aged-balances lifecycle view) now hits /aged-balances after the /bad-debts URL was re-scoped" time="0.002" classname="BalanceService (bad-debts endpoints) listAged (aged-balances lifecycle view)"/>
+  <testcase name="BalanceService (bad-debts endpoints) exportBadDebtsExcel requests the /bad-debts/export/excel path as a blob with matching filters" time="0.002" classname="BalanceService (bad-debts endpoints) exportBadDebtsExcel"/>
+  <testcase name="BalanceService (bad-debts endpoints) listBadDebts hits /bad-debts with all filter params encoded" time="0.001" classname="BalanceService (bad-debts endpoints) listBadDebts"/>
+  <testcase name="BalanceService (bad-debts endpoints) listBadDebts omits subjectType and q when unset" time="0.001" classname="BalanceService (bad-debts endpoints) listBadDebts"/>
+  <testcase name="CtcListComponent hydrates rows + totals from the envelope" time="0.001" classname="CtcListComponent"/>
+  <testcase name="CtcListComponent committed route asks the server for committed=true" time="0" classname="CtcListComponent"/>
+  <testcase name="CtcListComponent onPageChange re-issues the paginated request for the new page" time="0.001" classname="CtcListComponent"/>
+  <testcase name="CtcListComponent onSearchChange resets to page 1 and forwards q" time="0" classname="CtcListComponent"/>
+  <testcase name="CtcListComponent onSortChange forwards sort key + direction, resets to page 1" time="0.001" classname="CtcListComponent"/>
+  <testcase name="CtcListComponent pending route asks the server for committed=false" time="0" classname="CtcListComponent"/>
+  <testcase name="PolicyStatusActionButtonsComponent renders zero buttons for terminated policies" time="0.007" classname="PolicyStatusActionButtonsComponent"/>
+  <testcase name="PolicyStatusActionButtonsComponent emits (actionClicked) with the picked action on click" time="0.002" classname="PolicyStatusActionButtonsComponent"/>
+  <testcase name="PolicyStatusActionButtonsComponent renders three action buttons for active policies" time="0.002" classname="PolicyStatusActionButtonsComponent"/>
+  <testcase name="PolicyStatusActionButtonsComponent applies the danger class to Terminate and success class to Reinstate" time="0.003" classname="PolicyStatusActionButtonsComponent"/>
+  <testcase name="MemberNumberConfigService GETs /tenants/{id}/member-number-config" time="0.001" classname="MemberNumberConfigService"/>
+  <testcase name="MemberNumberConfigService PUTs /tenants/{id}/member-number-config with every field" time="0" classname="MemberNumberConfigService"/>
+  <testcase name="PolicyStatusActionModalComponent shows a client-side error when submitting without a reason" time="0.028" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent emits (submit) with the reason code + optional note" time="0.004" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent filters vocab when policySource changes to TRAVEL (no MORTALITY)" time="0.004" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent renders the modal when open + action are set" time="0.004" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent emits (cancel) on onCancel()" time="0.004" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent surfaces the source-specific reason vocab (LIFE has MORTALITY)" time="0.003" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent omits the note when it is blank" time="0.003" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PolicyStatusActionModalComponent resets the form when the modal is re-opened" time="0.003" classname="PolicyStatusActionModalComponent"/>
+  <testcase name="PreAuthFormComponent refuses to submit without a beneficiary" time="0.001" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent member pick sets memberId with a null dependantId and resolves scheme" time="0.001" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent refuses to submit without a provider" time="0" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent dependant pick routes sponsor into memberId and keeps dependantId" time="0" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent submit for a dependant sends dependantId on the payload" time="0.001" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent submit for a member pick sends dependantId=null" time="0" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent refuses to submit when requested amount is zero or missing" time="0.001" classname="PreAuthFormComponent"/>
+  <testcase name="PreAuthFormComponent picking a tariff code fills description and defaults requested amount" time="0" classname="PreAuthFormComponent"/>
+  <testcase name="RuleEditorComponent action-type catalogue exposes the Phase 11 PAY_COMMISSION action type" time="0.032" classname="RuleEditorComponent action-type catalogue"/>
+  <testcase name="RuleEditorComponent action-type catalogue carries a valueHint on PAY_COMMISSION (RATE_CARD | KICKER)" time="0.004" classname="RuleEditorComponent action-type catalogue"/>
+  <testcase name="RuleEditorComponent action-type catalogue exposes the Phase 12 ACCRUE_PREMIUM action type" time="0.01" classname="RuleEditorComponent action-type catalogue"/>
+  <testcase name="RuleEditorComponent action-type catalogue carries a valueHint on ACCRUE_PREMIUM (EARNING_METHOD DSL)" time="0.004" classname="RuleEditorComponent action-type catalogue"/>
+  <testcase name="MembersService (V046 dependant deactivation) POSTs /dependants/{id}/deactivate with an EMPTY body when effectiveDate is null" time="0.001" classname="MembersService (V046 dependant deactivation)"/>
+  <testcase name="MembersService (V046 dependant deactivation) POSTs /dependants/{id}/deactivate with { effectiveDate } when a date is provided" time="0.001" classname="MembersService (V046 dependant deactivation)"/>
+  <testcase name="InvoiceStatementComponent bookend routing extracts CLOSING_BALANCE into closingBalanceLine" time="0.001" classname="InvoiceStatementComponent bookend routing"/>
+  <testcase name="InvoiceStatementComponent bookend routing extracts OPENING_BALANCE into openingBalanceLine" time="0" classname="InvoiceStatementComponent bookend routing"/>
+  <testcase name="InvoiceStatementComponent bookend routing filters OPENING_BALANCE, CLOSING_BALANCE and CONTRIBUTION from transactionLines" time="0" classname="InvoiceStatementComponent bookend routing"/>
+  <testcase name="InvoiceStatementComponent bookend routing handles a fully empty ledger without crashing" time="0" classname="InvoiceStatementComponent bookend routing"/>
+  <testcase name="InvoiceStatementComponent bookend routing returns null bookend getters when the backend emits no marker rows" time="0" classname="InvoiceStatementComponent bookend routing"/>
+  <testcase name="TaxWithheldListComponent picks up variant=drug from route data for the drug-claim heading" time="0" classname="TaxWithheldListComponent"/>
+  <testcase name="TaxWithheldListComponent ngOnInit fires a paginated request pinned to TAX_WITHHELD" time="0.001" classname="TaxWithheldListComponent"/>
+  <testcase name="TaxWithheldListComponent onSortChange forwards sort key + direction, resets to page 1" time="0.001" classname="TaxWithheldListComponent"/>
+  <testcase name="TaxWithheldListComponent onSearchChange resets to page 1 and forwards q" time="0" classname="TaxWithheldListComponent"/>
+  <testcase name="TaxWithheldListComponent onStatusChange forwards the status filter and resets to page 1" time="0" classname="TaxWithheldListComponent"/>
+  <testcase name="Ifrs17CohortService GET /underwriting/cohorts with includeInactive + portfolioId filter" time="0.001" classname="Ifrs17CohortService"/>
+  <testcase name="Ifrs17CohortService POST /underwriting/cohorts with composite-key body" time="0.001" classname="Ifrs17CohortService"/>
+  <testcase name="Ifrs17CohortService PUT /underwriting/cohorts/{id}" time="0.001" classname="Ifrs17CohortService"/>
+  <testcase name="Ifrs17CohortService DELETE /underwriting/cohorts/{id}" time="0" classname="Ifrs17CohortService"/>
+  <testcase name="GroupDetailComponent updates the group and surfaces a success toast" time="0.001" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent blocks save when the liaison has been cleared" time="0" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent loads group + members on init" time="0" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent suspends an active group" time="0.001" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent surfaces save errors in the banner and toast" time="0" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent terminate flow onTerminateCancel just closes the modal" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow canTerminate() is false when the group is already TERMINATED" time="0.001" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow canTerminate() is false when the group is DEACTIVATED" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow surfaces backend errors via toast without mutating the group" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow onTerminateSubmit maps a missing reason to null" time="0.001" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow terminate() opens the modal but does not call the service yet" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow onTerminateSubmit forwards the modal payload to the service and flips status" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent terminate flow canTerminate() is true for an active or suspended group" time="0" classname="GroupDetailComponent terminate flow"/>
+  <testcase name="GroupDetailComponent opens a member on row click" time="0" classname="GroupDetailComponent"/>
+  <testcase name="GroupDetailComponent blocks save when name is empty" time="0" classname="GroupDetailComponent"/>
+  <testcase name="TerminateGroupModalComponent emits a payload with the snapped date on submit" time="0.011" classname="TerminateGroupModalComponent"/>
+  <testcase name="TerminateGroupModalComponent defaults effectiveDate to end of the current month" time="0.003" classname="TerminateGroupModalComponent"/>
+  <testcase name="TerminateGroupModalComponent emits cancel" time="0.003" classname="TerminateGroupModalComponent"/>
+  <testcase name="TerminateGroupModalComponent reset clears reason and re-seeds the default date" time="0.003" classname="TerminateGroupModalComponent"/>
+  <testcase name="TerminateGroupModalComponent snaps mid-month picks to end-of-month on blur" time="0.003" classname="TerminateGroupModalComponent"/>
+  <testcase name="authGuard triggers Keycloak login and blocks navigation when unauthenticated" time="0.002" classname="authGuard"/>
+  <testcase name="authGuard allows authenticated users through" time="0.001" classname="authGuard"/>
+  <testcase name="Ifrs17PortfolioService DELETE /underwriting/portfolios/{id}" time="0.001" classname="Ifrs17PortfolioService"/>
+  <testcase name="Ifrs17PortfolioService GET /underwriting/portfolios/search with q + limit" time="0.001" classname="Ifrs17PortfolioService"/>
+  <testcase name="Ifrs17PortfolioService POST /underwriting/portfolios with body" time="0.001" classname="Ifrs17PortfolioService"/>
+  <testcase name="Ifrs17PortfolioService PUT /underwriting/portfolios/{id}" time="0.001" classname="Ifrs17PortfolioService"/>
+  <testcase name="Ifrs17PortfolioService GET /underwriting/portfolios with includeInactive flag" time="0.001" classname="Ifrs17PortfolioService"/>
+  <testcase name="AutoLapseConfigComponent canConfigure returns false without permission" time="0.016" classname="AutoLapseConfigComponent"/>
+  <testcase name="AutoLapseConfigComponent rejects save when enabled=true but threshold is out of range" time="0.002" classname="AutoLapseConfigComponent"/>
+  <testcase name="AutoLapseConfigComponent PUTs the update payload on successful save" time="0.003" classname="AutoLapseConfigComponent"/>
+  <testcase name="AutoLapseConfigComponent loads config on init and hydrates the form" time="0.002" classname="AutoLapseConfigComponent"/>
+  <testcase name="HasPermissionDirective does not render twice on duplicate emissions" time="0.005" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective supports an array input — any-of semantics" time="0.002" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective renders for super admins regardless of the permission set" time="0.001" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective hides automatically when the permission is revoked (reactive)" time="0.001" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective unsubscribes on destroy — no emissions after ngOnDestroy" time="0.001" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective hides the template when the user lacks the permission" time="0.001" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective renders the template when the user holds the permission" time="0.001" classname="HasPermissionDirective"/>
+  <testcase name="HasPermissionDirective shows automatically when the permission set later includes the key (reactive)" time="0.002" classname="HasPermissionDirective"/>
+  <testcase name="GroupsService (terminate wire shape) POSTs to /groups/{id}/actions/terminate with { effectiveDate, reason } when both are set" time="0.001" classname="GroupsService (terminate wire shape)"/>
+  <testcase name="GroupsService (terminate wire shape) omits reason when only effectiveDate is provided" time="0.001" classname="GroupsService (terminate wire shape)"/>
+  <testcase name="GroupsService (terminate wire shape) sends an empty body when both effectiveDate and reason are null (server defaults to today)" time="0.001" classname="GroupsService (terminate wire shape)"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body FUNERAL stays OPTIONAL — picker shown but not required (tenant may be the funeral director)" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body scheme lookup failure defaults to HEALTH so the form still renders" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body VEHICLE scheme swaps to the single-item body and hides tariff fields" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body clearing the scheme resets the derived line" time="0.001" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body HEALTH sets provider REQUIRED — picker always shown, mandatory on submit" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body VEHICLE also REQUIRED — same shape as HEALTH" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body LIFE is FORBIDDEN — picker hides, payeeType snaps to MEMBER, stale provider scrubbed" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme change → adaptive body HEALTH scheme keeps the line-item table and exposes tariff/modifier fields" time="0" classname="SubmitClaimComponent scheme change → adaptive body"/>
+  <testcase name="SubmitClaimComponent scheme auto-resolution a member without a scheme surfaces the &quot;missing&quot; state" time="0" classname="SubmitClaimComponent scheme auto-resolution"/>
+  <testcase name="SubmitClaimComponent scheme auto-resolution clearing the beneficiary resets scheme state to idle" time="0.001" classname="SubmitClaimComponent scheme auto-resolution"/>
+  <testcase name="SubmitClaimComponent scheme auto-resolution a dependant pick uses the sponsor member's scheme" time="0" classname="SubmitClaimComponent scheme auto-resolution"/>
+  <testcase name="SubmitClaimComponent scheme auto-resolution picking a member fetches their scheme and snaps activeLine + currency" time="0" classname="SubmitClaimComponent scheme auto-resolution"/>
+  <testcase name="SubmitClaimComponent scheme auto-resolution a scheme fetch error transitions to the &quot;error&quot; state without stranding the operator" time="0" classname="SubmitClaimComponent scheme auto-resolution"/>
+  <testcase name="SubmitClaimComponent client-side validation VEHICLE claim without vehicleRegistration is blocked with a targeted error" time="0" classname="SubmitClaimComponent client-side validation"/>
+  <testcase name="SubmitClaimComponent submit — provider policy HEALTH without a provider is rejected — REQUIRED lines must have one on submit" time="0" classname="SubmitClaimComponent submit — provider policy"/>
+  <testcase name="SubmitClaimComponent submit — provider policy HEALTH with provider + payeeType MEMBER submits as reimbursement" time="0" classname="SubmitClaimComponent submit — provider policy"/>
+  <testcase name="SubmitClaimComponent submit — provider policy LIFE claim submits with providerId=undefined and payeeType=MEMBER" time="0.001" classname="SubmitClaimComponent submit — provider policy"/>
+  <testcase name="SubmitClaimComponent submit response → confirmation strip operator submission lands VERIFIED — no verification hop needed" time="0" classname="SubmitClaimComponent submit response → confirmation strip"/>
+  <testcase name="SubmitClaimComponent submit payload — batching contract omits batchNumber by default (opt-in, never auto-generated)" time="0.001" classname="SubmitClaimComponent submit payload — batching contract"/>
+  <testcase name="SubmitClaimComponent submit payload — batching contract omits batchNumber when the toggle is on but the field is blank" time="0" classname="SubmitClaimComponent submit payload — batching contract"/>
+  <testcase name="SubmitClaimComponent submit payload — batching contract includes batchNumber when the toggle is on AND a tag is typed" time="0" classname="SubmitClaimComponent submit payload — batching contract"/>
+  <testcase name="SubmitClaimComponent beneficiary picker picking a DEPENDANT hit routes sponsor→memberId, dep→dependantId" time="0" classname="SubmitClaimComponent beneficiary picker"/>
+  <testcase name="SubmitClaimComponent beneficiary picker picking null clears both slots so a subsequent submit fails validation, not silently reuses the last member" time="0" classname="SubmitClaimComponent beneficiary picker"/>
+  <testcase name="SubmitClaimComponent beneficiary picker picking a MEMBER hit sets memberId and clears dependantId" time="0" classname="SubmitClaimComponent beneficiary picker"/>
+  <testcase name="SubmitClaimComponent beneficiary picker submit payload for a dependant carries both memberId (sponsor) and dependantId" time="0" classname="SubmitClaimComponent beneficiary picker"/>
+  <testcase name="SubmitClaimComponent beneficiary picker submit payload for a member omits dependantId" time="0" classname="SubmitClaimComponent beneficiary picker"/>
+  <testcase name="SchemeFormComponent defaults form.currencyCode to the tenant default-currency config" time="0.03" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent populates schemeTypes only from the tenant insurance lines" time="0.007" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent shows an error and skips initialization when no tenant is active" time="0.007" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent on update — calls updateScheme with the route id and toasts updated" time="0.008" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent blocks submit and surfaces an error when name is blank" time="0.007" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent loads an existing scheme when navigated with an :id param" time="0.008" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent on create — sends trimmed payload, toasts success, and navigates back" time="0.006" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent blocks submit and surfaces an error when currency is unset" time="0.007" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent omits the group heading on single-line tenants so the dropdown stays clean" time="0.008" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent groups scheme types by insurance line label in the dropdown when multi-line" time="0.007" classname="SchemeFormComponent"/>
+  <testcase name="SchemeFormComponent filters allowedCurrencies down to billing-active configs" time="0.006" classname="SchemeFormComponent"/>
+  <testcase name="PendingClaimsListComponent hydrates rows + totals from the envelope" time="0.001" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent presetStatus from route data pins the status filter" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent onSortChange forwards sort key + direction, resets to page 1" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent without preset, defaults to VERIFIED (ready for adjudication)" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent presetClaimType route data forwards claim_type filter on every fetch" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent onPageChange re-issues the paginated request for the new page" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="PendingClaimsListComponent onSearchChange resets to page 1 and forwards q" time="0" classname="PendingClaimsListComponent"/>
+  <testcase name="TenantOperationalDashboardComponent chart-period toggle refetches when the period changes" time="0" classname="TenantOperationalDashboardComponent chart-period toggle">
+    <skipped/>
+  </testcase>
+  <testcase name="TenantOperationalDashboardComponent chart-period toggle does not trigger refetch when the period is unchanged" time="0.002" classname="TenantOperationalDashboardComponent chart-period toggle"/>
+  <testcase name="TenantOperationalDashboardComponent invoice table toolbar filters by invoice number substring (case-insensitive)" time="0.001" classname="TenantOperationalDashboardComponent invoice table toolbar"/>
+  <testcase name="TenantOperationalDashboardComponent invoice table toolbar filters by holder name substring" time="0" classname="TenantOperationalDashboardComponent invoice table toolbar"/>
+  <testcase name="TenantOperationalDashboardComponent invoice table toolbar returns every invoice when the search is empty (whitespace-tolerant)" time="0" classname="TenantOperationalDashboardComponent invoice table toolbar"/>
+  <testcase name="TenantOperationalDashboardComponent invoice table toolbar onInvoiceSearchInput handles null defensively" time="0" classname="TenantOperationalDashboardComponent invoice table toolbar"/>
+  <testcase name="TenantOperationalDashboardComponent utility helpers workloadPercent returns 0 when max is 0 (no divide-by-zero)" time="0" classname="TenantOperationalDashboardComponent utility helpers"/>
+  <testcase name="TenantOperationalDashboardComponent utility helpers primaryContribThisMonth defaults to USD 0 when no data" time="0" classname="TenantOperationalDashboardComponent utility helpers"/>
+  <testcase name="TenantOperationalDashboardComponent utility helpers statusLabel pretty-prints snake_case enums" time="0" classname="TenantOperationalDashboardComponent utility helpers"/>
+  <testcase name="TenantOperationalDashboardComponent utility helpers payeePercent returns 0 when max is 0" time="0" classname="TenantOperationalDashboardComponent utility helpers"/>
+  <testcase name="TenantOperationalDashboardComponent client-side contribution filters filters by recipient when set" time="0" classname="TenantOperationalDashboardComponent client-side contribution filters">
+    <skipped/>
+  </testcase>
+  <testcase name="TenantOperationalDashboardComponent client-side contribution filters extracts unique recipient names in sorted order" time="0" classname="TenantOperationalDashboardComponent client-side contribution filters">
+    <skipped/>
+  </testcase>
+  <testcase name="TenantOperationalDashboardComponent client-side contribution filters filters by status chip toggle (idempotent on second click)" time="0" classname="TenantOperationalDashboardComponent client-side contribution filters">
+    <skipped/>
+  </testcase>
+  <testcase name="TenantOperationalDashboardComponent invoicesOutstanding stat wiring captures stats.invoicesOutstanding after the combineLatest fetch fires" time="0.006" classname="TenantOperationalDashboardComponent invoicesOutstanding stat wiring"/>
+  <testcase name="TenantOperationalDashboardComponent empty-state placeholder data renders a placeholder payment-method donut when no method data exists" time="0" classname="TenantOperationalDashboardComponent empty-state placeholder data"/>
+  <testcase name="TenantOperationalDashboardComponent empty-state placeholder data renders a 5-slice pipeline placeholder when no claim data exists" time="0.001" classname="TenantOperationalDashboardComponent empty-state placeholder data"/>
+  <testcase name="TenantOperationalDashboardComponent permission-gated tab visibility shows every tab for super admins (empty permission set bypassed)" time="0.001" classname="TenantOperationalDashboardComponent permission-gated tab visibility"/>
+  <testcase name="TenantOperationalDashboardComponent permission-gated tab visibility falls back to the first allowed tab when the active tab loses permission" time="0" classname="TenantOperationalDashboardComponent permission-gated tab visibility"/>
+  <testcase name="TenantOperationalDashboardComponent permission-gated tab visibility hides every tab when the user has no view permissions" time="0" classname="TenantOperationalDashboardComponent permission-gated tab visibility"/>
+  <testcase name="TenantOperationalDashboardComponent permission-gated tab visibility auto-selects the first allowed tab in display order" time="0" classname="TenantOperationalDashboardComponent permission-gated tab visibility"/>
+  <testcase name="TenantOperationalDashboardComponent chart data shape regression falls back to blended series when no per-currency data is available" time="0.001" classname="TenantOperationalDashboardComponent chart data shape regression"/>
+  <testcase name="TenantOperationalDashboardComponent chart data shape regression renders one series per currency when per-currency data is present" time="0" classname="TenantOperationalDashboardComponent chart data shape regression">
+    <skipped/>
+  </testcase>
+  <testcase name="TenantOperationalDashboardComponent chart data shape regression pads finance series to 12 months with zero-fill for missing labels" time="0.001" classname="TenantOperationalDashboardComponent chart data shape regression"/>
+  <testcase name="date-snap utilities firstOfMonth is a no-op for the 1st of the month" time="0" classname="date-snap utilities firstOfMonth"/>
+  <testcase name="date-snap utilities firstOfMonth passes malformed input through unchanged" time="0" classname="date-snap utilities firstOfMonth"/>
+  <testcase name="date-snap utilities firstOfMonth snaps a mid-month ISO date to day 01" time="0" classname="date-snap utilities firstOfMonth"/>
+  <testcase name="date-snap utilities endOfMonthOffset returns a well-formed YYYY-MM-&lt;lastDay>" time="0" classname="date-snap utilities endOfMonthOffset"/>
+  <testcase name="date-snap utilities endOfMonthOffset is the last day of the month `offset` months out" time="0" classname="date-snap utilities endOfMonthOffset"/>
+  <testcase name="date-snap utilities isBackdated is false for malformed input" time="0" classname="date-snap utilities isBackdated"/>
+  <testcase name="date-snap utilities isBackdated is true when the date is before the first of this month" time="0" classname="date-snap utilities isBackdated"/>
+  <testcase name="date-snap utilities isBackdated is false for this month or forward" time="0.001" classname="date-snap utilities isBackdated"/>
+  <testcase name="date-snap utilities endOfMonth is a no-op for the last day of the month" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities endOfMonth handles 30-day months" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities endOfMonth passes malformed input through unchanged" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities endOfMonth snaps a mid-month ISO date to the last day of the month" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities endOfMonth handles February in a leap year" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities endOfMonth handles February in a non-leap year" time="0" classname="date-snap utilities endOfMonth"/>
+  <testcase name="date-snap utilities firstOfMonthOffset returns a well-formed YYYY-MM-01 for offset 0" time="0" classname="date-snap utilities firstOfMonthOffset"/>
+  <testcase name="date-snap utilities firstOfMonthOffset advances by whole months, wrapping the year" time="0" classname="date-snap utilities firstOfMonthOffset"/>
+  <testcase name="ChangeSchemeModalComponent reset() clears every field so a re-open shows a clean form" time="0.011" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent emits cancel when Cancel button-equivalent is invoked" time="0.004" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent emits the payload members.service expects when submitted" time="0.003" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent flips isBackdated() based on effective date" time="0.004" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent snaps mid-month effective_date to day 1 on blur" time="0.003" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent rejects submit when target scheme equals current scheme" time="0.003" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent rejects submit when no target scheme is picked" time="0.004" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent omits reason when the operator left it blank" time="0.003" classname="ChangeSchemeModalComponent"/>
+  <testcase name="ChangeSchemeModalComponent rejects submit when current scheme is unknown" time="0.003" classname="ChangeSchemeModalComponent"/>
+  <testcase name="TransactionFormComponent.toPayableMemberOptions is a no-op on an empty input" time="0" classname="TransactionFormComponent.toPayableMemberOptions"/>
+  <testcase name="TransactionFormComponent.toPayableMemberOptions drops members with a groupId" time="0.001" classname="TransactionFormComponent.toPayableMemberOptions"/>
+  <testcase name="TransactionFormComponent.toPayableMemberOptions shapes the option with combined first + last name and member number sublabel" time="0" classname="TransactionFormComponent.toPayableMemberOptions"/>
+  <testcase name="TransactionFormComponent.toPayableMemberOptions returns empty when every result is grouped" time="0" classname="TransactionFormComponent.toPayableMemberOptions"/>
+  <testcase name="CLAIMS_ROUTES has NO tasks/* branch" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="CLAIMS_ROUTES keeps the drug catalogue (&quot;drugs&quot;) route — inventory ≠ claims" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="CLAIMS_ROUTES preserves the &quot;:id&quot; detail route" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="CLAIMS_ROUTES has NO drug-claim sub-routes" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="CLAIMS_ROUTES preserves the pre-authorisation branch" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="CLAIMS_ROUTES root list (&quot;&quot;) is fullbleed and gated on claims:view" time="0" classname="CLAIMS_ROUTES"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) showAnnualCap_falseWhenCapAmountNull" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) showAnnualCap_trueWhenCapAmountPresent" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) showAnnualCap_falseWhenAnnualCapMissing" time="0.001" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) annualCapPct_capsAt100WhenOverConsumed" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) visibleUtilization_filtersNoTracking" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) annualCapPct_nullWhenNoCap" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="ClaimDetailComponent (V062 utilization gates) annualCapPct_returnsRoundedPercent" time="0" classname="ClaimDetailComponent (V062 utilization gates)"/>
+  <testcase name="MemberFormComponent strips empty optional fields out of the payload" time="0.001" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent blocks submit when required fields are missing" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent blocks submit when scheme is the only field missing" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent enrols + navigates to the new member detail on success" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent forces the enrolment date to the 1st of the chosen month" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent surfaces enrolment errors on the banner and via toast" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment sends undefined reason when it is blank" time="0.001" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment is exposed to INDIVIDUAL-model tenants and travels on the payload" time="0" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment rejects a half-filled triple (amount without effective_from)" time="0" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment omits the triple when amount is null even on INDIVIDUAL" time="0" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment trims the reason before sending" time="0.001" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent custom-premium at enrolment is hidden and omitted from the payload for STANDARD-model tenants" time="0" classname="MemberFormComponent custom-premium at enrolment"/>
+  <testcase name="MemberFormComponent snaps the enrollmentDate model on (ngModelChange)" time="0" classname="MemberFormComponent"/>
+  <testcase name="MemberFormComponent pricing model gates treats AI_DRIVEN as hybrid — individualPricing is true" time="0" classname="MemberFormComponent pricing model gates"/>
+  <testcase name="MemberFormComponent pricing model gates gates aiSuggestionsEnabled ONLY on AI_DRIVEN" time="0" classname="MemberFormComponent pricing model gates"/>
+  <testcase name="MemberFormComponent pricing model gates surfaces the tenant pricing model via getter; defaults to STANDARD when tenant is null" time="0.001" classname="MemberFormComponent pricing model gates"/>
+  <testcase name="MemberFormComponent member payload — age-band override is dependant-only omits billingAgeGroupId even if a stale form field is set" time="0" classname="MemberFormComponent member payload — age-band override is dependant-only"/>
+  <testcase name="MemberFormComponent AI pricing suggestion clears the current suggestion without touching the amount" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion refuses to fire without a date of birth" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion pre-fills the override amount + captures the response on success" time="0.001" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion refuses to fire without a scheme (surfacing a specific toast)" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion surfaces service errors on the toast without corrupting form state" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion defaults effective_from to the enrolment date when it is blank" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion keeps an operator-picked effective_from intact" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion passes the scheme, DoB and every set risk signal on the request" time="0.001" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="MemberFormComponent AI pricing suggestion omits unset optional risk signals so the backend defaults kick in" time="0" classname="MemberFormComponent AI pricing suggestion"/>
+  <testcase name="UprMovementReportService GET /reports/premium/upr-movement/export/excel returns a blob" time="0.002" classname="UprMovementReportService"/>
+  <testcase name="UprMovementReportService GET /reports/premium/upr-movement omits optional line + currency when unset" time="0.001" classname="UprMovementReportService"/>
+  <testcase name="UprMovementReportService GET /reports/premium/upr-movement forwards period + line + reporting currency" time="0.001" classname="UprMovementReportService"/>
+  <testcase name="UprMovementReportService GET /reports/premium/upr-movement/export/excel forwards insuranceLine filter" time="0.001" classname="UprMovementReportService"/>
+  <testcase name="EndorsementRegisterReportService GET /reports/premium/endorsements/export/excel returns a blob" time="0.002" classname="EndorsementRegisterReportService"/>
+  <testcase name="EndorsementRegisterReportService GET /reports/premium/endorsements/export/excel forwards status filter" time="0.002" classname="EndorsementRegisterReportService"/>
+  <testcase name="EndorsementRegisterReportService GET /reports/premium/endorsements omits optional filters when unset" time="0.001" classname="EndorsementRegisterReportService"/>
+  <testcase name="EndorsementRegisterReportService GET /reports/premium/endorsements forwards period + line + status + reporting currency" time="0.001" classname="EndorsementRegisterReportService"/>
+  <testcase name="LiaisonPickerComponent renders the prefill chip when value+kind+prefillLabel are supplied" time="0.001" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent emits a typed selection when a member is picked" time="0" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent setKind clears the current query + matches + collapses inline add" time="0.001" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent defaults to MEMBER kind" time="0" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent emits null on clear" time="0" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent switches the emitted kind when the tab toggles to STAFF and a pick lands" time="0" classname="LiaisonPickerComponent"/>
+  <testcase name="LiaisonPickerComponent inline add-new (LIAISON only) trims fields, invites the liaison, auto-selects, and toasts success" time="0.001" classname="LiaisonPickerComponent inline add-new (LIAISON only)"/>
+  <testcase name="LiaisonPickerComponent inline add-new (LIAISON only) leaves the form open + toasts on backend failure" time="0" classname="LiaisonPickerComponent inline add-new (LIAISON only)"/>
+  <testcase name="LiaisonPickerComponent inline add-new (LIAISON only) opens on openAddNew and starts with a blank form" time="0" classname="LiaisonPickerComponent inline add-new (LIAISON only)"/>
+  <testcase name="LiaisonPickerComponent inline add-new (LIAISON only) blocks submit and toasts when required fields are missing" time="0" classname="LiaisonPickerComponent inline add-new (LIAISON only)"/>
+  <testcase name="LiaisonPickerComponent inline add-new (LIAISON only) cancelAddNew collapses the form without emitting a selection" time="0" classname="LiaisonPickerComponent inline add-new (LIAISON only)"/>
+  <testcase name="LiaisonPickerComponent switches the emitted kind when the tab toggles to LIAISON" time="0" classname="LiaisonPickerComponent"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) startCreate_resetsDraftAndShowsForm" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) save_blankCodeOrLabel_setsErrorAndSkipsService" time="0.001" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) deactivate_confirmed_callsService" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) save_valid_callsCreateThenReloads" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) startEdit_populatesDraftFromRow" time="0.001" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) onSearchChange resets to page 1 and forwards q" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) fetchPage forwards default sort + search params" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) save_serverError_surfacesMessage" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="TariffCategoriesListComponent (V063 admin catalogue) deactivate_declined_doesNothing" time="0" classname="TariffCategoriesListComponent (V063 admin catalogue)"/>
+  <testcase name="MemberDetailComponent rejects new-dependant save when gender is blank" time="0.001" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent rejects dependant save when required fields are missing" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent loads member + dependants on init" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent deactivateDependant opens the modal without calling the service" time="0.001" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — dependant clears the dependant AI suggestion when the operator opens edit" time="0" classname="MemberDetailComponent AI pricing suggestion — dependant"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — dependant clears the current dependant suggestion without touching the amount" time="0.001" classname="MemberDetailComponent AI pricing suggestion — dependant"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — dependant sends the dependant DoB + risk signals on the request" time="0" classname="MemberDetailComponent AI pricing suggestion — dependant"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — dependant pre-fills the dependant override amount on success" time="0" classname="MemberDetailComponent AI pricing suggestion — dependant"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — dependant refuses to fire without the dependant DoB" time="0.001" classname="MemberDetailComponent AI pricing suggestion — dependant"/>
+  <testcase name="MemberDetailComponent only shows status-actions for the current legal transitions" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent rejects dependant edit when national ID is cleared" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent rendered template renders the dependant action button with the &quot;Terminate&quot; label" time="0.068" classname="MemberDetailComponent rendered template"/>
+  <testcase name="MemberDetailComponent rejects dependant edit when gender is cleared" time="0.001" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent updates the member via save() and surfaces a success toast" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent pricing model gates treats AI_DRIVEN as hybrid — individualPricing is true" time="0" classname="MemberDetailComponent pricing model gates"/>
+  <testcase name="MemberDetailComponent pricing model gates gates aiSuggestionsEnabled ONLY on AI_DRIVEN" time="0" classname="MemberDetailComponent pricing model gates"/>
+  <testcase name="MemberDetailComponent shows an error banner when save fails" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent onDeactivateSubmit forwards the modal payload and flips the row" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent dependant enrolment date (V047) omits enrollmentDate from the payload when blank (backend defaults to today)" time="0" classname="MemberDetailComponent dependant enrolment date (V047)"/>
+  <testcase name="MemberDetailComponent dependant enrolment date (V047) onDependantEnrollmentDateChange() snaps a mid-month pick to day 1" time="0" classname="MemberDetailComponent dependant enrolment date (V047)"/>
+  <testcase name="MemberDetailComponent dependant enrolment date (V047) sends enrollmentDate on the addDependant payload when set" time="0" classname="MemberDetailComponent dependant enrolment date (V047)"/>
+  <testcase name="MemberDetailComponent dependant enrolment date (V047) editDependant() copies the row's enrollmentDate into the form" time="0" classname="MemberDetailComponent dependant enrolment date (V047)"/>
+  <testcase name="MemberDetailComponent dependant enrolment date (V047) startAddDependant() seeds enrollmentDate to the 1st of the current month" time="0" classname="MemberDetailComponent dependant enrolment date (V047)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) refreshes ageGroupOptions on onSchemeChange so the dependant picker follows the new scheme" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) leaves ageGroupOptions empty when the loaded member has no scheme" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) sends billingAgeGroupId on the addDependant payload for any pricing model" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) member update payload never carries billingAgeGroupId (dependant-only feature)" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) loads scheme-scoped ageGroupOptions on member load so the dependant collapsible can consume them" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent age-group override (dependant-only) sends billingAgeGroupId on the updateDependant payload when editing" time="0" classname="MemberDetailComponent age-group override (dependant-only)"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member defaults effective_from to a valid ISO date when blank" time="0.001" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member pre-fills the override amount + captures the response on success" time="0" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member surfaces service errors on the toast without corrupting form state" time="0" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member keeps an operator-picked effective_from intact" time="0.001" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member refuses to fire without a scheme id" time="0" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member passes scheme + DoB + risk signals + gender on the request" time="0" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent AI pricing suggestion — member clears the current member suggestion without touching the amount" time="0" classname="MemberDetailComponent AI pricing suggestion — member"/>
+  <testcase name="MemberDetailComponent onDeactivateCancel just closes the modal" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent updates an existing dependant via updateDependant" time="0.001" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent dependant custom-premium rejects a half-filled triple (amount without effective_from)" time="0" classname="MemberDetailComponent dependant custom-premium"/>
+  <testcase name="MemberDetailComponent dependant custom-premium is exposed to INDIVIDUAL-model tenants on the addDependant payload" time="0" classname="MemberDetailComponent dependant custom-premium"/>
+  <testcase name="MemberDetailComponent dependant custom-premium travels on the updateDependant payload when editing" time="0" classname="MemberDetailComponent dependant custom-premium"/>
+  <testcase name="MemberDetailComponent dependant custom-premium is omitted from the addDependant payload for STANDARD-model tenants" time="0" classname="MemberDetailComponent dependant custom-premium"/>
+  <testcase name="MemberDetailComponent adds a new dependant via the inline form" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent pluralises the missing-fields message when more than one is blank" time="0" classname="MemberDetailComponent"/>
+  <testcase name="MemberDetailComponent rejects new-dependant save when national ID is missing" time="0" classname="MemberDetailComponent"/>
+  <testcase name="EndorsementService PUT /endorsements/{id}/approve sends an empty body" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService PUT /endorsements/{id}/commit sends an empty body" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService POST /endorsements/{id}/void sends the reason" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService GET /endorsements returns a page with no query params by default" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService GET /endorsements/by-policy sends policyId + policySource" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService POST /endorsements sends the draft payload as-is" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService GET /endorsements forwards status + page + size when supplied" time="0.001" classname="EndorsementService"/>
+  <testcase name="EndorsementService GET /endorsements/{id} fetches a single row" time="0.001" classname="EndorsementService"/>
+  <system-out>
+    <![CDATA[Chrome Headless 148.0.0.0 (Linux 0.0.0) LOG: '[PermissionGuard] denied. Required:', ['claims:view'], 'User has:', []
+,Chrome Headless 148.0.0.0 (Linux 0.0.0) LOG: '[RoleGuard] Access denied. Required:', ['operator'], 'User has:', ['member']
+,Chrome Headless 148.0.0.0 (Linux 0.0.0) WARN: '[PermissionService] failed to load permissions', Error: boom
+Error: boom
+    at errorFactory (http://localhost:9876/_karma_webpack_/webpack:/src/app/core/security/permission.service.spec.ts:77:34)
+    at Observable._subscribe (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/observable/throwError.js:5:51)
+    at Observable._trySubscribe (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/Observable.js:37:25)
+    at cb (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/Observable.js:31:30)
+    at errorContext (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/util/errorContext.js:19:9)
+    at Observable.subscribe (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/Observable.js:22:21)
+    at init (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/operators/map.js:6:16)
+    at OperatorSubscriber.call (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/util/lift.js:10:28)
+    at cb (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/Observable.js:26:30)
+    at errorContext (http://localhost:9876/_karma_webpack_/webpack:/node_modules/rxjs/dist/esm/internal/util/errorContext.js:19:9)
+
+]]>
+  </system-out>
+  <system-err/>
+</testsuite>

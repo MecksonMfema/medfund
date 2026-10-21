@@ -49,7 +49,7 @@ export const schemePersonCentricGuard: CanActivateFn = (route) => {
   return contributions.getSchemeById(schemeId).pipe(
     map(scheme => {
       if (isPersonCentricLine(scheme.insuranceLine)) return true;
-      toast.error(`Scheme benefits do not apply to ${scheme.insuranceLine ?? 'this'} schemes — they are asset-centric and have no member-level benefit limits.`);
+      toast.error(`Scheme benefits do not apply to ${scheme.insuranceLine ?? 'this'} schemes: they are asset-centric and have no member-level benefit limits.`);
       return router.createUrlTree(['/tenant/billing/schemes']);
     }),
     catchError(() => of(router.createUrlTree(['/tenant/billing/schemes']))),

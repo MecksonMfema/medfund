@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentFilterParams;
 import com.medfund.finance.dto.PaymentRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -15,6 +16,10 @@ import java.util.UUID;
 /**
  * Dynamic-SQL search powering the payments list. Joins providers so
  * the operational table renders the provider name inline.
+ *
+ * <p>Providers are platform-scoped, so the join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
  */
 @Repository
 public class PaymentQueryRepository {
@@ -31,6 +36,8 @@ public class PaymentQueryRepository {
             Map.entry("paidAt",        "p.paid_at"),
             Map.entry("createdAt",     "p.created_at")
     );
+
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("pr", "p.provider_id");
 
     private final DatabaseClient db;
 
@@ -50,16 +57,17 @@ public class PaymentQueryRepository {
                        pr.name AS provider_name,
                        (m.first_name || ' ' || m.last_name) AS member_name
                   FROM payments p
-                  LEFT JOIN providers pr ON pr.id = p.provider_id
-                  LEFT JOIN members   m  ON m.id  = p.member_id
                 """
+                + PROVIDER_JOIN
+                + " LEFT JOIN members   m  ON m.id  = p.member_id "
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(PaymentFilterParams f) {
@@ -67,11 +75,12 @@ public class PaymentQueryRepository {
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
         String sql = "SELECT COUNT(*) AS total FROM payments p "
-                + " LEFT JOIN providers pr ON pr.id = p.provider_id "
+                + PROVIDER_JOIN
                 + " LEFT JOIN members   m  ON m.id  = p.member_id "
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     private String whereClause(PaymentFilterParams f, boolean hasQ) {

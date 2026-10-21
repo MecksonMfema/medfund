@@ -212,7 +212,7 @@ public class BillingCatalogueService {
     public Mono<DunningConfig> getDunningConfig() {
         return dunningConfigRepository.findById(DunningConfig.SINGLETON_ID)
                 .switchIfEmpty(Mono.error(new IllegalStateException(
-                        "dunning_config singleton row missing — run V008 migration")));
+                        "dunning_config singleton row missing - run V008 migration")));
     }
 
     @Transactional
@@ -252,7 +252,7 @@ public class BillingCatalogueService {
     public Mono<BillingCycleConfig> getBillingCycleConfig() {
         return billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
                 .switchIfEmpty(Mono.error(new IllegalStateException(
-                        "billing_cycle_config singleton row missing — run V008 migration")));
+                        "billing_cycle_config singleton row missing - run V008 migration")));
     }
 
     @Transactional

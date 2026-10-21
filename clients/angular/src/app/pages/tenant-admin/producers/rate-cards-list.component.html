@@ -1,0 +1,105 @@
+<header class="page-header">
+  <div>
+    <h1>Commission rate cards</h1>
+    <p class="page-sub">
+      Lookup-driven base commission by insurance line + optional producer
+      tier. Overlapping active cards are permitted: resolution is
+      most-recent-effective.
+    </p>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-primary" routerLink="/tenant/admin/producers/rate-cards/new">
+      <app-icon name="plus" [size]="14"></app-icon>
+      New rate card
+    </a>
+    <a class="btn btn-default" routerLink="/tenant/admin/producers/list">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to producers
+    </a>
+  </div>
+</header>
+
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search name or tier..."
+      aria-label="Search rate cards"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="filterActive"
+      (selectionChange)="onServerFilterChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="selectedLine"
+      (selectionChange)="onClientFilterChange()"
+      name="line"
+      size="sm"
+      [options]="lineOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Tier</span>
+    <app-select
+      [(ngModel)]="selectedTier"
+      (selectionChange)="onClientFilterChange()"
+      name="tier"
+      size="sm"
+      [options]="tierOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
+    </button>
+  </div>
+</div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  emptyMessage="No rate cards yet"
+  emptyDescription="Click New rate card above to define your first commission schedule."
+  (pageChange)="onPageChange($event)">
+</app-data-table>
