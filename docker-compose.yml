@@ -267,6 +267,25 @@ services:
       kafka:
         condition: service_healthy
 
+  kyc-service:
+    build:
+      context: ./services/java
+      dockerfile: kyc-service/Dockerfile
+    container_name: medfund-kyc
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/medfund
+      SPRING_R2DBC_USERNAME: medfund
+      SPRING_R2DBC_PASSWORD: medfund
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:9080/realms/medfund-platform/protocol/openid-connect/certs
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── Go Services (Stream B) ────────────────────────────────────
 
   gateway:
@@ -284,6 +303,7 @@ services:
       CLAIMS_SERVICE_URL: http://claims-service:8083
       CONTRIBUTIONS_SERVICE_URL: http://contributions-service:8084
       FINANCE_SERVICE_URL: http://finance-service:8085
+      KYC_SERVICE_URL: http://kyc-service:8087
       NOTIFICATION_SERVICE_URL: http://notification-service:3001
       AUDIT_SERVICE_URL: http://audit-service:3002
       FILE_SERVICE_URL: http://file-service:3003
@@ -294,6 +314,7 @@ services:
       - claims-service
       - contributions-service
       - finance-service
+      - kyc-service
 
   notification-service:
     build:

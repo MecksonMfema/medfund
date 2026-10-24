@@ -39,6 +39,14 @@ public class SecurityEventPublisher {
     /** Event type recorded when a guard aspect (jurisdiction/country/report) denies. */
     public static final String EVENT_TYPE_ACCESS_DENIED = "ACCESS_DENIED";
 
+    /**
+     * Event type recorded when a super admin toggles a per-tenant module
+     * entitlement. An entitlement flip is a privilege-level change (a paid
+     * capability switching on or off for a whole tenant), so Rule 9 wants it
+     * on the security-events stream in addition to the audit trail (G5).
+     */
+    public static final String EVENT_TYPE_ENTITLEMENT_CHANGED = "ENTITLEMENT_CHANGED";
+
     private final KafkaSender<String, String> kafkaSender;
     private final ObjectMapper objectMapper;
 
@@ -105,6 +113,29 @@ public class SecurityEventPublisher {
         if (details != null) merged.putAll(details);
         return sendWithDetails(EVENT_TYPE_ACCESS_DENIED, tenantId, actorId, actorEmail, merged,
                 "denial " + reason);
+    }
+
+    /**
+     * Emit an {@code ENTITLEMENT_CHANGED} event when a super admin toggles a
+     * per-tenant module entitlement (G5). The details map carries the module
+     * key and the new enabled state so audit-service can render the change on
+     * the security timeline. Fire-and-forget — a broker hiccup must never block
+     * the toggle itself.
+     *
+     * <p>{@code tenantId} is the AFFECTED tenant (the one whose module changed),
+     * not the actor's — an entitlement toggle is a platform-admin action against
+     * a tenant.
+     */
+    public Mono<Void> publishEntitlementChanged(String tenantId,
+                                                String actorId,
+                                                String actorEmail,
+                                                String moduleKey,
+                                                boolean enabled) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("moduleKey", moduleKey);
+        details.put("enabled", enabled);
+        return sendWithDetails(EVENT_TYPE_ENTITLEMENT_CHANGED, tenantId, actorId, actorEmail, details,
+                "entitlement " + moduleKey + "=" + enabled);
     }
 
     private Mono<Void> sendWithDetails(String eventType,

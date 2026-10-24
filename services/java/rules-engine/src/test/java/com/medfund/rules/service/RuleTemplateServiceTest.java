@@ -26,6 +26,7 @@ import com.medfund.rules.template.providers.ReinsuranceTemplates;
 import com.medfund.rules.template.providers.SchemeChangeProrationTemplates;
 import com.medfund.rules.template.providers.TariffPricingTemplates;
 import com.medfund.rules.template.providers.UnderwritingTemplates;
+import com.medfund.rules.template.providers.VerificationTemplates;
 import com.medfund.rules.template.providers.WaitingPeriodTemplates;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,7 +72,8 @@ class RuleTemplateServiceTest {
                 new Ifrs17ModelTemplates(),
                 new RegulatoryParameterTemplates(),
                 new PmbClassificationTemplates(),
-                new FraudTriageTemplates()
+                new FraudTriageTemplates(),
+                new VerificationTemplates()
         );
         service = new RuleTemplateService(providers);
     }

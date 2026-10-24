@@ -14,6 +14,7 @@ type Config struct {
 	ClaimsServiceURL  string
 	ContribServiceURL string
 	FinanceServiceURL string
+	KycServiceURL     string
 	RulesServiceURL   string
 	NotifServiceURL   string
 	AuditServiceURL   string
@@ -42,6 +43,7 @@ func Load() *Config {
 		ClaimsServiceURL:  getEnv("CLAIMS_SERVICE_URL", "http://localhost:8083"),
 		ContribServiceURL: getEnv("CONTRIBUTIONS_SERVICE_URL", "http://localhost:8084"),
 		FinanceServiceURL: getEnv("FINANCE_SERVICE_URL", "http://localhost:8085"),
+		KycServiceURL:     getEnv("KYC_SERVICE_URL", "http://localhost:8087"),
 		RulesServiceURL:   getEnv("RULES_SERVICE_URL", "http://localhost:8086"),
 		NotifServiceURL:   getEnv("NOTIFICATION_SERVICE_URL", "http://localhost:3001"),
 		AuditServiceURL:   getEnv("AUDIT_SERVICE_URL", "http://localhost:3002"),

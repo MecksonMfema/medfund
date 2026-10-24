@@ -157,5 +157,18 @@ public enum RuleCategory {
      * pattern"); default (no rules) auto-opens HIGH-risk. Fires on the
      * "FRAUD_RULES" agenda group.
      */
-    FRAUD_TRIAGE
+    FRAUD_TRIAGE,
+
+    // ── Verification (KYC horizontal, Plan A Phase 3) ─────────────────────────
+    /**
+     * Identity-verification policy for the KYC horizontal — per-line and
+     * per-jurisdiction requirements (which documents a line/country needs, the
+     * verification tier, screening thresholds). Facts: {@code VerificationFact}.
+     * Actions: {@code REQUIRE_MANUAL_REVIEW}, {@code GATE_ACTIVATION}. Line-neutral
+     * by design — the subject is a party of some {@code subjectType}, never a
+     * "patient". Agenda-gated — kyc-service focuses the {@code VERIFICATION} group
+     * per subject, so these rules never fire during the stage-7 tenant-rule sweep.
+     * Default (no rules) leaves both result flags {@code false}.
+     */
+    VERIFICATION
 }

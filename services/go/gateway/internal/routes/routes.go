@@ -28,6 +28,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/platform/settings/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/platform/feature-flags", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/platform/feature-flags/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	// Per-tenant module entitlements (the sellable-horizontal seam). Proxied to
+	// tenancy-service, registered BEFORE the platformGroup below so Fiber's
+	// registration-order dispatch routes it to the proxy rather than the
+	// aggregating handler. Same RequireSuperAdmin guard as the group.
+	app.All("/api/v1/platform/module-entitlements", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/module-entitlements/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
 
 	// ── Platform aggregation (handled by gateway, not proxied) ────────────────
 	// Every /api/v1/platform/* endpoint is cross-tenant and must be super-admin
@@ -330,6 +336,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reports/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/regulatory", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
+
+	// ── KYC Service (sellable horizontal — Plan A) ────────────────────────────
+	// Gated by the EntitlementGate (main.go prefix map /api/v1/verifications →
+	// KYC): an un-entitled tenant is 403'd at the edge before these proxies run.
+	// The in-service @RequiresEntitlement(KYC) aspect is the defence-in-depth
+	// backstop (G4). Specific path before the wildcard per Fiber first-match.
+	app.All("/api/v1/verifications", proxy.Handler(cfg.KycServiceURL))
+	app.All("/api/v1/verifications/*", proxy.Handler(cfg.KycServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

@@ -91,6 +91,9 @@ class RuleCategoryTest {
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(24);
+        // VERIFICATION added for the KYC horizontal (Plan A Phase 3); the
+        // Angular/permissions authoring surface is deliberately deferred (Plan B
+        // authors verification policy) per the program overview's scope note.
+        assertThat(RuleCategory.values()).hasSize(25);
     }
 }

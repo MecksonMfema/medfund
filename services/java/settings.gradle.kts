@@ -7,5 +7,6 @@ include(
     "claims-service",
     "contributions-service",
     "finance-service",
-    "rules-engine"
+    "rules-engine",
+    "kyc-service"
 )
