@@ -1,6 +1,7 @@
 package com.medfund.tenancy.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ModuleEntitlementEventPublisher {
 
     static final String TOPIC = "platform.module-entitlements.v1";
@@ -39,11 +41,6 @@ public class ModuleEntitlementEventPublisher {
 
     private final KafkaSender<String, String> kafkaSender;
     private final ObjectMapper objectMapper;
-
-    public ModuleEntitlementEventPublisher(KafkaSender<String, String> kafkaSender, ObjectMapper objectMapper) {
-        this.kafkaSender = kafkaSender;
-        this.objectMapper = objectMapper;
-    }
 
     public Mono<Void> publish(String tenantId, String moduleKey, boolean enabled, String actorEmail) {
         Map<String, Object> payload = new LinkedHashMap<>();

@@ -92,11 +92,26 @@ public class TenantModuleEntitlementService {
      * The broadcast runs after the row is committed so a consumer re-reading on
      * invalidation can never observe the pre-toggle value; the security event is
      * fire-and-forget and never blocks the response.
+     *
+     * <p>All three are best-effort: {@link AuditPublisher#publish} propagates a
+     * broker error (unlike the broadcast + security publishers, which swallow),
+     * so without this {@code onErrorResume} an audit-topic hiccup would
+     * short-circuit the {@code .then()} chain and the {@code platform.module-
+     * entitlements.v1} broadcast would never fire — leaving the Go gateway (no
+     * TTL/resync) 403-ing an already-enabled tenant until restart, with the
+     * admin's retry hitting the no-op path. The row is already committed, so the
+     * broadcast must not be hostage to audit-publish success; the failure is
+     * logged here and in {@code AuditPublisher}.
      */
     private Mono<ModuleEntitlementResponse> afterCommit(TenantModuleEntitlement saved, ModuleKey meta,
                                                         boolean before, boolean after,
                                                         String actorId, String actorEmail) {
         return emitAudit(saved, meta, before, after, actorId, actorEmail)
+                .onErrorResume(e -> {
+                    log.error("Audit publish failed for entitlement toggle tenant={} module={}; "
+                            + "continuing with broadcast + security event", saved.getTenantId(), meta.name(), e);
+                    return Mono.empty();
+                })
                 .then(eventPublisher.publish(saved.getTenantId().toString(), meta.name(), after, actorEmail))
                 .then(securityEventPublisher.publishEntitlementChanged(
                         saved.getTenantId().toString(), actorId, actorEmail, meta.name(), after))

@@ -112,6 +112,25 @@ class TenantModuleEntitlementServiceTest {
     }
 
     @Test
+    void setEntitlement_auditPublishFails_stillBroadcastsAndEmitsSecurityEvent() {
+        // Regression (PR #3 finding #1): AuditPublisher.publish propagates broker
+        // errors, but the row is already committed — the broadcast must not be
+        // hostage to audit success, or the gateway (no TTL) 403s an enabled tenant.
+        when(repo.findByTenantIdAndModuleKey(TENANT_ID, "KYC")).thenReturn(Mono.empty());
+        when(auditPublisher.publish(any(AuditEvent.class)))
+                .thenReturn(Mono.error(new RuntimeException("audit broker down")));
+
+        StepVerifier.create(service.setEntitlement(TENANT_ID, "KYC", true, ACTOR, ACTOR_EMAIL))
+                .assertNext(r -> assertThat(r.enabled()).isTrue())
+                .verifyComplete();
+
+        // The broadcast + security event still fire despite the audit failure.
+        verify(eventPublisher, times(1)).publish(eq(TENANT_ID.toString()), eq("KYC"), eq(true), eq(ACTOR_EMAIL));
+        verify(securityEventPublisher, times(1))
+                .publishEntitlementChanged(eq(TENANT_ID.toString()), eq(ACTOR), eq(ACTOR_EMAIL), eq("KYC"), eq(true));
+    }
+
+    @Test
     void setEntitlement_flippingExistingRow_emitsUpdateAudit() {
         TenantModuleEntitlement existing = existing("KYC", false);
         when(repo.findByTenantIdAndModuleKey(TENANT_ID, "KYC")).thenReturn(Mono.just(existing));
