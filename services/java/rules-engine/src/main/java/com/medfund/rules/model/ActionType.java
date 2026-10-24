@@ -204,5 +204,25 @@ public enum ActionType {
      *       {@code PmbClassificationFact.results}.</li>
      * </ul>
      */
-    SET_PMB_CLASSIFICATION
+    SET_PMB_CLASSIFICATION,
+
+    // ── Verification outputs (KYC horizontal, Plan A Phase 3) ─────────────────
+    /**
+     * Route a verification to a human reviewer. Sets
+     * {@code VerificationFact.requireManualReview = true}. Rules with this action
+     * must live in the {@code VERIFICATION} category (agenda-gated per
+     * {@code DrlCompiler.AGENDA_GATED_CATEGORIES}) — kyc-service focuses that
+     * group per subject so verification rules never fire during the stage-7
+     * tenant sweep. The action carries no parameters; {@code message} survives
+     * only for audit / trace.
+     */
+    REQUIRE_MANUAL_REVIEW,
+
+    /**
+     * Signal that the verification tier is sufficient to gate activation of the
+     * subject's policy/benefit. Sets {@code VerificationFact.gateActivation = true}.
+     * Same category + agenda-gating as {@link #REQUIRE_MANUAL_REVIEW}; the action
+     * carries no parameters; {@code message} survives only for audit / trace.
+     */
+    GATE_ACTIVATION
 }

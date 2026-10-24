@@ -13,6 +13,7 @@ import (
 	"github.com/medfund/gateway/internal/events"
 	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/routes"
+	"github.com/medfund/shared/entitlements"
 	"github.com/medfund/shared/flags"
 	"github.com/medfund/shared/httpserver"
 )
@@ -62,6 +63,29 @@ func main() {
 
 	// Tenant resolution
 	app.Use(middleware.TenantResolver())
+
+	// ── Module entitlements (sellable-horizontal gate) ──────────────────────
+	// Seed per-tenant module entitlements from tenancy-service, then follow
+	// platform.module-entitlements.v1 for live toggles. Registered AFTER
+	// TenantResolver (so tenant_id is in Locals) and BEFORE routes.Register (so
+	// it gates the proxy routes). Fails CLOSED (G3): a bootstrap failure logs
+	// and continues — every module reads as not-entitled (403) until tenancy
+	// returns, never handing a paid module away during a cold-start outage. The
+	// in-service @RequiresEntitlement aspect is the backstop for any route whose
+	// prefix-map entry is forgotten (G4).
+	entitlementRegistry := entitlements.New(cfg.TenancyServiceURL)
+	if err := entitlementRegistry.Bootstrap(context.Background()); err != nil {
+		log.Printf("[gateway] module-entitlement bootstrap failed: %v", err)
+	}
+	go entitlementRegistry.StartConsumer(context.Background(), cfg.KafkaBrokers, "gateway")
+
+	// prefixToModule maps a route prefix to the ModuleKey it requires. Hand-
+	// maintained: biometric routes map to KYC_BIOMETRICS (a separate SKU, G2) in
+	// a later plan; base KYC routes never require it.
+	entitlementPrefixes := map[string]string{
+		"/api/v1/verifications": "KYC",
+	}
+	app.Use(middleware.EntitlementGate(entitlementRegistry, entitlementPrefixes))
 
 	// Rate limiting
 	app.Use(middleware.NewRateLimiter(cfg.RateLimitPerMin))

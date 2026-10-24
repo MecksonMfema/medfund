@@ -98,6 +98,11 @@ class PublicMigrationFlywayIT {
                     "tenant_id", "currency", "source", "auto_fetch_enabled",
                     "updated_by", "updated_by_email"));
 
+            // V187 — per-tenant module entitlement (KYC horizontal seam).
+            assertColumns(conn, "public", "tenant_module_entitlements", List.of(
+                    "tenant_id", "module_key", "enabled",
+                    "updated_at", "updated_by", "version"));
+
             // V136 seed — persistency curves for every tenant. The IT ships with no
             // pre-existing tenants, so the seed just proves the SELECT compiles
             // and lands zero rows against an empty tenants table.
